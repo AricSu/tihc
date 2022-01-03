@@ -573,15 +573,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ticheck"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "docx-rs",
- "ssh2",
-]
-
-[[package]]
 name = "tiff"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -590,6 +581,15 @@ dependencies = [
  "jpeg-decoder",
  "miniz_oxide 0.4.4",
  "weezl",
+]
+
+[[package]]
+name = "tihc"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "docx-rs",
+ "ssh2",
 ]
 
 [[package]]

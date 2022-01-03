@@ -1,5 +1,5 @@
 [package]
-name = "ticheck"
+name = "tihc"
 version = "0.1.0"
 authors = ["jansu-dev <jan-su-dev@outlook.com>"]
 edition = "2018"
