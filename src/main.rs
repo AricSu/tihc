@@ -3,6 +3,8 @@ mod components;
 mod executor;
 mod util;
 
+use std::fs::remove_dir;
+
 use crate::executor::ssh::*;
 use components::grafanainfo::grafana::*;
 use components::sysinfo::system::*;
@@ -60,4 +62,7 @@ fn main() {
         }
     }
     let _doc = gen_docx("./tidb_check.docx", &mut dox);
+
+    let image_path = "/tmp/ticheck_image_dir".to_string();
+    let _ = remove_dir(image_path);
 }

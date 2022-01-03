@@ -15,12 +15,13 @@ pub fn gen_chapter_system_4() -> Vec<DocType> {
     let header_4_3_1 = DocType::Patagraph(gen_heading("4.3.1 软件版本", 20, 3));
     let header_4_3_2 = DocType::Patagraph(gen_heading("4.3.2 数据库参数", 20, 3));
     let header_4_4 = DocType::Patagraph(gen_heading("4.4 集群概览", 30, 2));
-    let image2 = DocType::Patagraph(gen_image(
+    let image1 = DocType::Patagraph(gen_image(
         "url_overview_tidb_service_port_status".to_string(),
     ));
     let header_4_4_1 = DocType::Patagraph(gen_heading("4.4.1 PD概览", 20, 3));
+    let image2 = DocType::Patagraph(gen_image("url_overview_pd_storage_capacity".to_string()));
     let header_4_4_2 = DocType::Patagraph(gen_heading("4.4.2 TiDB概览", 20, 3));
-    let image1 = DocType::Patagraph(gen_image("url_overview_pd_storage_capacity".to_string()));
+    let image3 = DocType::Patagraph(gen_image("url_overview_tidb_sql_duration".to_string()));
     let header_4_4_3 = DocType::Patagraph(gen_heading("4.4.3 TiKV概览", 20, 3));
     let header_4_4_4 = DocType::Patagraph(gen_heading("4.4.4 系统信息概览", 20, 3));
     let header_4_5 = DocType::Patagraph(gen_heading("4.5 数据库日志", 30, 2));
@@ -35,9 +36,10 @@ pub fn gen_chapter_system_4() -> Vec<DocType> {
         header_4_3_1,
         header_4_3_2,
         header_4_4,
-        image2,
         header_4_4_1,
+        image2,
         header_4_4_2,
+        image3,
         header_4_4_3,
         header_4_4_4,
         header_4_5,

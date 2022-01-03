@@ -35,7 +35,7 @@ pub fn gen_all_image(
     end_time: u64,
 ) -> Vec<GrafanaImage> {
     let url_overview_tidb_service_port_status = GrafanaImage::new("url_overview_tidb_service_port_status".to_string(), 
-    format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/playground-overview\\?orgId=1\\&from\\={}\\&to\\={}\\&refresh\\=30s\\&panelId\\=34\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,"url_overview_tidb_service_port_status".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
+    format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/grafana-overview?orgId\\=1\\&refresh=30s\\&from\\={}\\&to\\={}\\&panelId\\=76\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,"url_overview_tidb_service_port_status".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
 
     let url_overview_pd_storage_capacity = GrafanaImage::new("url_overview_pd_storage_capacity".to_string(), 
     format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/grafana-overview\\?orgId\\=1\\&refresh=30s\\&from\\={}\\&to\\={}\\&panelId\\=27\\&width\\=1000&height\\=500&tz\\=Asia%2FShanghai",path,"url_overview_pd_storage_capacity".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
@@ -48,9 +48,8 @@ pub fn gen_all_image(
     //     format!("curl -o {}/02_SQL_Duration.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/playground-overview\\?orgId=1\\&from\\={}\\& \
     //     to\\={}\\&refresh\\=30s\\&panelId\\=34\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,login_name,login_passwd,ip,port,start_time,end_time), path.clone());
 
-    //     let url_overview_tidb_sql_duration = GrafanaImage::new("url_overview_tidb_sql_duration".to_string(),
-    //     format!("curl -o {}/02_SQL_Duration.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/playground-overview\\?orgId=1\\&from\\={}\\& \
-    //     to\\={}\\&refresh\\=30s\\&panelId\\=34\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,login_name,login_passwd,ip,port,start_time,end_time), path.clone());
+    let url_overview_tidb_sql_duration = GrafanaImage::new("url_overview_tidb_sql_duration".to_string(),
+        format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/playground-overview\\?orgId=1\\&from\\={}\\&to\\={}\\&refresh\\=30s\\&panelId\\=34\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,"url_overview_tidb_service_port_status".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
 
     //     let url_overview_tidb_connection_count = GrafanaImage::new("url_overview_tidb_connection_count".to_string(),
     //     format!("curl -o {}/02_SQL_Duration.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/playground-overview\\?orgId=1\\&from\\={}\\& \
@@ -145,7 +144,7 @@ pub fn gen_all_image(
         url_overview_pd_storage_capacity,
         // url_overview_pd_current_storage,
         // url_overview_pd_region_healthy,
-        // url_overview_tidb_sql_duration,
+        url_overview_tidb_sql_duration,
         // url_overview_tidb_connection_count,
         // url_overview_tidb_transaction_ops,
         // url_overview_tidb_pd_tso_wait_duration,
