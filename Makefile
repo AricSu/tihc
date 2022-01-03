@@ -7,8 +7,11 @@ default: main buildsucc
 server-admin-check: server_check buildsucc
 
 main:
-	rm -rf bin && mkdir bin && cd bin
-	cargo build
+	@>&2  rm -rf bin && mkdir bin && cd bin
+	@>&2  rm -rf ./*.docx
+	@>&2  cargo build
+	@>&2  mv ./target/debug/ticheck ./bin/
+	@>&2  mv /tmp/ticheck_*
 	@echo Start building tool TiCheck successfully!
 
 buildsucc:
@@ -28,10 +31,8 @@ grafana-image-render-check:
 	@echo All of library function that a depends on has been downloaded successfully!
 
 dev: 
+	@>&2 cargo fmt
 	@>&2 echo "Great!, all tests passed."
-
-
-
 
 clean:
 

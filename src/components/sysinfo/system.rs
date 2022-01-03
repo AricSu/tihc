@@ -7,6 +7,7 @@ pub struct SysInfo {
     pub sys_version: String,
     pub kernel_version: String,
     pub sys_limit: String,
+    pub sys_conf: String,
     pub swap_status: String,
     pub ntp_status: String,
     pub thp_status: String,
@@ -26,6 +27,7 @@ impl SysInfo {
             sys_version: get_sys_version(session),
             kernel_version: get_kernel_version(session),
             sys_limit: get_sys_limit(session),
+            sys_conf: get_sys_conf(session),
             swap_status: get_swap_status(session),
             ntp_status: get_ntp_status(session),
             thp_status: get_thp_status(session),
@@ -74,10 +76,20 @@ fn get_disk_type(ssh_session: &Session) -> String {
     return s;
 }
 
-fn get_sys_limit(ssh_session: &Session) -> String {
+pub fn get_sys_limit(ssh_session: &Session) -> String {
     let mut get_channel = ssh_session.channel_session().unwrap();
     get_channel
         .exec("cat /etc/security/limits.conf|grep -v '#'")
+        .unwrap();
+    let mut s = String::new();
+    get_channel.read_to_string(&mut s).unwrap();
+    return s;
+}
+
+fn get_sys_conf(ssh_session: &Session) -> String {
+    let mut get_channel = ssh_session.channel_session().unwrap();
+    get_channel
+        .exec("cat /etc/sysctl.conf|grep -v '#'")
         .unwrap();
     let mut s = String::new();
     get_channel.read_to_string(&mut s).unwrap();
@@ -160,7 +172,7 @@ fn get_numa_status(ssh_session: &Session) -> String {
     let mut s = String::new();
     get_channel.read_to_string(&mut s).unwrap();
     // TODO :: why close?
-    get_channel.wait_close();
+    // get_channel.wait_close();
     println!("{}", get_channel.exit_status().unwrap());
     return s;
 }

@@ -14,24 +14,24 @@ pub struct SSHConfig {
 }
 
 impl SSHConfig {
-    pub fn new() -> Self {
-        SSHConfig {
-            host: "139.155.15.210".to_string(),
-            port: 7006,
-            user: "tidb".to_string(),
-            password: "tidb".to_string(),
-            key_file: "".to_string(),
-            passphrase: "".to_string(),
-            timeout: 1000,
-            exe_timeout: 1000,
-        }
-    }
+    // pub fn new() -> Self {
+    //     SSHConfig {
+    //         host: "139.155.15.210".to_string(),
+    //         port: 7006,
+    //         user: "tidb".to_string(),
+    //         password: "tidb".to_string(),
+    //         key_file: "".to_string(),
+    //         passphrase: "".to_string(),
+    //         timeout: 1000,
+    //         exe_timeout: 1000,
+    //     }
+    // }
     pub fn new_ssession(&self) -> Session {
         let tcp = TcpStream::connect(format!("{}:{}", self.host, self.port)).unwrap();
         let mut sess = Session::new().unwrap();
         sess.set_tcp_stream(tcp);
         sess.handshake().unwrap();
-        sess.userauth_password(self.user.as_str(), self.password.as_str());
+        let _ = sess.userauth_password(self.user.as_str(), self.password.as_str());
         assert!(sess.authenticated());
         return sess;
     }
