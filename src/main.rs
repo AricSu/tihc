@@ -1,7 +1,11 @@
+#[macro_use]
+extern crate clap;
 extern crate docx_rs;
+mod cmd;
 mod components;
 mod executor;
 mod util;
+use cmd::load::cli_build;
 
 use std::fs::remove_dir;
 
@@ -14,6 +18,7 @@ use docx_rs::*;
 use util::table::*;
 
 fn main() {
+    let _ = cli_build();
     let ip_list = vec![
         SSHConfig {
             host: "139.155.15.210".to_string(),
@@ -55,7 +60,7 @@ fn main() {
 
     let mut dox = Docx::new();
 
-    for elem in chapter {
+    for elem in chapter.unwrap() {
         match elem {
             DocType::Patagraph(para) => dox = dox.add_paragraph(para),
             DocType::Table(tab) => dox = dox.add_table(tab),

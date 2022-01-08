@@ -8,10 +8,10 @@ server-admin-check: server_check buildsucc
 
 main:
 	@>&2  rm -rf bin && mkdir bin && cd bin
-	@>&2  rm -rf ./*.docx
+	# @>&2  rm -rf ./*.docx
 	@>&2  cargo build
 	@>&2  mv ./target/debug/tihc ./bin/
-	@>&2  mv /tmp/ticheck_*
+	# @>&2  mv /tmp/*ticheck_*
 	@echo Start building tool TiHC successfully!
 
 buildsucc:
