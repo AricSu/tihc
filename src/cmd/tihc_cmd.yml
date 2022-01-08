@@ -1,0 +1,64 @@
+name: TiHC
+version: "1.0"
+about: TiHC (TiDB Healthy Check) is a tool designed by RUST to reduce inquiry time and improve delivery efficiency.
+author: Jan Su
+
+args:
+    - version:
+        help: Print Dumpling version
+        short: v
+        long: version
+        multiple: true
+    - grafana_user:
+        help: The user name to login via SSH. The user must has root (or sudo) privilege. (default "tidb") 
+        short: u
+        takes_value: true
+    - grafana_pwd:
+        help: Use password of target hosts. If specified, password authentication will be used.
+        short: p
+        takes_value: true
+    - ssh_user:
+        help: The user name to login via SSH. The user must has root (or sudo) privilege. (default "tidb") 
+        short: u
+        takes_value: true
+    - enable-cpu:
+        help: Enable CPU thread count check.
+        short: p
+        takes_value: true
+    - enable-eth:
+        help: Use password of target hosts. If specified, password authentication will be used.
+        short: p
+        takes_value: true
+    - enable-log:
+        help: Use password of target hosts. If specified, password authentication will be used.
+        short: p
+        takes_value: true
+    - help:
+        help: Use password of target hosts. If specified, password authentication will be used.
+        short: p
+        takes_value: true
+
+
+
+
+subcommands:
+    - tool-ogg:
+        about: Generate init files that OGG driving needed.
+        short: O
+        takes_value: true
+        args:
+            - init-extract-file:
+                short: e
+                multiple: true
+                help: Generate init files on extract end.
+                takes_value: true
+            - input-file-name:
+                short: i
+                multiple: true
+                help: Generate init files on extract end.
+                takes_value: true
+            - output-file-name:
+                short: o
+                multiple: true
+                help: Generate init files on extract end.
+                takes_value: true 

@@ -1,3 +1,4 @@
+use anyhow::Result;
 use docx_rs::*;
 use std::fs::File;
 use std::io::Read;
@@ -77,14 +78,14 @@ pub enum DocType {
     Table(Table),
 }
 
-pub fn gen_image(image_name: String) -> Paragraph {
-    let mut img = File::open(format!("/tmp/ticheck_image_dir/{}.png", &image_name)).unwrap();
+pub fn gen_image(image_name: String) -> Result<Paragraph> {
+    let mut img = File::open(format!("/tmp/ticheck_image_dir/{}.png", &image_name))?;
     let mut buf = Vec::new();
-    let _ = img.read_to_end(&mut buf).unwrap();
+    let _ = img.read_to_end(&mut buf)?;
     let pic = Pic::new(buf).size(500, 250);
-    return Paragraph::new()
+    Ok(Paragraph::new()
         .add_run(Run::new().add_image(pic))
-        .indent(Some(200), None, None, None);
+        .indent(Some(200), None, None, None))
 }
 
 pub fn gen_docx(docx_path: &str, docx: &mut Docx) -> Result<(), DocxError> {
