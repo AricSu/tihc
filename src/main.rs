@@ -49,14 +49,7 @@ fn main() {
     let cluster_nodes = ClusterSysInfo::new(&all_nodes_list);
 
     get_all_panel_image();
-    // let sess = ssh.auth();
-    // let mut remote_file = sess.scp_send(Path::new("1.txt"), 0o644, 10, None).unwrap();
-    // remote_file.write(b"0123456789").unwrap();
 
-    // let (mut remote_file, stat) = sess.scp_recv(Path::new("1.txt")).unwrap();
-    // let mut contents = Vec::new();
-    // remote_file.read_to_end(&mut contents).unwrap();
-    // println!("{:?}", contents);
 
     let chapter = gen_chapter_system(&cluster_nodes);
 
