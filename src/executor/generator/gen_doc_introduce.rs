@@ -46,7 +46,7 @@ pub fn gen_chapter_system_2() -> Vec<DocType> {
         "black",
     ));
     let text4 = DocType::Patagraph(gen_text(
-        "    <使用tiup查询所有组件版本给出建议，特别是生命周期快结束的版本建议升级>",
+        "    <使用TiHC查询所有组件版本给出建议，特别是生命周期快结束的版本建议升级>",
         20,
         "Red",
     ));
@@ -80,7 +80,7 @@ pub fn gen_chapter_system_2() -> Vec<DocType> {
         vec![
             &mut "1".to_string(),
             &mut "配置".to_string(),
-            &mut "1. TiUP 部署路径只有一个".to_string(),
+            &mut "1. TiHC 部署路径只有一个".to_string(),
             &mut "建议增加控制文件分别放置于不同的存储路径之下，进行冗余".to_string(),
         ],
         20,

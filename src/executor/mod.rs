@@ -1,4 +1,4 @@
 pub mod generator;
+pub mod progress;
 pub mod ssh;
-// pub mod operator;
-// pub mod tasker;
+pub mod manager;

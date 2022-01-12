@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate clap;
+extern crate colored;
 extern crate docx_rs;
+extern crate pbr;
 mod cmd;
 mod components;
 mod executor;
