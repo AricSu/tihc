@@ -32,6 +32,7 @@ grafana-image-render-check:
 
 dev: 
 	@>&2 cargo fmt
+	@>&2 cargo test
 	@>&2 echo "Great!, all tests passed."
 
 clean:
