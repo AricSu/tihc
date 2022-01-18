@@ -25,8 +25,8 @@ topology:
     drainer: {}
     cdc: {}
   tidb_servers:
-  - host: 192.168.169.61
-    ssh_port: 22
+  - host: 139.155.15.210
+    ssh_port: 7006
     port: 4000
     status_port: 10080
     deploy_dir: /data/tidb-deploy/tidb-4000
@@ -34,8 +34,8 @@ topology:
     arch: amd64
     os: linux
   tikv_servers:
-  - host: 192.168.169.61
-    ssh_port: 22
+  - host: 139.155.15.210
+    ssh_port: 7006
     port: 20160
     status_port: 20180
     deploy_dir: /data/tidb-deploy/tikv-20160
@@ -43,8 +43,8 @@ topology:
     log_dir: /data/tidb-deploy/tikv-20160/log
     arch: amd64
     os: linux
-  - host: 192.168.169.62
-    ssh_port: 22
+  - host: 139.155.15.210
+    ssh_port: 7007
     port: 20160
     status_port: 20180
     deploy_dir: /data/tidb-deploy/tikv-20160
@@ -54,9 +54,9 @@ topology:
     os: linux
   tiflash_servers: []
   pd_servers:
-  - host: 192.168.169.61
-    ssh_port: 22
-    name: pd-192.168.169.61-2379
+  - host: 139.155.15.210
+    ssh_port: 7006
+    name: pd-139.155.15.210-2379
     client_port: 2379
     peer_port: 2380
     deploy_dir: /data/tidb-deploy/pd-2379
@@ -65,8 +65,8 @@ topology:
     arch: amd64
     os: linux
   monitoring_servers:
-  - host: 192.168.169.61
-    ssh_port: 22
+  - host: 139.155.15.210
+    ssh_port: 27006
     port: 9090
     deploy_dir: /data/tidb-deploy/prometheus-9090
     data_dir: /data/tidb-data/prometheus-9090
@@ -75,8 +75,8 @@ topology:
     arch: amd64
     os: linux
   grafana_servers:
-  - host: 192.168.169.61
-    ssh_port: 22
+  - host: 139.155.15.210
+    ssh_port: 7006
     port: 3000
     deploy_dir: /data/tidb-deploy/grafana-3000
     arch: amd64
@@ -87,8 +87,8 @@ topology:
     root_url: ""
     domain: ""
   alertmanager_servers:
-  - host: 192.168.169.61
-    ssh_port: 22
+  - host: 127.0.0.1
+    ssh_port: 7006
     web_port: 9093
     cluster_port: 9094
     deploy_dir: /data/tidb-deploy/alertmanager-9093

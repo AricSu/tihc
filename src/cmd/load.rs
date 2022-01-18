@@ -16,10 +16,17 @@ pub fn cli_build() -> Result<()> {
     // Get matches
     let yaml = load_yaml!("tihc_cmd.yml");
     let mut cli = App::from_yaml(yaml);
+    let cli_matches = cli.clone().get_matches();
 
     // config clap function for user entered wrong parameters;
-    let _ = cli.print_help();
-    let cli_matches = cli.get_matches();
+    if let Some(_) = cli_matches.value_of("help") {
+        let _ = cli.print_help();
+    }
+
+    // config clap function for user entered wrong parameters;
+    if cli_matches.occurrences_of("version") == 1 {
+        println!("TiHC Version : 1.0");
+    }
 
     if let (
         Some(cluster_name),
@@ -45,10 +52,11 @@ pub fn cli_build() -> Result<()> {
         let ssh_key_file = get_key_file_path(cluster_name_string);
 
         let mut vec_ssh: Vec<SSHConfig> = vec![];
-        for idx in 1..=meta_info.0.len() {
+        for idx in 0..meta_info.0.len() {
+            println!("{}------!---", meta_info.0[idx].1.clone());
             vec_ssh.append(&mut vec![SSHConfig::new_auth_user(
-                meta_info.0[idx].clone(),
-                22,
+                meta_info.0[idx].0.clone(),
+                meta_info.0[idx].1.clone(),
                 ssh_user.to_string(),
                 ssh_pwd.to_string(),
             )]);
@@ -59,8 +67,10 @@ pub fn cli_build() -> Result<()> {
         get_all_panel_image(
             grafana_user.to_string(),
             grafana_pwd.to_string(),
-            meta_info.3 .2,
-            meta_info.3 .3,
+            // meta_info.3 .2,
+            // meta_info.3 .3,
+            "127.0.0.1".to_string(),
+            3000,
             u64::from_str(grafana_start_time).unwrap(),
             u64::from_str(grafana_end_time).unwrap(),
         );
@@ -81,27 +91,7 @@ pub fn cli_build() -> Result<()> {
         let _ = remove_dir(image_path);
     };
 
-    //     let ip_list = vec![
-    //     SSHConfig {
-    //         host: "139.155.15.210".to_string(),
-    //         port: 7006,
-    //         user: "tidb".to_string(),
-    //         password: "tidb".to_string(),
-    //         key_file: "".to_string(),
-    //     },
-    //     SSHConfig {
-    //         host: "139.155.15.210".to_string(),
-    //         port: 7007,
-    //         user: "tidb".to_string(),
-    //         password: "tidb".to_string(),
-    //         key_file: "".to_string(),
-    //     },
-    // ];
-
-    // else {
-    //     // let meta_handle = meta_parser::init();
-    //    // let _ = SSHConfig::new_auth_user(host, port, user.to_string(), pwd.to_string());
-    // }
-
     Ok(())
 }
+
+fn distinct_host() {}

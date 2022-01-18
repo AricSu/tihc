@@ -184,7 +184,7 @@ pub fn get_all_panel_image(
             .arg(i.grafana_url)
             .output()
             .expect("sh exec error!");
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        println!("{}", output_str);
+        // let output_str = String::from_utf8_lossy(&output.stdout);
+        // println!("{}", output_str);
     }
 }

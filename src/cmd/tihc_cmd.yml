@@ -8,7 +8,8 @@ args:
         help: Print TiHC version
         short: v
         long: version
-        multiple: false
+        takes_value: false
+        # multiple: false
     - grafana_user:
         help: Use user name of target grafana. (default "admin") 
         short: u
@@ -40,8 +41,4 @@ args:
     - grafana_end_time:
         help: The TSO of grafana end time which need to get images. 
         short: t
-        takes_value: true
-    - help:
-        help: Prints help information. It is equal to "--help"
-        short: h
         takes_value: true

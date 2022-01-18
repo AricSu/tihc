@@ -56,8 +56,12 @@ pub fn single_bar(
         progress_count,
         progress_rate,
     );
-    let mut pb = ProgressBar::new(progress_count);
+    let mut pb = ProgressBar::new(progress_count.clone());
     pb.format(&single_bar.format);
+    for _ in 0..single_bar.progress_count {
+        thread::sleep(Duration::from_millis(50));
+        pb.inc();
+    }
     pb.finish_println(&single_bar.finish);
 }
 
