@@ -7,8 +7,6 @@
 // // ModeError renders as "Error" message.
 // const ModeError: usize = 4;
 
-
-
 // DisplayProps controls the display of the progress bar.
 pub struct DisplayProps {
     pub prefix: String,

@@ -30,7 +30,7 @@ pub fn gen_all_image(
     login_name: String,
     login_passwd: String,
     ip: String,
-    port: u64,
+    port: i64,
     start_time: u64,
     end_time: u64,
 ) -> Vec<GrafanaImage> {
@@ -150,8 +150,15 @@ pub fn gen_all_image(
     ];
 }
 
-pub fn get_all_panel_image() {
-    let start_time: DateTime<Utc> = Utc::now();
+pub fn get_all_panel_image(
+    login_name: String,
+    login_passwd: String,
+    grafana_host: String,
+    grafana_port: i64,
+    start_time: u64,
+    end_time: u64,
+) {
+    let start_count_time: DateTime<Utc> = Utc::now();
     let _hash_time = calculate_hash(&start_time);
     // let image_path = format!(
     //     "/tmp/ticheck_grafana_image_{}",
@@ -163,12 +170,12 @@ pub fn get_all_panel_image() {
 
     let all_images = gen_all_image(
         image_path.clone(),
-        "admin".to_string(),
-        "admin".to_string(),
-        "localhost".to_string(),
-        3000,
-        1641203654867,
-        1641203954867,
+        login_name,
+        login_passwd,
+        grafana_host,
+        grafana_port,
+        start_time,
+        end_time,
     );
 
     for i in all_images {

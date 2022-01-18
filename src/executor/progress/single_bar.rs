@@ -1,7 +1,7 @@
+use crate::executor::progress::display_props::DisplayProps;
 use colored::*;
 use std::sync::mpsc;
 use std::time;
-use crate::executor::progress::display_props::DisplayProps;
 
 const REFRESH_RATE: time::Duration = time::Duration::from_millis(10);
 const DONE_TAIL: &str = "Done";
@@ -12,8 +12,6 @@ const MODE_SPINNER: usize = 1;
 const MODE_PROGRESS: usize = 2;
 const MODE_DONE: usize = 3;
 const MODE_ERROR: usize = 4;
-
-
 
 pub struct singleBarCore {
     pub display_props: DisplayProps,

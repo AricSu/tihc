@@ -1,0 +1,98 @@
+user: tidb
+tidb_version: v5.3.0
+topology:
+  global:
+    user: tidb
+    ssh_port: 22
+    ssh_type: builtin
+    deploy_dir: /data/tidb-deploy
+    data_dir: /data/tidb-data
+    os: linux
+  monitored:
+    node_exporter_port: 9100
+    blackbox_exporter_port: 9115
+    deploy_dir: /data/tidb-deploy/monitor-9100
+    data_dir: /data/tidb-data/monitor-9100
+    log_dir: /data/tidb-deploy/monitor-9100/log
+  server_configs:
+    tidb: {}
+    tikv: {}
+    pd:
+      replication.enable-placement-rules: true
+    tiflash: {}
+    tiflash-learner: {}
+    pump: {}
+    drainer: {}
+    cdc: {}
+  tidb_servers:
+  - host: 192.168.169.61
+    ssh_port: 22
+    port: 4000
+    status_port: 10080
+    deploy_dir: /data/tidb-deploy/tidb-4000
+    log_dir: /data/tidb-deploy/tidb-4000/log
+    arch: amd64
+    os: linux
+  tikv_servers:
+  - host: 192.168.169.61
+    ssh_port: 22
+    port: 20160
+    status_port: 20180
+    deploy_dir: /data/tidb-deploy/tikv-20160
+    data_dir: /data/tidb-data/tikv-20160
+    log_dir: /data/tidb-deploy/tikv-20160/log
+    arch: amd64
+    os: linux
+  - host: 192.168.169.62
+    ssh_port: 22
+    port: 20160
+    status_port: 20180
+    deploy_dir: /data/tidb-deploy/tikv-20160
+    data_dir: /data/tidb-data/tikv-20160
+    log_dir: /data/tidb-deploy/tikv-20160/log
+    arch: amd64
+    os: linux
+  tiflash_servers: []
+  pd_servers:
+  - host: 192.168.169.61
+    ssh_port: 22
+    name: pd-192.168.169.61-2379
+    client_port: 2379
+    peer_port: 2380
+    deploy_dir: /data/tidb-deploy/pd-2379
+    data_dir: /data/tidb-data/pd-2379
+    log_dir: /data/tidb-deploy/pd-2379/log
+    arch: amd64
+    os: linux
+  monitoring_servers:
+  - host: 192.168.169.61
+    ssh_port: 22
+    port: 9090
+    deploy_dir: /data/tidb-deploy/prometheus-9090
+    data_dir: /data/tidb-data/prometheus-9090
+    log_dir: /data/tidb-deploy/prometheus-9090/log
+    external_alertmanagers: []
+    arch: amd64
+    os: linux
+  grafana_servers:
+  - host: 192.168.169.61
+    ssh_port: 22
+    port: 3000
+    deploy_dir: /data/tidb-deploy/grafana-3000
+    arch: amd64
+    os: linux
+    username: admin
+    password: admin
+    anonymous_enable: false
+    root_url: ""
+    domain: ""
+  alertmanager_servers:
+  - host: 192.168.169.61
+    ssh_port: 22
+    web_port: 9093
+    cluster_port: 9094
+    deploy_dir: /data/tidb-deploy/alertmanager-9093
+    data_dir: /data/tidb-data/alertmanager-9093
+    log_dir: /data/tidb-deploy/alertmanager-9093/log
+    arch: amd64
+    os: linux
