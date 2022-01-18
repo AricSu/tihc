@@ -1,6 +1,6 @@
 name: TiHC
 version: "1.0"
-about: TiHC (TiDB Healthy Check) is a tool designed by RUST to reduce inquiry time and improve delivery efficiency.
+about: "TiHC (TiDB Healthy Check) is a tool designed by RUST to reduce inquiry time and improve delivery efficiency."
 author: Jan Su
 
 args:
@@ -10,11 +10,11 @@ args:
         long: version
         multiple: false
     - grafana_user:
-        help: The user name to login via SSH. The user must has root (or sudo) privilege. (default "tidb") 
+        help: Use user name of target grafana. (default "admin") 
         short: u
         takes_value: true
     - grafana_pwd:
-        help: Use password of target hosts. If specified, password authentication will be used.
+        help: Use password of target grafana. (default "admin") 
         short: p
         takes_value: true
     - ssh_user:
@@ -22,10 +22,26 @@ args:
         short: U
         takes_value: true
     - ssh_pwd:
-        help: Use password of target hosts. If specified, password authentication will be used.
+        help: The password to login via SSH with "ssh_user". 
         short: P
         takes_value: true
+    - key_file:
+        help: The path to the SSH trust file used to connect nodes. 
+        short: k
+        takes_value: true
+    - cluster_name:
+        help: The name of cluster which need to health check. 
+        short: c
+        takes_value: true
+    - grafana_start_time:
+        help: The TSO of grafana start time which need to get images. 
+        short: f
+        takes_value: true
+    - grafana_end_time:
+        help: The TSO of grafana end time which need to get images. 
+        short: t
+        takes_value: true
     - help:
-        help: Use password of target hosts. If specified, password authentication will be used.
+        help: Prints help information. It is equal to "--help"
         short: h
         takes_value: true

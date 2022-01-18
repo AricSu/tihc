@@ -3,29 +3,38 @@ use std::net::TcpStream;
 
 #[derive(Clone)]
 pub struct SSHConfig {
-    pub host: String,       // hostname of the SSH server
-    pub port: u64,          // port of the SSH server
-    pub user: String,       // username to login to the SSH server
-    pub password: String,   // password of the user
-    pub key_file: String,   // path to the private key file
-    pub passphrase: String, // passphrase of the private key file
-    pub timeout: u64, // Timeout is the maximum amount of time for the TCP connection to establish.
-    pub exe_timeout: u64, // ExeTimeout is the maximum amount of time for the command to finish
+    pub host: String,     // hostname of the SSH server
+    pub port: u64,        // port of the SSH server
+    pub user: String,     // username to login to the SSH server
+    pub password: String, // password of the user
+    pub key_file: String, // path to the private key file
 }
 
 impl SSHConfig {
-    // pub fn new() -> Self {
-    //     SSHConfig {
-    //         host: "139.155.15.210".to_string(),
-    //         port: 7006,
-    //         user: "tidb".to_string(),
-    //         password: "tidb".to_string(),
-    //         key_file: "".to_string(),
-    //         passphrase: "".to_string(),
-    //         timeout: 1000,
-    //         exe_timeout: 1000,
-    //     }
-    // }
+    pub fn new_auth_user(host: String, port: u64, user: String, password: String) -> Self {
+        SSHConfig {
+            host: host,
+            port: port,
+            user: user,
+            password: password,
+            key_file: "".to_string(),
+        }
+    }
+    pub fn new_auth_file(
+        host: String,
+        port: u64,
+        user: String,
+        password: String,
+        key_file: String,
+    ) -> Self {
+        SSHConfig {
+            host: host,
+            port: port,
+            user: "".to_string(),
+            password: "".to_string(),
+            key_file: key_file,
+        }
+    }
     pub fn new_ssession(&self) -> Session {
         let tcp = TcpStream::connect(format!("{}:{}", self.host, self.port)).unwrap();
         let mut sess = Session::new().unwrap();
@@ -55,4 +64,10 @@ impl ClusterSSHHandle {
             all_handler: inner_all_handler,
         };
     }
+}
+
+const CLUSTER_META_PATH: &str = "~/.tiup/storage/cluster/clusters/";
+
+pub fn get_key_file_path(cluster_name: String) -> String {
+    format!("{}{}/ssh/id_rsa.pub", CLUSTER_META_PATH, cluster_name)
 }
