@@ -173,7 +173,7 @@ fn get_numa_status(ssh_session: &Session) -> String {
     get_channel.read_to_string(&mut s).unwrap();
     // TODO :: why close?
     // get_channel.wait_close();
-    println!("{}", get_channel.exit_status().unwrap());
+    // println!("{}", get_channel.exit_status().unwrap());
     return s;
 }
 

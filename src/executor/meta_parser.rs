@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::prelude::*;
+use std::str::FromStr;
 use yaml_rust::{yaml, Yaml};
 
 // const META_PATH: &str = "~/.tiup/storage/cluster/clusters/{}";
@@ -9,15 +10,15 @@ const META_PATH: &str = "/Users/suzhipeng/Database/TiHC/tihc/";
 pub fn init(
     cluster_name: String,
 ) -> (
-    Vec<String>,
-    Vec<String>,
-    Vec<String>,
+    Vec<(String, i64)>,
+    Vec<(String, i64)>,
+    Vec<(String, i64)>,
     (String, String, String, i64),
 ) {
     let meta = HCYmal::new(format!("{}{}", META_PATH, "meta.yaml"));
-    let tidb_node_host = meta.clone().get_host("tidb_servers".to_string());
-    let tikv_node_host = meta.clone().get_host("tikv_servers".to_string());
-    let pd_node_host = meta.clone().get_host("pd_servers".to_string());
+    let tidb_node_host = meta.clone().get_host_and_port("tidb_servers".to_string());
+    let tikv_node_host = meta.clone().get_host_and_port("tikv_servers".to_string());
+    let pd_node_host = meta.clone().get_host_and_port("pd_servers".to_string());
     let grafana_info = meta.get_grafana_sign_info();
     return (tidb_node_host, tikv_node_host, pd_node_host, grafana_info);
 }
@@ -42,15 +43,16 @@ impl HCYmal {
             }
         };
     }
-    fn get_host(self, component_type: String) -> Vec<String> {
-        let mut component_host = vec![];
+    fn get_host_and_port(self, component_type: String) -> Vec<(String, i64)> {
+        let mut component_host: Vec<(String, i64)> = vec![];
         for doc in self.meta_handle {
             for topo_sub_item in doc["topology"][component_type.as_str()].as_vec().unwrap() {
                 println!("{}", topo_sub_item["host"].as_str().unwrap());
-                component_host.append(&mut vec![topo_sub_item["host"]
-                    .clone()
-                    .into_string()
-                    .unwrap()]);
+                println!("{}", topo_sub_item["ssh_port"].clone().into_i64().unwrap());
+                component_host.append(&mut vec![(
+                    topo_sub_item["host"].clone().into_string().unwrap(),
+                    topo_sub_item["ssh_port"].clone().into_i64().unwrap(),
+                )]);
             }
         }
         component_host
