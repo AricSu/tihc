@@ -11,7 +11,13 @@ TiHC (TiDB Healthy Check) 是 rust 写的巡检 TiDB 的工具，目的是为缩
 
 ## 2.1 如何获取 TiHC 报告？
 
-![tihc](./image/play-tihc.gif)
+![tihc](image/WechatIMG1123.png) 
+
+![tihc](image/WechatIMG1124.png) 
+
+![tihc](image/WechatIMG1125.png) 
+
+![tihc](image/WechatIMG1126.png)
 
 ## 2.2 如何手动 build TiHC？
 
