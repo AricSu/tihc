@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::str::FromStr;
 use yaml_rust::{yaml, Yaml};
 
 // const META_PATH: &str = "~/.tiup/storage/cluster/clusters/{}";
@@ -47,8 +46,8 @@ impl HCYmal {
         let mut component_host: Vec<(String, i64)> = vec![];
         for doc in self.meta_handle {
             for topo_sub_item in doc["topology"][component_type.as_str()].as_vec().unwrap() {
-                println!("{}", topo_sub_item["host"].as_str().unwrap());
-                println!("{}", topo_sub_item["ssh_port"].clone().into_i64().unwrap());
+                // println!("{}", topo_sub_item["host"].as_str().unwrap());
+                // println!("{}", topo_sub_item["ssh_port"].clone().into_i64().unwrap());
                 component_host.append(&mut vec![(
                     topo_sub_item["host"].clone().into_string().unwrap(),
                     topo_sub_item["ssh_port"].clone().into_i64().unwrap(),
@@ -72,33 +71,5 @@ impl HCYmal {
             }
         }
         (grafana_user, grafana_pwd, grafana_host, grafana_port)
-    }
-}
-
-// Another function
-fn print_indent(indent: usize) {
-    for _ in 0..indent {
-        print!("    ");
-    }
-}
-
-fn dump_node(doc: &yaml::Yaml, indent: usize) {
-    match *doc {
-        yaml::Yaml::Array(ref v) => {
-            for x in v {
-                dump_node(x, indent + 1);
-            }
-        }
-        yaml::Yaml::Hash(ref h) => {
-            for (k, v) in h {
-                print_indent(indent);
-                println!("{:?}:", k);
-                dump_node(v, indent + 1);
-            }
-        }
-        _ => {
-            print_indent(indent);
-            println!("{:?}", doc);
-        }
     }
 }

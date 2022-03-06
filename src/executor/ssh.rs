@@ -7,7 +7,6 @@ pub struct SSHConfig {
     pub port: i64,        // port of the SSH server
     pub user: String,     // username to login to the SSH server
     pub password: String, // password of the user
-    pub key_file: String, // path to the private key file
 }
 
 impl SSHConfig {
@@ -17,24 +16,9 @@ impl SSHConfig {
             port: port,
             user: user,
             password: password,
-            key_file: "".to_string(),
         }
     }
-    // pub fn new_auth_file(
-    //     host: String,
-    //     port: u64,
-    //     user: String,
-    //     password: String,
-    //     key_file: String,
-    // ) -> Self {
-    //     SSHConfig {
-    //         host: host,
-    //         port: port,
-    //         user: "".to_string(),
-    //         password: "".to_string(),
-    //         key_file: key_file,
-    //     }
-    // }
+
     pub fn new_ssession(&self) -> Session {
         let tcp = TcpStream::connect(format!("{}:{}", self.host, self.port)).unwrap();
         let mut sess = Session::new().unwrap();
@@ -64,10 +48,4 @@ impl ClusterSSHHandle {
             all_handler: inner_all_handler,
         };
     }
-}
-
-const CLUSTER_META_PATH: &str = "~/.tiup/storage/cluster/clusters/";
-
-pub fn get_key_file_path(cluster_name: String) -> String {
-    format!("{}{}/ssh/id_rsa.pub", CLUSTER_META_PATH, cluster_name)
 }

@@ -9,37 +9,52 @@ TiHC (TiDB Healthy Check) 是 rust 写的巡检 TiDB 的工具，目的是为缩
 * 对新手学习友好，如果你接触 TiDB 不久，提供一套基础 healthy check 思路判定当前集群是否健康；
 
 
-## 2.1 如何 TiHC？
+## 2.1 如何获取 TiHC？
 
-可以直接获取从该网址：[releases section]() :
+
 
 ## 2.2 如何手动 build TiHC？
 
 Run:
 
 ```bash
+# Get repo from github
+git clone git@github.com:jansu-dev/tihc.git && cd tihc
+
+# Build the tool by Makefile
 make
+
+# Get binary of tihc
+ll ./bin/tihc
 ```
 
-One has to make sure, that pkg-config, mysql_config, pcre-config are all in $PATH
-
-Binlog dump is disabled by default to compile with it you need to add -DWITH_BINLOG=ON to cmake options
-
-To build against mysql libs < 5.7 you need to disable SSL adding -DWITH_SSL=OFF
 
 # 三、如何使用 TiHC？ 
 
-See [Usage](docs/mydumper_usage.rst)
+```shell
+$ tihc % ./bin/tihc -h
+TiHC 1.0
+Jan Su
+TiHC (TiDB Healthy Check) is a tool designed by RUST to reduce inquiry time and improve delivery efficiency.
 
-## How does consistent snapshot work?
+USAGE:
+    tihc [OPTIONS]
 
-This is all done following best MySQL practices and traditions:
+FLAGS:
+    -h, --help       Prints help information
+    -v, --version    Print TiHC version
 
-* As a precaution, slow running queries on the server either abort the dump, or get killed
-* Global read lock is acquired ("FLUSH TABLES WITH READ LOCK")
-* Various metadata is read ("SHOW SLAVE STATUS","SHOW MASTER STATUS")
-* Other threads connect and establish snapshots ("START TRANSACTION WITH CONSISTENT SNAPSHOT")
-** On pre-4.1.8 it creates dummy InnoDB table, and reads from it.
-* Once all worker threads announce the snapshot establishment, master executes "UNLOCK TABLES" and starts queueing jobs.
+OPTIONS:
+    -c <cluster_name>              The name of cluster which need to health check.
+    -t <grafana_end_time>          The TSO of grafana end time which need to get images.
+    -p <grafana_pwd>               Use password of target grafana. (default "admin")
+    -f <grafana_start_time>        The TSO of grafana start time which need to get images.
+    -u <grafana_user>              Use user name of target grafana. (default "admin")
+    -k <key_file>                  The path to the SSH trust file used to connect nodes.
+    -P <ssh_pwd>                   The password to login via SSH with "ssh_user".
+    -U <ssh_user>                  The user name to login via SSH.
+```
 
-This for now does not provide consistent snapshots for non-transactional engines - support for that is expected in 0.2 :)
+https://grafana.com/grafana/plugins/grafana-image-renderer/   
+
+`Run as standalone Node.js application`

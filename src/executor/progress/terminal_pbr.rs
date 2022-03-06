@@ -1,20 +1,15 @@
-use pbr::{MultiBar, ProgressBar};
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread,
-    time::Duration,
-};
+use pbr::ProgressBar;
+use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
+use std::{thread, time::Duration};
 
+#[derive(Debug)]
 pub struct Bar {
     header: String,
     format: String,
     is_format: bool,
     finish: String,
     progress_count: u64,
-    progress_rate: Duration,
 }
 
 impl Bar {
@@ -24,9 +19,7 @@ impl Bar {
         is_format: bool,
         finish: String,
         progress_count: u64,
-        progress_rate: u64,
     ) -> Self {
-        let rate = Duration::from_millis(progress_rate);
         return {
             Bar {
                 header: header,
@@ -34,74 +27,36 @@ impl Bar {
                 format: format,
                 finish: finish,
                 progress_count: progress_count,
-                progress_rate: rate,
             }
         };
     }
-}
 
-pub fn single_bar(
-    header_str: String,
-    is_format: bool,
-    format_str: String,
-    finish_str: String,
-    progress_count: u64,
-    progress_rate: u64,
-) {
-    let single_bar = Bar::new(
-        header_str,
-        format_str,
-        is_format,
-        finish_str,
-        progress_count,
-        progress_rate,
-    );
-    let mut pb = ProgressBar::new(progress_count.clone());
-    pb.format(&single_bar.format);
-    for _ in 0..single_bar.progress_count {
-        thread::sleep(Duration::from_millis(50));
-        pb.inc();
-    }
-    pb.finish_println(&single_bar.finish);
-}
+    pub fn single_bar(&mut self, channel_recv: Receiver<u64>) {
+        let mut pb = ProgressBar::new(self.progress_count.clone());
+        pb.format(&self.format);
+        println!("{}",self.header);
 
-pub fn multi_bar(bar_vec: Vec<Bar>) {
-    let complete = Arc::new(AtomicBool::new(false));
-    let progress = Arc::new(MultiBar::new());
+        let mut old_left_task = self.progress_count - 1;
 
-    thread::spawn({
-        let complete = Arc::clone(&complete);
-        let progress = Arc::clone(&progress);
-        move || {
-            for task in bar_vec {
-                thread::spawn({
-                    let progress = Arc::clone(&progress);
-                    move || {
-                        let mut bar = progress.create_bar(task.progress_count);
-                        bar.message(&format!("Task : {} ", task.header));
-
-                        for _ in 0..100 {
-                            thread::sleep(Duration::from_millis(50));
-                            bar.inc();
+        loop {
+            {
+                if let Result::Ok(received) = channel_recv.try_recv() {
+                    let new_left_task = self.progress_count - received;
+                    let mut inc_progress = old_left_task - new_left_task;
+                    old_left_task = new_left_task;
+                    if self.progress_count == received {
+                        pb.finish_println(&self.finish);
+                        break;
+                    } else if inc_progress > 0 {
+                        for _ in 0..inc_progress {
+                            pb.inc();
                         }
-
-                        bar.finish_print(&format!("Task {} Complete", task.finish));
+                        inc_progress = 0;
                     }
-                });
-
-                thread::sleep(Duration::from_millis(1000));
+                }
             }
-
-            complete.store(true, Ordering::SeqCst);
         }
-    });
-
-    while !complete.load(Ordering::SeqCst) {
-        let _ = progress.listen();
-        thread::sleep(Duration::from_millis(1000));
     }
-
-    let _ = progress.listen();
 }
 
 #[test]
@@ -109,35 +64,19 @@ fn test_single_bar() {
     let format = "╢▌▌░╟".to_string();
     let header_str = "Application Test header :".to_string();
     let finish_str = "Done -- Single Bar -- TiHC ".to_string();
-    single_bar(header_str, true, format, finish_str, 100, 50);
+    let mut bar = Bar::new(header_str, format, true, finish_str, 100);
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        bar.single_bar(rx);
+    });
+    tx.send(3).unwrap();
+    tx.send(6).unwrap();
+    tx.send(9).unwrap();
+    tx.send(50).unwrap();
+    thread::sleep(Duration::from_millis(5000));
+    tx.send(100).unwrap();
 }
 
-#[test]
-fn test_multi_bar() {
-    let format = "╢▌▌░╟".to_string();
-    let header_str = "Application Test header :".to_string();
-    let finish_str = "Done -- Multi Bar -- TiHC ".to_string();
-    let bar1 = Bar::new(
-        header_str.clone(),
-        format.clone(),
-        true,
-        finish_str.clone(),
-        100,
-        50,
-    );
-    let bar2 = Bar::new(header_str.clone(), format, true, finish_str, 200, 50);
-    let bar_bucket = vec![bar1, bar2];
-    multi_bar(bar_bucket);
-}
-
-pub fn moveCursorUp(n: usize) {
-    println!("\x1b[{}A", n);
-}
-
-pub fn moveCursorDown(n: usize) {
-    println!("\x1b[{}B", n)
-}
-
-pub fn move_cursor_to_line_start() {
+pub fn move_cursor_to_next_line() {
     println!("\r");
 }
