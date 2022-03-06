@@ -55,6 +55,6 @@ OPTIONS:
     -U <ssh_user>                  The user name to login via SSH.
 ```
 
-https://grafana.com/grafana/plugins/grafana-image-renderer/   
+该工具在获取 Grafana 监控面板图像部分，借用了 grafana-image-renderer 插件,具体使用方法参考 [Grafana Image Renderer](https://grafana.com/grafana/plugins/grafana-image-renderer/)  的 `Run as standalone Node.js application` 部分。
 
-`Run as standalone Node.js application`
+
