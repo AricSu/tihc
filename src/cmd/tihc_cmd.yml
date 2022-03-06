@@ -9,7 +9,6 @@ args:
         short: v
         long: version
         takes_value: false
-        # multiple: false
     - grafana_user:
         help: Use user name of target grafana. (default "admin") 
         short: u
@@ -19,7 +18,7 @@ args:
         short: p
         takes_value: true
     - ssh_user:
-        help: The user name to login via SSH. The user must has root (or sudo) privilege. (default "tidb") 
+        help: The user name to login via SSH. 
         short: U
         takes_value: true
     - ssh_pwd:

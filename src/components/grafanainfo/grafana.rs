@@ -1,8 +1,6 @@
 use std::fs::*;
 use std::process::Command;
-
-use crate::util::time::*;
-use chrono::{DateTime, Utc};
+use std::sync::mpsc;
 
 #[derive(Clone)]
 pub struct GrafanaImage {
@@ -151,6 +149,7 @@ pub fn gen_all_image(
 }
 
 pub fn get_all_panel_image(
+    tx: mpsc::Sender<u64>,
     login_name: String,
     login_passwd: String,
     grafana_host: String,
@@ -158,12 +157,6 @@ pub fn get_all_panel_image(
     start_time: u64,
     end_time: u64,
 ) {
-    let start_count_time: DateTime<Utc> = Utc::now();
-    let _hash_time = calculate_hash(&start_time);
-    // let image_path = format!(
-    //     "/tmp/ticheck_grafana_image_{}",
-    //     hash_time.checked_div(321456).unwrap()
-    // );
     let image_path = "/tmp/ticheck_image_dir".to_string();
 
     let _ = create_dir(&image_path);
@@ -178,13 +171,21 @@ pub fn get_all_panel_image(
         end_time,
     );
 
+    let mut progress = 0;
+
     for i in all_images {
-        let output = Command::new("sh")
+        let _output = Command::new("sh")
             .arg("-c")
             .arg(i.grafana_url)
             .output()
             .expect("sh exec error!");
-        // let output_str = String::from_utf8_lossy(&output.stdout);
-        // println!("{}", output_str);
+        let output_str = String::from_utf8_lossy(&_output.stdout);
+        print!("{}", output_str);
+        progress = progress + 1;
+        tx.send(progress).unwrap();
     }
+}
+
+pub fn get_all_images_count() -> u64 {
+    return 28;
 }
