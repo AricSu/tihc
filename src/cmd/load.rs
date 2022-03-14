@@ -4,14 +4,13 @@ use crate::executor::generator::gen_doc_tidb::*;
 use crate::executor::meta_parser;
 use crate::executor::progress::terminal_pbr::*;
 use crate::executor::ssh::{ClusterSSHHandle, SSHConfig};
+use crate::util::time::*;
 use anyhow::Result;
 use clap::App;
 use std::collections::HashMap;
 use std::fs::remove_dir;
-use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
 
 use crate::util::table::*;
 use docx_rs::*;
@@ -75,22 +74,25 @@ pub fn cli_build() -> Result<()> {
             bar.single_bar(rx);
         });
 
+        let start_time = Time::new()
+            .from_string(grafana_start_time.to_string())
+            .to_mills();
+        let end_time = Time::new()
+            .from_string(grafana_end_time.to_string())
+            .to_mills();
 
-
+        let grafana_host = meta_info.5;
+        let grafana_port = meta_info.6;
 
         get_all_panel_image(
             tx,
             grafana_user.to_string(),
             grafana_pwd.to_string(),
-            // meta_info.3 .2,
-            // meta_info.3 .3,
-            "127.0.0.1".to_string(),
-            3000,
-            u64::from_str(grafana_start_time).unwrap(),
-            u64::from_str(grafana_end_time).unwrap(),
+            grafana_host,
+            grafana_port,
+            start_time as u64,
+            end_time as u64,
         );
-
-
 
         move_cursor_to_next_line();
 
