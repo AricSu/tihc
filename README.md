@@ -63,3 +63,17 @@ OPTIONS:
 该工具在获取 Grafana 监控面板图像部分，借用了 grafana-image-renderer 插件,具体使用方法参考 [Grafana Image Renderer](https://grafana.com/grafana/plugins/grafana-image-renderer/)  的 `Run as standalone Node.js application` 部分。
 
 
+
+
+
+Dependencies
+
+This plugin is packaged in a single executable with Node.js runtime and Chromium browser. This means that you don't need to have Node.js and Chromium installed in your system for the plugin to function.
+
+However, the Chromium browser depends on certain libraries. If you don't have all of those libraries installed in your system, you may see some errors when you try to render an image. For more information including troubleshooting help, refer to Grafana Image Rendering documentation.
+
+Memory requirements
+
+Rendering images requires a lot of memory, mainly because Grafana creates browser instances in the background for the actual rendering. We recommend a minimum of 16GB of free memory on the system rendering images.
+
+Rendering multiple images in parallel requires an even bigger memory footprint. You can use the remote rendering service in order to render images on a remote system, so your local system resources are not affected.
