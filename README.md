@@ -77,3 +77,9 @@ Memory requirements
 Rendering images requires a lot of memory, mainly because Grafana creates browser instances in the background for the actual rendering. We recommend a minimum of 16GB of free memory on the system rendering images.
 
 Rendering multiple images in parallel requires an even bigger memory footprint. You can use the remote rendering service in order to render images on a remote system, so your local system resources are not affected.
+
+
+
+```shell
+./bin/tihc -c xu-tidb -u admin -p admin -U tidb -P tidb -f "2022-03-17 14:00:00" -t "2022-03-17 14:10:00"
+```
