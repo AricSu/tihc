@@ -56,12 +56,13 @@ pub fn cli_build() -> Result<()> {
         println!("Starting TiDB Healthy Check from <TiHC>");
         println!("---------------------------------------");
 
+        let mut vec_ssh: Vec<SSHConfig> = vec![];
         for host in distinct_host(meta_info.0, meta_info.1, meta_info.2).keys() {
             println!("Start getting node systeminfo from : --> {}", &host);
+            vec_ssh.push(SSHConfig::new_auth_user(host.clone(), 22, ssh_user.to_owned(), ssh_pwd.to_owned()));
         }
         println!("Done getting all nodes systeminfo.");
 
-        let vec_ssh: Vec<SSHConfig> = vec![];
         let all_nodes_list = ClusterSSHHandle::new(&vec_ssh);
         let cluster_nodes = ClusterSysInfo::new(&all_nodes_list);
 
@@ -81,6 +82,7 @@ pub fn cli_build() -> Result<()> {
             .from_string(grafana_end_time.to_string())
             .to_mills();
 
+
         let grafana_host = meta_info.5;
         let grafana_port = meta_info.6;
 
@@ -96,22 +98,26 @@ pub fn cli_build() -> Result<()> {
 
         move_cursor_to_next_line();
 
-        let format = "╢▌▌░╟".to_string();
-        let header_str = "Start generating all chapters of healthy check output :".to_string();
-        let finish_str = "Done generating all chapters of healthy check output.".to_string();
-        let mut bar = Bar::new(header_str, format, true, finish_str, 7);
-        let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            bar.single_bar(rx);
-        });
-        gen_doc(tx, &cluster_nodes);
-
-        move_cursor_to_next_line();
-        println!("Successful exit to TiDB Healthy Check from <TiHC>");
-        println!("-------------------------------------------------");
+        get_tihc_doc(&cluster_nodes);
     };
 
     Ok(())
+}
+
+fn get_tihc_doc(cluster_nodes: &ClusterSysInfo) {
+    let format = "╢▌▌░╟".to_string();
+    let header_str = "Start generating all chapters of healthy check output :".to_string();
+    let finish_str = "Done generating all chapters of healthy check output.".to_string();
+    let mut bar = Bar::new(header_str, format, true, finish_str, 7);
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        bar.single_bar(rx);
+    });
+    gen_doc(tx, &cluster_nodes);
+
+    move_cursor_to_next_line();
+    println!("Successful exit to TiDB Healthy Check from <TiHC>");
+    println!("-------------------------------------------------");
 }
 
 fn distinct_host(
