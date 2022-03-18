@@ -72,7 +72,7 @@ ll ./bin/tihc
 
 ### 3.1 本地安装
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 下面仅介绍 online 下载方式部署 grafana-image-render，至于 offline 方式请参考 [Wiki 描述]()，部署过程中遇到的问题请参考 [Wiki FAQ]。
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 下面仅介绍 online 下载方式部署 grafana-image-render，至于 offline 方式请参考 [Wiki 描述](https://github.com/jansu-dev/tihc/wiki/Quick-start#2离线安装-grafana-image-render)，部署过程中遇到的问题请参考 [Wiki FAQ](https://github.com/jansu-dev/tihc/wiki/FAQ#tihc-faq)。
 ```shell
 curl -O https://github.com/jansu-dev/tihc/blob/master/deploy_grafana_image_render.sh && \
 chmod 777 ./deploy_grafana_image_render.sh && \
