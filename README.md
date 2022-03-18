@@ -15,7 +15,7 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TiHC 将手机上了的统计数据排版、生成 Office Word 文档模版，仅需少量修改便可直接交付客户。      
 
 * **轻量化巡检采集操作**      
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TiHC 只需初次巡检时，配置 Grafana-image-render 信息。此后，仅需要一个可执行文件便可完成全部巡检。    
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TiHC 只需初次巡检时，配置 Grafana-image-render。此后，仅需要可执行文件便可完成全部巡检。    
 
 
 # Documents  
