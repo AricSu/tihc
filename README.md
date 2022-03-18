@@ -20,7 +20,7 @@
 
 # Documents  
 
-* 更多细节相见 Wiki
+* 更多细节相见 [TiHC Wiki](https://github.com/jansu-dev/tihc/wiki#welcome-to-the-tihc)。
 
 # Quick start
 ## 1. TiHC 使用简介
