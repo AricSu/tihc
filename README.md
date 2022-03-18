@@ -1,9 +1,9 @@
 # TiHC
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TiHC (TiDB Healthy Check) 是一个开源的、基于 rust 构建的 TiDB 巡检工具，目的是为缩短询价时间，提高交付效率。与传统 Oracle、MySQL 等巡检工具使用 SQL 采集对应内存表、操作系统指标，最终生成 Html 巡检报告不同。因为 TiDB 排查问题的方法论基于 Grafana 监控指标构建，tihc 借鉴 TiDB 官方工具 tiup 分发 ssh 的原理，分布式采集各节点信息并整合 grafana 监控，最终生成可交付的巡检 Office Doc 文件。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**TiHC 的作用**    
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**TiHC 的作用 ：**    
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1. 节约 TiDB 巡检过程中大量可模版化工作；    
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. 非常容易上手，如果你是一名 DBA（遵循 terminal tool 使用风格）；
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. 非常容易上手，如果你是一名 DBA（遵循 terminal tool 使用风格）；    
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3. 对新手学习友好，如果你接触 TiDB 不久，提供一套基础 healthy check 思路判定当前集群是否健康；
 # Features
 
