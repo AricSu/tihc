@@ -15,9 +15,9 @@ use std::thread;
 use crate::util::table::*;
 use docx_rs::*;
 
-/// Match commands
+/// Build a cli using clap to process commands from terminal.
 pub fn cli_build() -> Result<()> {
-    // Get matches
+    // build clap structure from yaml and get matches from terminal.
     let yaml = load_yaml!("tihc_cmd.yml");
     let mut cli = App::from_yaml(yaml);
     let cli_matches = cli.clone().get_matches();

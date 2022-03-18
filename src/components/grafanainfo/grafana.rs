@@ -2,6 +2,7 @@ use std::fs::*;
 use std::process::Command;
 use std::sync::mpsc;
 
+
 #[derive(Clone)]
 pub struct GrafanaImage {
     pub grafana_name: String,
@@ -10,6 +11,7 @@ pub struct GrafanaImage {
 }
 
 impl GrafanaImage {
+    /// Build an instance of GrafanaImage
     pub fn new(
         grafana_name_param: String,
         grafana_url_param: String,
@@ -23,6 +25,7 @@ impl GrafanaImage {
     }
 }
 
+/// Call grafana api to get images needed.
 pub fn gen_all_image(
     path: String,
     login_name: String,
