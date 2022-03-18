@@ -1,4 +1,4 @@
-PROJECT=ticheck
+PROJECT=tihc
 
 .PHONY: all clean test
 
@@ -13,9 +13,16 @@ main:
 prepare: 
 	/bin/bash ./deploy_grafana_image_render.sh
 
+pkg: 
+	@>&2  mkdir tihc
+	@>&2  cp -rf ./bin/* ./tihc
+	@>&2  cp -rp ./README.md ./tihc/
+	@>&2  tar -zcvf tihc-v0.1.0-beta.1-linux-amd64.tar.gz ./tihc >>/dev/null 2>/dev/null
+	@>&2  rm -rf ./tihc
+	@echo Package tool TiHC successfully!
 
 buildsucc:
-	@echo Build tool TiCheck successfully!
+	@echo Build tool TiHC successfully!
 
 all: dev
 
