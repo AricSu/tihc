@@ -3,6 +3,7 @@ use docx_rs::*;
 use std::fs::File;
 use std::io::Read;
 
+/// Generate a table header for office doc.
 pub fn gen_table_header(cells: Vec<&str>) -> TableRow {
     let mut one_row = vec![];
     for cell in cells {
@@ -21,6 +22,7 @@ pub fn gen_table_header(cells: Vec<&str>) -> TableRow {
     return TableRow::new(one_row);
 }
 
+/// Generate a table row for office doc.
 pub fn gen_table_row(cells: Vec<&String>, font_size: usize, color: &str) -> TableRow {
     let mut one_row = vec![];
     for cell in cells {
@@ -31,6 +33,7 @@ pub fn gen_table_row(cells: Vec<&String>, font_size: usize, color: &str) -> Tabl
     return TableRow::new(one_row);
 }
 
+/// Generate a table with tb_header、tb_rows、grid、layout、indent.
 pub fn gen_table(
     tb_header: TableRow,
     tb_rows: &mut Vec<TableRow>,
@@ -49,6 +52,7 @@ pub fn gen_table(
         .indent(indent);
 }
 
+/// Generate a table with txt, txt_size, level_size.
 pub fn gen_heading(txt: &str, txt_size: usize, level_size: usize) -> Paragraph {
     return Paragraph::new()
         .add_run(
