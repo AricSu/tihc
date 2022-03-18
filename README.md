@@ -54,21 +54,7 @@ OPTIONS:
 
 
 ## 2. TiHC 源码编译
-
-
-
-## 3. TiHC 快速巡检
-
-![tihc](docs/image/WechatIMG1123.png) 
-
-![tihc](docs/image/WechatIMG1124.png) 
-
-![tihc](docs/image/WechatIMG1125.png) 
-
-![tihc](docs/image/WechatIMG1126.png)
-
-## 2.2 如何手动 build TiHC？
-
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;在本地安装 Rust 环境下，访问 tihc repo 直接获取源码至本地。使用 make 命令便可编译二进制文件。
 
 ```bash
 # Get repo from github
@@ -82,7 +68,41 @@ ll ./bin/tihc
 ```
 
 
-# 三、如何使用 TiHC？ 
+## 3. TiHC 快速巡检
+
+### 3.1 本地安装
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 下面仅介绍 online 下载方式部署 grafana-image-render，至于 offline 方式请参考 [Wiki 描述]()，部署过程中遇到的问题请参考 [Wiki FAQ]。
+```shell
+curl -O https://github.com/jansu-dev/tihc/blob/master/deploy_grafana_image_render.sh && \
+chmod 777 ./deploy_grafana_image_render.sh && \
+./deploy_grafana_image_render.sh CLUSTER_NAME online
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 执行成功后，屏幕输出如下：    
+
+![prepare_image_render](docs/image/prepare_offline_success.jpg)
+
+### 3.2 执行采集
+
+```shell
+./bin/tihc -c xu-tidb \
+    -u admin \
+    -p admin \
+    -U tidb \
+    -P tidb \
+    -f "2022-03-17 14:00:00" \
+    -t "2022-03-17 14:10:00"
+```
+
+
+
+![tihc](docs/image/WechatIMG1123.png) 
+
+![tihc](docs/image/WechatIMG1124.png) 
+
+![tihc](docs/image/WechatIMG1125.png) 
+
+![tihc](docs/image/WechatIMG1126.png)
 
 
 
@@ -102,7 +122,3 @@ Rendering images requires a lot of memory, mainly because Grafana creates browse
 Rendering multiple images in parallel requires an even bigger memory footprint. You can use the remote rendering service in order to render images on a remote system, so your local system resources are not affected.
 
 
-
-```shell
-./bin/tihc -c xu-tidb -u admin -p admin -U tidb -P tidb -f "2022-03-17 14:00:00" -t "2022-03-17 14:10:00"
-```
