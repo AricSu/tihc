@@ -98,3 +98,5 @@ chmod 777 ./deploy_grafana_image_render.sh && \
 
 
 # Releases
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TiHC 的发行是在 github 上完成。
