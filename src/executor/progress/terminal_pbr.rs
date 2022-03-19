@@ -34,7 +34,11 @@ impl Bar {
     pub fn single_bar(&mut self, channel_recv: Receiver<u64>) {
         let mut pb = ProgressBar::new(self.progress_count.clone());
         pb.format(&self.format);
+<<<<<<< HEAD
         // println!("{}", self.header);
+=======
+        println!("{}", self.header);
+>>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
 
         let mut old_left_task = self.progress_count - 1;
 

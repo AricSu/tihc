@@ -2,7 +2,11 @@ use std::fs::File;
 use std::io::prelude::*;
 use yaml_rust::{yaml, Yaml};
 
+<<<<<<< HEAD
 const META_PATH: &str = "/home/tidb/.tiup/storage/cluster/clusters";
+=======
+const META_PATH: &str = "~/.tiup/storage/cluster/clusters/{}";
+>>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
 
 pub fn init(
     cluster_name: String,
@@ -15,7 +19,11 @@ pub fn init(
     String,
     i64,
 ) {
+<<<<<<< HEAD
     let meta = HCYmal::new(format!("{}/{}/meta.yaml", META_PATH, cluster_name));
+=======
+    let meta = HCYmal::new(format!("{}/{}/{}", META_PATH, cluster_name, "meta.yaml"));
+>>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
     let tidb_node_host = meta.clone().get_host_and_port("tidb_servers".to_string());
     let tikv_node_host = meta.clone().get_host_and_port("tikv_servers".to_string());
     let pd_node_host = meta.clone().get_host_and_port("pd_servers".to_string());
