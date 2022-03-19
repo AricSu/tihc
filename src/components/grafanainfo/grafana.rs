@@ -2,7 +2,6 @@ use std::fs::*;
 use std::process::Command;
 use std::sync::mpsc;
 
-
 #[derive(Clone)]
 pub struct GrafanaImage {
     pub grafana_name: String,

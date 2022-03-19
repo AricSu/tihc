@@ -59,32 +59,35 @@ pub fn cli_build() -> Result<()> {
         let mut vec_ssh: Vec<SSHConfig> = vec![];
         for host in distinct_host(meta_info.0, meta_info.1, meta_info.2).keys() {
             println!("Start getting node systeminfo from : --> {}", &host);
-            vec_ssh.push(SSHConfig::new_auth_user(host.clone(), 22, ssh_user.to_owned(), ssh_pwd.to_owned()));
+            vec_ssh.push(SSHConfig::new_auth_user(
+                host.clone(),
+                22,
+                ssh_user.to_owned(),
+                ssh_pwd.to_owned(),
+            ));
         }
         println!("Done getting all nodes systeminfo.");
 
         let all_nodes_list = ClusterSSHHandle::new(&vec_ssh);
         let cluster_nodes = ClusterSysInfo::new(&all_nodes_list);
 
-        let grafana_start_time = Time::new()
-            .from_string(grafana_start_time.to_string())
-            .to_mills();
-        let grafana_end_time = Time::new()
-            .from_string(grafana_end_time.to_string())
-            .to_mills();
-
-
         let grafana_host = meta_info.5;
         let grafana_port = meta_info.6;
 
-        get_all_panel_image(
-            tx,
-            ssh_user,
-            grafana_pwd,
+        let start_time = Time::new()
+            .from_string(grafana_start_time.to_string())
+            .to_mills();
+        let end_time = Time::new()
+            .from_string(grafana_end_time.to_string())
+            .to_mills();
+
+        get_grafana_images(
+            grafana_host,
+            grafana_port,
             grafana_user.to_string(),
             grafana_pwd.to_string(),
-            grafana_start_time,
-            grafana_end_time,
+            start_time,
+            end_time,
         );
 
         move_cursor_to_next_line();
@@ -92,6 +95,36 @@ pub fn cli_build() -> Result<()> {
         get_tihc_doc(&cluster_nodes);
     };
     Ok(())
+}
+
+fn get_grafana_images(
+    grafana_host: String,
+    grafana_port: i64,
+    grafana_user: String,
+    grafana_pwd: String,
+    grafana_start_time: i64,
+    grafana_end_time: i64,
+) {
+    let format = "╢▌▌░╟".to_string();
+    let header_str = "Start getting all imagenfo of grafana :".to_string();
+    let finish_str = "Done getting all needed imagenfo of grafana.".to_string();
+    let mut bar = Bar::new(header_str, format, true, finish_str, get_all_images_count());
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        bar.single_bar(rx);
+    });
+
+    get_all_panel_image(
+        tx,
+        grafana_user,
+        grafana_pwd,
+        grafana_host,
+        grafana_port,
+        grafana_start_time as u64,
+        grafana_end_time as u64,
+    );
+
+    move_cursor_to_next_line();
 }
 
 fn get_tihc_doc(cluster_nodes: &ClusterSysInfo) {
