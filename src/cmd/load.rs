@@ -63,10 +63,7 @@ pub fn cli_build() -> Result<()> {
         }
         println!("Done getting all nodes systeminfo.");
 
-<<<<<<< HEAD
-=======
         
->>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
         let all_nodes_list = ClusterSSHHandle::new(&vec_ssh);
         let cluster_nodes = ClusterSysInfo::new(&all_nodes_list);
 
@@ -77,36 +74,20 @@ pub fn cli_build() -> Result<()> {
             .from_string(grafana_end_time.to_string())
             .to_mills();
 
-<<<<<<< HEAD
-
-        let grafana_host = meta_info.5;
-        let grafana_port = meta_info.6;
-
-        get_all_panel_image(
-            tx,
-=======
         get_grafana_images(
             meta_info.5,
             meta_info.6,
->>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
             grafana_user.to_string(),
             grafana_pwd.to_string(),
             grafana_start_time,
             grafana_end_time,
         );
 
-<<<<<<< HEAD
-        move_cursor_to_next_line();
-
-=======
->>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
         get_tihc_doc(&cluster_nodes);
     };
     Ok(())
 }
 
-<<<<<<< HEAD
-=======
 fn get_grafana_images(
     grafana_host: String,
     grafana_port: i64,
@@ -144,7 +125,6 @@ fn get_grafana_images(
     move_cursor_to_next_line();
 }
 
->>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
 fn get_tihc_doc(cluster_nodes: &ClusterSysInfo) {
     let format = "╢▌▌░╟".to_string();
     let header_str = "Start generating all chapters of healthy check output :".to_string();
