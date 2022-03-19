@@ -25,17 +25,10 @@ args:
         help: The password to login via SSH with "ssh_user". 
         short: P
         takes_value: true
-<<<<<<< HEAD
     # - key_file:
     #     help: The path to the SSH trust file used to connect nodes. 
     #     short: k
     #     takes_value: true
-=======
-    - key_file:
-        help: The path to the SSH trust file used to connect nodes. 
-        short: k
-        takes_value: true
->>>>>>> f135a7322fc9ee67432e7a272fc336f00f6c4e1b
     - cluster_name:
         help: The name of cluster which need to health check. 
         short: c
