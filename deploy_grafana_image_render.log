@@ -1,0 +1,14 @@
+Cluster type:       tidb
+Cluster name:       xu-tidb
+Cluster version:    v5.4.0
+Deploy user:        tidb
+SSH type:           builtin
+ID                    Role          Host            Ports        OS/Arch       Status  Data Dir                           Deploy Dir
+--                    ----          ----            -----        -------       ------  --------                           ----------
+192.168.169.63:9093   alertmanager  192.168.169.63  9093/9094    linux/x86_64  Down    /data/tidb-data/alertmanager-9093  /data/tidb-deploy/alertmanager-9093
+192.168.169.63:3000   grafana       192.168.169.63  3000         linux/x86_64  Down    -                                  /data/tidb-deploy/grafana-3000
+192.168.169.63:2379   pd            192.168.169.63  2379/2380    linux/x86_64  Down    /data/tidb-data/pd-2379            /data/tidb-deploy/pd-2379
+192.168.169.63:9090   prometheus    192.168.169.63  9090/12020   linux/x86_64  Down    /data/tidb-data/prometheus-9090    /data/tidb-deploy/prometheus-9090
+192.168.169.63:4000   tidb          192.168.169.63  4000/10080   linux/x86_64  Down    -                                  /data/tidb-deploy/tidb-4000
+192.168.169.63:20160  tikv          192.168.169.63  20160/20180  linux/x86_64  N/A     /data1/tidb-data/tikv-20160        /data1/tidb-deploy/tikv-20160
+Total nodes: 6
