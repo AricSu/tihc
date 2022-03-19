@@ -66,19 +66,10 @@ pub fn cli_build() -> Result<()> {
         let all_nodes_list = ClusterSSHHandle::new(&vec_ssh);
         let cluster_nodes = ClusterSysInfo::new(&all_nodes_list);
 
-        let format = "╢▌▌░╟".to_string();
-        let header_str = "Start getting all imagenfo of grafana :".to_string();
-        let finish_str = "Done getting all needed imagenfo of grafana.".to_string();
-        let mut bar = Bar::new(header_str, format, true, finish_str, get_all_images_count());
-        let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            bar.single_bar(rx);
-        });
-
-        let start_time = Time::new()
+        let grafana_start_time = Time::new()
             .from_string(grafana_start_time.to_string())
             .to_mills();
-        let end_time = Time::new()
+        let grafana_end_time = Time::new()
             .from_string(grafana_end_time.to_string())
             .to_mills();
 
@@ -90,17 +81,14 @@ pub fn cli_build() -> Result<()> {
             tx,
             grafana_user.to_string(),
             grafana_pwd.to_string(),
-            grafana_host,
-            grafana_port,
-            start_time as u64,
-            end_time as u64,
+            grafana_start_time,
+            grafana_end_time,
         );
 
         move_cursor_to_next_line();
 
         get_tihc_doc(&cluster_nodes);
     };
-
     Ok(())
 }
 
