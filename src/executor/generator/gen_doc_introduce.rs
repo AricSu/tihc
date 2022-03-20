@@ -8,21 +8,38 @@ pub fn gen_chapter_system_1() -> Vec<DocType> {
     let text_1 = DocType::Patagraph(gen_text(
         "   本次检查数据库为 <yyyy> 生产库系统。",
         20,
-        "black",
+        "red",
     ));
-    let text_2 = DocType::Patagraph(gen_text("   本报告提供的检查和建议不涉及具体的数据库安全分析和应用程序细节。本次数据库涉及了 1 套 <N> 节点TiDB数据库的检查，在这次检查中对主机和数据库配置和数据库性能进行了总体分析，不针对具体某个应用性能。",20,"black"));
+    let text_2 = DocType::Patagraph(gen_text("   本报告提供的检查和建议不涉及具体的数据库安全分析和应用程序细节。在这次检查中对主机和数据库配置和数据库性能进行了总体分析，不针对具体某个应用性能。",20,"black"));
     let header_1_2 = DocType::Patagraph(gen_heading("1.2 检查方法", 30, 2));
     let text3 = DocType::Patagraph(gen_text("    本次数据库性能检查的工具是：", 20, "black"));
+    let text3_1 = DocType::Patagraph(gen_text(
+        "        1.TiDB Dashboard、Prometheus、Grafana 进行系统信息收集;",
+        20,
+        "black",
+    ));
+    let text3_2 = DocType::Patagraph(gen_text(
+        "        2.操作系统工具和命令检查操作系统;",
+        20,
+        "black",
+    ));
+    let text3_3 = DocType::Patagraph(gen_text("        3.SQL 命令检查数据库配置;", 20, "black"));
+    let text3_4 = DocType::Patagraph(gen_text(
+        "        4.TiDB Dashboard、Prometheus、Grafana 进行数据库性能资料的收集;",
+        20,
+        "black",
+    ));
     let text4 = DocType::Patagraph(gen_text("    上述输出结果为建议提供依据。", 20, "black"));
     let header_1_3 = DocType::Patagraph(gen_heading("1.3 检查范围", 30, 2));
-    let text5 = DocType::Patagraph(gen_text("    本次检查数据库为 <yyyy> 生产库系统，涉及了 1 套 <N> 节点TiDB数据库的检查，在这次检查中对主机和数据库配置和数据库性能进行了总体分析，不针对具体某个应用性能。",20,"black"));
+    let text5 = DocType::Patagraph(gen_text("    本次 TiDB 数据库的检查对主机和数据库配置和数据库性能进行了总体分析，不针对具体某个应用性能。",20,"black"));
     let text6 = DocType::Patagraph(gen_text(
         "    本报告提供的检查和建议不涉及具体的数据库安全分析和应用程序细节。",
         20,
         "black",
     ));
     return vec![
-        header_1, header_1_1, text_1, text_2, header_1_2, text3, text4, header_1_3, text5, text6,
+        header_1, header_1_1, text_1, text_2, header_1_2, text3, text3_1, text3_2, text3_3,
+        text3_4, text4, header_1_3, text5, text6,
     ];
 }
 
@@ -35,7 +52,7 @@ pub fn gen_chapter_system_2() -> Vec<DocType> {
         "black",
     ));
     let text2 = DocType::Patagraph(gen_text(
-        "    <对操作系统各项的评论和建议，包括扩容建议>",
+        "    <对操作系统各项参数的建议,如无建议，请填写 无>",
         20,
         "Red",
     ));
@@ -46,7 +63,7 @@ pub fn gen_chapter_system_2() -> Vec<DocType> {
         "black",
     ));
     let text4 = DocType::Patagraph(gen_text(
-        "    <使用TiHC查询所有组件版本给出建议，特别是生命周期快结束的版本建议升级>",
+        "    <对所有组件版本给出建议，特别是生命周期快结束的版本建议升级,如无建议，请填写 无>",
         20,
         "Red",
     ));
@@ -57,7 +74,7 @@ pub fn gen_chapter_system_2() -> Vec<DocType> {
         "black",
     ));
     let text6 = DocType::Patagraph(gen_text(
-        "    <评审数据库参数，给出参数优化建议>",
+        "    <评审数据库参数，给出参数优化建议,如无建议，请填写 无>",
         20,
         "Red",
     ));
@@ -68,7 +85,7 @@ pub fn gen_chapter_system_2() -> Vec<DocType> {
         "black",
     ));
     let text8 = DocType::Patagraph(gen_text(
-        "    <针对 PD、TiKV、TiDB 对各项的评论和建议，包括总体存储扩容建议>",
+        "    <针对 PD、TiKV、TiDB 对各项组件参数的建议，包括总体存储扩容建议,如无建议，请填写 无>",
         20,
         "Red",
     ));

@@ -140,9 +140,7 @@ fn get_disk_mount(ssh_session: &Session) -> String {
 
 fn get_firewalld_status(ssh_session: &Session) -> String {
     let mut get_channel = ssh_session.channel_session().unwrap();
-    get_channel
-        .exec("systemctl status firewalld |grep Active")
-        .unwrap();
+    get_channel.exec("systemctl status firewalld").unwrap();
     let mut s = String::new();
     get_channel.read_to_string(&mut s).unwrap();
     return s;

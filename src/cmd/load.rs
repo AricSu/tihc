@@ -8,7 +8,7 @@ use crate::util::time::*;
 use anyhow::Result;
 use clap::App;
 use std::collections::HashMap;
-use std::fs::remove_dir;
+use std::fs::remove_dir_all;
 use std::sync::mpsc;
 use std::thread;
 
@@ -174,5 +174,5 @@ fn gen_doc(tx: mpsc::Sender<u64>, cluster_nodes: &ClusterSysInfo) {
     let _doc = gen_docx("./tidb_check.docx", &mut dox);
 
     let image_path = "/tmp/ticheck_image_dir".to_string();
-    let _ = remove_dir(image_path);
+    let _ = remove_dir_all(image_path).unwrap();
 }

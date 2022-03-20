@@ -73,7 +73,7 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
     let table_header_sys_swap = gen_table_header(vec!["节点 IP", "Swap 状态"]);
     let mut tb_rows_below_sys_limit = vec![];
     for node in &cluster_nodes.all_nodes {
-        let row = gen_table_row(vec![&node.sys_host, &node.sys_limit], 20, "black");
+        let row = gen_table_row(vec![&node.sys_host, &node.swap_status], 20, "black");
         tb_rows_below_sys_limit.append(&mut vec![row]);
     }
 
@@ -91,7 +91,11 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
     let mut tb_rows_below_sys_io_schedule = vec![];
     for node in &cluster_nodes.all_nodes {
         let row = gen_table_row(
-            vec![&node.sys_host, &node.disk_strategy, &node.disk_strategy],
+            vec![
+                &node.sys_host,
+                &"<由于实现问题，暂时需要手动查看>".to_string(),
+                &"<由于实现问题，暂时需要手动查看>".to_string(),
+            ],
             20,
             "black",
         );
@@ -128,7 +132,7 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
     let table_header_ntp_status = gen_table_header(vec!["节点 IP", "NTP 状态"]);
     let mut tb_rows_below_ntp_status = vec![];
     for node in &cluster_nodes.all_nodes {
-        let row = gen_table_row(vec![&node.sys_host, &node.sys_limit], 20, "black");
+        let row = gen_table_row(vec![&node.sys_host, &node.ntp_status], 20, "black");
         tb_rows_below_ntp_status.append(&mut vec![row]);
     }
 
@@ -146,7 +150,11 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
     let mut tb_rows_below_sys_disk_mount = vec![];
     for node in &cluster_nodes.all_nodes {
         let row = gen_table_row(
-            vec![&node.sys_host, &node.sys_limit, &node.sys_limit],
+            vec![
+                &node.sys_host,
+                &"<由于实现问题，暂时需要手动查看>".to_string(),
+                &"<由于实现问题，暂时需要手动查看>".to_string(),
+            ],
             20,
             "black",
         );
@@ -166,7 +174,7 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
     let table_header_sys_firewall_status = gen_table_header(vec!["节点 IP", "防火墙状态"]);
     let mut tb_rows_below_sys_firewall_status = vec![];
     for node in &cluster_nodes.all_nodes {
-        let row = gen_table_row(vec![&node.sys_host, &node.sys_limit], 20, "black");
+        let row = gen_table_row(vec![&node.sys_host, &node.firewalld_status], 20, "black");
         tb_rows_below_sys_firewall_status.append(&mut vec![row]);
     }
 
@@ -195,34 +203,6 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
         250,
     );
     let table_cpu_mode = DocType::Table(tb_rows_below_cpu_mode);
-    let header_3_3 = DocType::Patagraph(gen_heading("3.3 网络配置", 30, 2));
-    // generate table rows
-    let table_header_sys_bond_status =
-        gen_table_header(vec!["节点 IP", "网卡名", "组件", "网卡类型"]);
-    let mut tb_rows_below_sys_bond_status = vec![];
-    for node in &cluster_nodes.all_nodes {
-        let row = gen_table_row(
-            vec![
-                &node.sys_host,
-                &node.bond_status,
-                &node.sys_host,
-                &node.sys_host,
-            ],
-            20,
-            "black",
-        );
-        tb_rows_below_sys_bond_status.append(&mut vec![row]);
-    }
-
-    let tb_rows_below_bond_status = gen_table(
-        table_header_sys_bond_status,
-        &mut tb_rows_below_sys_bond_status,
-        vec![1500, 3000, 1500, 1000],
-        TableLayoutType::Fixed,
-        250,
-    );
-    let table_sys_bond_status = DocType::Table(tb_rows_below_bond_status);
-    let header_3_4 = DocType::Patagraph(gen_heading("3.4 设备概况", 30, 2));
 
     return vec![
         header_3,
@@ -249,8 +229,5 @@ pub fn gen_chapter_system_3(cluster_nodes: &ClusterSysInfo) -> Vec<DocType> {
         table_sys_firewall_status,
         header_3_2_10,
         table_cpu_mode,
-        header_3_3,
-        table_sys_bond_status,
-        header_3_4,
     ];
 }

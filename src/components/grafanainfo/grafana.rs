@@ -39,6 +39,9 @@ pub fn gen_all_image(
 
     let url_overview_pd_storage_capacity = GrafanaImage::new("url_overview_pd_storage_capacity".to_string(), 
     format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/grafana-overview\\?orgId\\=1\\&refresh\\=30s\\&from\\={}\\&to\\={}\\&panelId\\=27\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,"url_overview_pd_storage_capacity".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
+    
+    let url_overview_pd_current_storage_size = GrafanaImage::new("url_overview_pd_current_storage_size".to_string(), 
+    format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/grafana-overview\\?orgId\\=1\\&refresh\\=30s\\&from\\={}\\&to\\={}\\&panelId\\=28\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,"url_overview_pd_current_storage_size".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
 
     let url_overview_tidb_sql_duration = GrafanaImage::new("url_overview_tidb_sql_duration".to_string(),
         format!("curl -o {}/{}.png http://{}:{}@{}:{}/render/d-solo/eDbRZpnWk/grafana-overview\\?orgId\\=1\\&refresh\\=30s\\&from\\={}\\&to\\={}\\&panelId\\=34\\&width\\=1000\\&height\\=500\\&tz\\=Asia%2FShanghai",path,"url_overview_tidb_sql_duration".to_string(),login_name,login_passwd,ip,port,start_time,end_time), path.clone());
@@ -121,6 +124,7 @@ pub fn gen_all_image(
     return vec![
         url_overview_tidb_service_port_status,
         url_overview_pd_storage_capacity,
+        url_overview_pd_current_storage_size,
         url_overview_tidb_sql_duration,
         url_overview_pd_current_storage,
         url_overview_pd_region_healthy,
@@ -190,5 +194,5 @@ pub fn get_all_panel_image(
 }
 
 pub fn get_all_images_count() -> u64 {
-    return 28;
+    return 29;
 }
