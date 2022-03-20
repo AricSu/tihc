@@ -68,6 +68,8 @@ echo "[plugin.grafana-image-renderer]">> ${PATH_GRAFANA_DEPLOY}/conf/grafana.ini
 echo "rendering_ignore_https_errors = true">> ${PATH_GRAFANA_DEPLOY}/conf/grafana.ini
 echo "rendering_verbose_logging = true">> ${PATH_GRAFANA_DEPLOY}/conf/grafana.ini
 echo "rendering_args = --no-sandbox,--no-proxy-server,--disable-gpu">> ${PATH_GRAFANA_DEPLOY}/conf/grafana.ini
+echo "[paths]">> ${PATH_GRAFANA_DEPLOY}/conf/grafana.ini
+echo "temp_data_lifetime = 10m">> ${PATH_GRAFANA_DEPLOY}/conf/grafana.ini
 cd ${PATH_GRAFANA_DEPLOY}
 
 if [ ! -d plugins  ];then

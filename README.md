@@ -80,7 +80,7 @@ chmod 777 ./deploy_grafana_image_render.sh && \
 ```
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 执行成功后，屏幕输出如下：    
 
-![prepare_image_render](docs/image/prepare_online_success.jpg)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![prepare_image_render](docs/image/prepare_online_success.jpg)
 
 ### 3.2 执行采集
 
@@ -98,7 +98,7 @@ chmod 777 ./deploy_grafana_image_render.sh && \
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;当巡检命令发出后 terminal 输出如下，并且会在 tihc 可执行文件目录下找到的名为 `tidb_check.docx` 的文件。
 
-![execute_catch_success](./docs/image/execute_catch_success.jpg)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![execute_catch_success](./docs/image/execute_catch_success.jpg)
 
 # Releases
 
