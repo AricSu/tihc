@@ -26,6 +26,7 @@ impl Time {
     }
 
     /// Transfer string time of `Time` field to milliseconds as String type.
+    #[allow(dead_code)]
     pub fn from_mills(self, mills: i64) -> Self {
         Time {
             fmt: "%Y-%m-%d %H:%M:%S %z".to_string(),
@@ -50,6 +51,7 @@ impl Time {
     }
 
     /// Transfer string time of `Time` field to NaiveDateTime with format `self.fmt`.
+    #[allow(dead_code)]
     pub fn to_date(&self) -> NaiveDateTime {
         let result: ParseResult<NaiveDateTime> = NaiveDateTime::parse_from_str(
             &(self.time.as_str().to_owned() + Local::now().offset().to_string().as_str()),

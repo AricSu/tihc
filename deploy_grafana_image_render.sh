@@ -23,7 +23,8 @@ if [ ${2} == "online" ];then
   PLUGIN_INSTALL=0
   echo -e "${BLUE}[Instruction] -->${NC} Please input passwd of root of ${IP_GRAFANA_DEPLOY} ,When prompted !"
   PLUGIN_INSTALL=`ssh -T root@${IP_GRAFANA_DEPLOY} ls /var/lib/grafana/plugins |grep grafana-image-renderer`
-  if [ ! PLUGIN_INSTALL == "grafana-image-renderer"  ];then
+  echo ${PLUGIN_INSTALL}
+  if [ ! ${PLUGIN_INSTALL} == "grafana-image-renderer"  ];then
     echo -e "${RED}[Error      ] --> If there output about 'Error: ✗ Failed to send request',you need to fix network issue,or use offline install !${NC}"
     exit
   fi

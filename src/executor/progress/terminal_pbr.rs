@@ -1,12 +1,15 @@
 use pbr::ProgressBar;
+#[allow(unused_imports)]
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
+#[allow(unused_imports)]
 use std::{thread, time::Duration};
 
 #[derive(Debug)]
 pub struct Bar {
     header: String,
     format: String,
+    #[allow(dead_code)]
     is_format: bool,
     finish: String,
     progress_count: u64,
@@ -25,7 +28,7 @@ impl Bar {
                 header: header,
                 is_format: is_format,
                 format: format,
-                finish: finish,
+                finish: finish + "\n",
                 progress_count: progress_count,
             }
         };
@@ -34,24 +37,25 @@ impl Bar {
     pub fn single_bar(&mut self, channel_recv: Receiver<u64>) {
         let mut pb = ProgressBar::new(self.progress_count.clone());
         pb.format(&self.format);
-        // println!("{}", self.header);
+        println!("{}", self.header);
 
-        let mut old_left_task = self.progress_count - 1;
+        let mut old_left_task = self.progress_count;
 
         loop {
             {
                 if let Result::Ok(received) = channel_recv.try_recv() {
                     let new_left_task = self.progress_count - received;
-                    let mut inc_progress = old_left_task - new_left_task;
+                    let inc_progress = old_left_task - new_left_task;
                     old_left_task = new_left_task;
+
                     if self.progress_count == received {
                         pb.finish_println(&self.finish);
+                        print!("");
                         break;
                     } else if inc_progress > 0 {
                         for _ in 0..inc_progress {
                             pb.inc();
                         }
-                        inc_progress = 0;
                     }
                 }
             }
@@ -75,8 +79,4 @@ fn test_single_bar() {
     tx.send(50).unwrap();
     thread::sleep(Duration::from_millis(5000));
     tx.send(100).unwrap();
-}
-
-pub fn move_cursor_to_next_line() {
-    println!("\r");
 }

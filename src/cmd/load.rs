@@ -71,26 +71,18 @@ pub fn cli_build() -> Result<()> {
         let all_nodes_list = ClusterSSHHandle::new(&vec_ssh);
         let cluster_nodes = ClusterSysInfo::new(&all_nodes_list);
 
-        let grafana_host = meta_info.5;
-        let grafana_port = meta_info.6;
-
-        let start_time = Time::new()
-            .from_string(grafana_start_time.to_string())
-            .to_mills();
-        let end_time = Time::new()
-            .from_string(grafana_end_time.to_string())
-            .to_mills();
-
         get_grafana_images(
-            grafana_host,
-            grafana_port,
+            meta_info.5,
+            meta_info.6,
             grafana_user.to_string(),
             grafana_pwd.to_string(),
-            start_time,
-            end_time,
+            Time::new()
+                .from_string(grafana_start_time.to_string())
+                .to_mills(),
+            Time::new()
+                .from_string(grafana_end_time.to_string())
+                .to_mills(),
         );
-
-        move_cursor_to_next_line();
 
         get_tihc_doc(&cluster_nodes);
     };
@@ -106,8 +98,8 @@ fn get_grafana_images(
     grafana_end_time: i64,
 ) {
     let format = "╢▌▌░╟".to_string();
-    let header_str = "Start getting all imagenfo of grafana :".to_string();
-    let finish_str = "Done getting all needed imagenfo of grafana.".to_string();
+    let header_str = "Start getting all image info of grafana :".to_string();
+    let finish_str = "Done getting all needed image info of grafana.".to_string();
     let mut bar = Bar::new(header_str, format, true, finish_str, get_all_images_count());
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
@@ -123,8 +115,6 @@ fn get_grafana_images(
         grafana_start_time as u64,
         grafana_end_time as u64,
     );
-
-    move_cursor_to_next_line();
 }
 
 fn get_tihc_doc(cluster_nodes: &ClusterSysInfo) {
@@ -138,9 +128,8 @@ fn get_tihc_doc(cluster_nodes: &ClusterSysInfo) {
     });
     gen_doc(tx, &cluster_nodes);
 
-    move_cursor_to_next_line();
-    println!("Successful exit to TiDB Healthy Check from <TiHC>");
     println!("-------------------------------------------------");
+    println!("Successful exit to TiDB Healthy Check from <TiHC>");
 }
 
 fn distinct_host(

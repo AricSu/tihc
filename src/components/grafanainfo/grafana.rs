@@ -183,6 +183,7 @@ pub fn get_all_panel_image(
             .expect("sh exec error!");
         let output_str = String::from_utf8_lossy(&_output.stdout);
         print!("{}", output_str);
+
         progress = progress + 1;
         tx.send(progress).unwrap();
     }
