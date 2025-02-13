@@ -1,0 +1,13 @@
+[package]
+name = "tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlparser = { version = "0.54.0", features = ["visitor"] }
+sha2 = "0.10"
+tracing-subscriber = "0.3"
+tracing = "0.1"
+
+[dev-dependencies]
+sqlparser = "0.54.0"  # 确保使用正确版本

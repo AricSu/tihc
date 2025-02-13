@@ -1,0 +1,103 @@
+INSERT INTO tbl1 SET col1 = 1, col2 = 'abc', col3 = current_date()
+REPLACE INTO public.customer (id, name, active) VALUES (1, 2, 3)
+INSERT INTO test_table DEFAULT VALUES
+INSERT INTO test_table DEFAULT VALUES RETURNING test_column
+INSERT INTO test_table DEFAULT VALUES ON CONFLICT DO NOTHING
+INSERT INTO test_table (test_col) DEFAULT VALUES
+INSERT INTO tasks (title, priority) VALUES ('Test Some Inserts', 1), ('Test Entry 2', 2), ('Test Entry 3', 3)
+INSERT IGNORE INTO tasks (title, priority) VALUES ('Test Some Inserts', 1)
+INSERT HIGH_PRIORITY INTO tasks (title, priority) VALUES ('Test Some Inserts', 1)
+INSERT LOW_PRIORITY INTO tasks (title, priority) VALUES ('Test Some Inserts', 1)
+INSERT INTO `table` (`date`) VALUES ('2024-01-01') AS `alias
+INSERT INTO `table` (`id`, `date`) VALUES (1, '2024-01-01') AS `alias` (`mek_id`, `mek_date`)
+REPLACE DELAYED INTO tasks (title, priority) VALUES ('Test Some Inserts', 1)
+INSERT INTO tb () VALUES (), ()
+INSERT INTO permission_groups (name, description, perm_create, perm_read, perm_update, perm_delete) VALUES ('accounting_manager', 'Some description about the group', true, true, true, true) ON DUPLICATE KEY UPDATE description = VALUES(description), perm_create = VALUES(perm_create), perm_read = VALUES(perm_read), perm_update = VALUES(perm_update), perm_delete = VALUES(perm_delete)
+
+
+我想用 sqlparser 写一个lib库，将 tidb normalize 后的 SQL 再一次格式化。
+主要将多个 column 合并为一个 1 个，但是 condition 中的 column 需要保留。
+并将所有 column 名称统一替换为一个字符串。要求覆盖 insert select update delete REPLACE 的所有用法。帮我实现这个功能，并用测试用例测试。
+如：
+SELECT id, name, age FROM users WHERE id = 1 
+变为
+SELECT tihc FROM users WHERE tihc = 1
+
+
+INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30)
+变为
+INSERT INTO users (tihc) VALUES (1, 'Alice', 30)
+
+
+SQL Digest: 1419dc3f429d38aa633c567e9a7382c40500243679dfa77e81a8e3ecb9436ee2
+SQL Text: select `job_meta` , `processing` from `mysql` . `tidb_ddl_job` where `job_id` in ( select min ( `job_id` ) from `mysql` . `tidb_ddl_job` group by `schema_ids` , `table_ids` , `processing` ) and `reorg` order by `processing` desc , `job_id`
+SQL Digest: 9d5a0f1a8c1c0e1fd5f0955da80b305eae920a2ab897319c6d2d8de5d890bedc
+SQL Text: select `job_id` , `version` , `table_ids` from `mysql` . `tidb_mdl_info` where `version` <= ?
+SQL Digest: 1f5f0fc8e289181c4c4a923fd4fc838b0976575c7c2f8506f6e4e5c4ae8c10cd
+SQL Text: set `tidb_retry_limit` = ?
+SQL Digest: 2485cdd5726795a1055493f7a5c9bcf7aeb5c2b79584dd96ca30532bf47fb5fe
+SQL Text: set `tidb_enable_async_commit` = on
+SQL Digest: da25480fb483e6ce3d30f1a179c3c07e9f3b045425b0ac54acc6758a97e2db62
+SQL Text: rollback
+SQL Digest: 1a96197a635ab3d1c0fc027ce178d8aa751e4bd033c39db6163d3ba75b49fe3f
+SQL Text: select `job_meta` , `processing` from `mysql` . `tidb_ddl_job` where `job_id` in ( select min ( `job_id` ) from `mysql` . `tidb_ddl_job` group by `schema_ids` , `table_ids` , `processing` ) and not `reorg` order by `processing` desc , `job_id`
+SQL Digest: d0d5cb88593652110fc462b38bbe3aaba8314066226c29cb11d2f992fa76fad1
+SQL Text: select low_priority `job_id` , `table_id` , `scan_id` , `scan_range_start` , `scan_range_end` , `expire_time` , `owner_id` , `owner_addr` , `owner_hb_time` , status , `status_update_time` , `state` , `created_time` from `mysql` . `tidb_ttl_task` where status = ? or ( `owner_hb_time` < ? and status = ? ) order by `created_time` asc
+SQL Digest: 69a627a4c17bd4f1bf8b8f7e61782b17ad565e3c73d5e03b1467f9a1937e25e0
+SQL Text: select high_priority `variable_value` from `mysql` . `tidb` where `variable_name` = ?
+SQL Digest: daa7b79e49b8979ee27efa8ca37ddee13e63ebea465515d003cb628784e38bcb
+SQL Text: select * from `mysql` . `tidb_runaway_watch` where start_time > ? order by start_time
+SQL Digest: 273757e3f698a0635fd9b6ca5adce987232bdf7d4791c3922ae44e201bd56d10
+SQL Text: set `tidb_enable_1pc` = on
+SQL Digest: 3953e5ae737b8febcbe4c9b99d098b0d3d569c2ef2cec3de256050aa2c11e530
+SQL Text: set `tidb_enable_async_commit` = off
+SQL Digest: 4ea7e6f540bc0b8f1883fab78f4e1eb32083512545dda38bfb88a70cbb518eb2
+SQL Text: set `tidb_enable_1pc` = off
+SQL Digest: ea4709893ffb8edc8d58191ccbd93c4c4fdfc1d20ebbcc7f48707df328d6dbb2
+SQL Text: select `version` , `table_id` , `modify_count` , `count` from `mysql` . `stats_meta` where `version` > ? order by `version`
+SQL Digest: f6bf821efedfec1e9e6a0744815cf6229f7287e9f78bc4795c66291a96e9df1e
+SQL Text: delete from `mysql` . `bind_info` where status = ? and `update_time` < ?
+SQL Digest: 46421a2d028cfc548ab429155c59884985ad512b8a480607a6c79db36b82d380
+SQL Text: select low_priority `table_id` , `parent_table_id` , `table_statistics` , `last_job_id` , `last_job_start_time` , `last_job_finish_time` , `last_job_ttl_expire` , `last_job_summary` , `current_job_id` , `current_job_owner_id` , `current_job_owner_addr` , `current_job_owner_hb_time` , `current_job_start_time` , `current_job_ttl_expire` , `current_job_state` , `current_job_status` , `current_job_status_update_time` from `mysql` . `tidb_ttl_table_status`
+SQL Digest: d7fc367f4a94f651af8869132775b15d005834c9da1ea93acad50d50eb3a7001
+SQL Text: select `variable_name` , `variable_value` from `mysql` . `global_variables`
+SQL Digest: 0a669dc64fdef87585c88d34586deeab7151bb2e04458c5f644f92c68cc921e9
+SQL Text: select `id` , `task_key` , type , `dispatcher_id` , `state` , start_time , `state_update_time` , `meta` , concurrency , `step` , error from `mysql` . `tidb_global_task` where `state` in ( ... )
+SQL Digest: 6ef5f3622b4885f721b048457a5dbbb19cf168ecaa62ae53fba8b09aa6eb8320
+SQL Text: select `parent_table_id` as `tid` , cast ( `unix_timestamp` ( min ( `create_time` ) ) as signed ) as `job_ts` from ( select `table_id` , `parent_table_id` , max ( `create_time` ) as `create_time` from `mysql` . `tidb_ttl_job_history` where `create_time` > curdate ( ) - interval ? day and status = ? and `json_valid` ( `summary_text` ) and `summary_text`  ? is ? group by `table_id` , `parent_table_id` ) `t` group by `parent_table_id`
+SQL Digest: 9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098
+SQL Text: commit
+SQL Digest: b2b5ad98d2d1d83b906c392192f6cc482abf3f3f2c8f57e6b4b2108462ba332e
+SQL Text: update `mysql` . `bind_info` set source = ? where `original_sql` = ?
+SQL Digest: bcd7df1463335119fc75a5a25ae9cc4fbb2403bad111f18913a53838d1b66b71
+SQL Text: select * from `mysql` . `tidb_runaway_watch_done` where `done_time` > ? order by `done_time`
+SQL Digest: b95a604794f9eff17a1a6a37d754324be11ede348a0d1e53da2bc3c32d6a4142
+SQL Text: select `variable_name` , `variable_value` from `mysql` . `global_variables` where `variable_name` in ( ... )
+SQL Digest: 307313c7c9681e7b8be9e83d48bb6ca0b821c207c7e7981b828d115515c911bc
+SQL Text: begin pessimistic
+SQL Digest: 61f4cce222f1a26d6b0650865051ebed3d077412ae053636e2f5acf9dc426a42
+SQL Text: insert high_priority into `mysql` . `tidb` values ( ... ) on duplicate key update `variable_value` = ? , comment = ?
+SQL Digest: e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5
+SQL Text: begin
+SQL Digest: e2769f5619db3dc4916298c4c6b3bc2c36c6d64a84e2a5549284521482564ce0
+SQL Text: select high_priority ( `variable_value` ) from `mysql` . `tidb` where `variable_name` = ? for update
+SQL Digest: c53bceea7b62bfcbbcfc9d0a4ad5b5c2904ba0f0b60f8052d90d231348734c72
+SQL Text: delete from `mysql` . `stats_extended` where status = ? and `version` < ?
+SQL Digest: 8fb85d058fd499a7a48d294d820f23174907910e25a4c0463617eed21f84080c
+SQL Text: select `table_id` from `mysql` . `stats_meta` where `version` >= ? and `version` < ?
+SQL Digest: 372e2010ba3b46891b9c8ec8b2264af8cd2d88aa657b800cece6decc96e1d917
+SQL Text: insert into `mysql` . `tidb` ( `variable_name` , `variable_value` ) values ( ... ) on duplicate key update `variable_value` = ?
+SQL Digest: 1e3af77503e2fbf987fc6db41c00cf9dd8e6201f979e9a0e533a8cf655dd86f8
+SQL Text: select `id` , `namespace` , `timer_key` , `timer_data` , `timezone` , `sched_policy_type` , `sched_policy_expr` , `hook_class` , `watermark` , enable , `timer_ext` , `event_status` , `event_id` , `event_data` , `event_start` , `summary_data` , `create_time` , `update_time` , `version` from `mysql` . `tidb_timers` where `timer_key` like ?
+SQL Digest: 74487b029c3cb8b65de023793636895488995512d85b98b5ef27aefbec29b89a
+SQL Text: select `sql_digest` , `plan_digest` from `mysql` . `plan_replayer_task`
+SQL Digest: 58e2bff3d770f8cf7a4b8da0c29fc7d4949bccb75daee6f8213e7d58920ed236
+SQL Text: select `id` , `task_key` , type , `dispatcher_id` , `state` , start_time , `state_update_time` , `meta` , concurrency , `step` , error from `mysql` . `tidb_global_task` where `state` in ( ? )
+SQL Digest: 97e96e6bd7726b18acbcdd1d21fa90ac695e47471b3799ceccb35453bacf051a
+SQL Text: insert into `mysql` . `dist_framework_meta` ( `host` , role , `keyspace_id` ) select ... where not exists ( select ? from `mysql` . `dist_framework_meta` where `host` = ? )
+SQL Digest: 6aeb2440e6a4d825d576fa43fc3b9c583f9e74ad9b3f44b64e1da7d03ab63f11
+SQL Text: select count ( ? ) from `mysql` . `stats_meta_history` where `create_time` <= now ( ) - interval ? second
+SQL Digest: 9686cfbfb4a7fc958612fb976fd5a83eb6e860034faa5b9ccc6c7e87ce5fa67c
+SQL Text: select `original_sql` , `bind_sql` , `default_db` , status , `create_time` , `update_time` , charset , collation , source , `sql_digest` , `plan_digest` from `mysql` . `bind_info` where `update_time` > ? order by `update_time` , `create_time`
+SQL Digest: a7a2e14cc037a137aae7273e9fdbc7a2230eee1f2e95d9e9a9afe472f2426a55
+SQL Text: select `table_id` from `mysql` . `stats_table_locked`
