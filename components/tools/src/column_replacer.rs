@@ -1,5 +1,7 @@
 use sqlparser::ast::{
-    AssignmentTarget, Expr, FromTable, FunctionArg, FunctionArgExpr, FunctionArguments, GroupByExpr, Ident, Join, JoinConstraint, JoinOperator, ObjectName, OnInsert, Query, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, UpdateTableFromKind
+    AssignmentTarget, Expr, FromTable, FunctionArg, FunctionArgExpr, FunctionArguments,
+    GroupByExpr, Ident, Join, JoinConstraint, JoinOperator, ObjectName, OnInsert, Query,
+    SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, UpdateTableFromKind,
 };
 use tracing::{debug, warn};
 
@@ -76,12 +78,7 @@ impl ColumnReplacer {
                     self.replace_column_names_in_expr(else_result);
                 }
             }
-            Expr::InSubquery
-            {
-                expr,
-                subquery,
-                ..
-            } => {
+            Expr::InSubquery { expr, subquery, .. } => {
                 debug!("Replacing InSubquery: {:?}", subquery);
                 self.replace_column_names_in_expr(expr);
                 self.replace_column_names_in_query(subquery);
@@ -105,7 +102,8 @@ impl ColumnReplacer {
                 debug!("FunctionArguments::List: {:?}", arg_list);
                 for arg in &mut arg_list.args {
                     match arg {
-                        FunctionArg::ExprNamed { ref mut arg, .. } | FunctionArg::Unnamed(ref mut arg) => {
+                        FunctionArg::ExprNamed { ref mut arg, .. }
+                        | FunctionArg::Unnamed(ref mut arg) => {
                             if let FunctionArgExpr::Expr(ref mut expr) = arg {
                                 debug!("Replacing FunctionArgExpr: {:?}", expr);
                                 self.replace_column_names_in_expr(expr);
@@ -145,7 +143,7 @@ impl ColumnReplacer {
             }
         }
     }
-    
+
     fn replace_select_items(&mut self, select_items: &mut [SelectItem]) {
         for select_item in select_items {
             if let SelectItem::UnnamedExpr(ref mut expr) = select_item {
@@ -153,7 +151,7 @@ impl ColumnReplacer {
             }
         }
     }
-    
+
     fn replace_where_having_and_group_by(&mut self, select: &mut sqlparser::ast::Select) {
         if let Some(where_expr) = &mut select.selection {
             self.replace_column_names_in_expr(where_expr);
@@ -167,7 +165,7 @@ impl ColumnReplacer {
             }
         }
     }
-    
+
     fn replace_from(&mut self, from: &mut Vec<TableWithJoins>) {
         for source in from {
             match &mut source.relation {
@@ -175,7 +173,9 @@ impl ColumnReplacer {
                     debug!("Replacing columns in derived table");
                     self.replace_column_names_in_query(subquery);
                 }
-                TableFactor::NestedJoin { table_with_joins, .. } => {
+                TableFactor::NestedJoin {
+                    table_with_joins, ..
+                } => {
                     debug!("Replacing columns in nested join");
                     self.replace_column_names_in_table_with_joins(table_with_joins);
                 }
@@ -258,7 +258,11 @@ impl ColumnReplacer {
 
     fn replace_column_names_in_table_factor(&mut self, table_factor: &mut TableFactor) {
         match table_factor {
-            TableFactor::Table { ref mut name, alias, .. } => {
+            TableFactor::Table {
+                ref mut name,
+                alias,
+                ..
+            } => {
                 debug!("Replacing columns in table factor: {:?}", name);
                 // Do not replace table names
                 if let Some(alias) = alias {

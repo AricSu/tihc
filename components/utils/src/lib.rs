@@ -1,22 +1,19 @@
-
+pub mod cli_output;
+pub mod error;
+pub mod log;
+pub mod process;
+pub mod profile;
 pub mod read_write;
 pub mod sql_info;
-use serde_json::Value;
-use reqwest;
-use std::{error::Error, io};
-use tracing::{error, info};
-use chrono::prelude::*;
+pub mod time;
+
+use anyhow::{bail, Context};
+pub use error::Result;
 use read_write::save_json_to_file;
+use reqwest;
+use serde_json::Value;
+use tracing::{error, info};
 
-pub fn get_current_unix_time() -> u64 {
-    Utc::now().timestamp() as u64
-}
-
-pub fn get_thirty_minutes_ago() -> u64 {
-    let thirty_minutes_in_seconds = 30 * 60;
-    let current_time = get_current_unix_time();
-    current_time - thirty_minutes_in_seconds
-}
 pub async fn fetch_and_save_json(
     ngurl: String,
     instance: String,
@@ -25,32 +22,34 @@ pub async fn fetch_and_save_json(
     top: u32,
     window: String,
     output_file_path: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let url = format!(
         "http://{}/topsql/v1/sql_duration_count?end={}&instance={}&instance_type=tidb&start={}&top={}&window={}",
         ngurl, end, instance, start, top, window
     );
 
     info!("Request URL: {}", &url);
-    println!("Request URL: {}", &url);
 
-    let response = reqwest::get(&url).await?;
+    let response = reqwest::get(&url).await.context("Failed to fetch data")?;
 
     if !response.status().is_success() {
         error!("Failed to fetch data: {}", response.status());
-        return Err(Box::new(io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to fetch data: {}", response.status()),
-        )));
+        bail!("Failed to fetch data: {}", response.status());
     }
 
-    let mut json: Value = response.json().await?;
+    let mut json: Value = response
+        .json()
+        .await
+        .context("Failed to parse JSON response")?;
 
     remove_hash_fields(&mut json);
 
-    save_json_to_file(&json, output_file_path)?;
+    save_json_to_file(&json, output_file_path).context("Failed to save JSON to file")?;
 
-    info!("Data successfully fetched and saved to {}", output_file_path);
+    info!(
+        "Data successfully fetched and saved to {}",
+        output_file_path
+    );
     Ok(())
 }
 
@@ -70,5 +69,3 @@ fn remove_hash_fields(value: &mut Value) {
         _ => {}
     }
 }
-
-

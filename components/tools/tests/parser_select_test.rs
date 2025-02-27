@@ -110,7 +110,8 @@ fn test_replace_all_column_names_select_with_self_join() {
 
 #[test]
 fn test_replace_all_column_names_select_with_subquery() {
-    let sql = "SELECT a.id, (SELECT name FROM orders WHERE user_id = a.id) FROM users a WHERE a.id = 1";
+    let sql =
+        "SELECT a.id, (SELECT name FROM orders WHERE user_id = a.id) FROM users a WHERE a.id = 1";
     let result = replace_all_column_names(sql);
 
     match result {

@@ -1,49 +1,55 @@
-use clap::{Args, Subcommand};
-use utils::{get_current_unix_time, get_thirty_minutes_ago};
+pub mod collect_pprof;
+pub mod tools_docdb;
 
-// Options for docdb
-#[derive(Args)]
-pub struct DocdbOptions {
-    #[clap(long, default_value = "127.0.0.1:12020", help = "Ng Monitor address")]
-    pub ngurl: String,
+use clap::{Args, Parser, Subcommand};
+use collect_pprof::DebugOptions;
+use tools_docdb::DocdbOptions;
 
-    #[clap(long, default_value = "127.0.0.1:10080", help = "Instance address")]
-    pub instance: String,
+#[derive(Parser)]
+#[clap(
+    name = "tihc",
+    version = "1.0",
+    author = "Author: Aric",
+    about = "TiHC CLI Tool\nEmail: askaric@gmail.com\nDoc: https://www.askaric.com/zh/"
+)]
+pub struct Cli {
+    #[clap(subcommand)]
+    pub command: Commands,
 
-    // 使用函数返回值作为默认值
-    #[clap(long, default_value_t = get_thirty_minutes_ago(), help = "Start time")]
-    pub start: u64,
+    #[clap(
+        long,
+        short = 'l',
+        default_value = "tihc.log",
+        global = true,
+        help = "Log file path"
+    )]
+    pub log_file: String,
 
-    #[clap(long, default_value_t = get_current_unix_time(), help = "End time")]
-    pub end: u64,
-
-    #[clap(long, default_value = "10000", help = "Top results")]
-    pub top: u32,
-
-    #[clap(long, default_value = "2s", help = "Time window")]
-    pub window: String,
-}
-
-// Options for collect
-#[derive(Args)]
-pub struct CollectOptions {
-    #[clap(long, default_value = "127.0.0.1:12020", help = "Ng Monitor address")]
-    pub ngurl: String,
-
-    #[clap(long, default_value = "127.0.0.1:10080", help = "Instance address")]
-    pub instance: String,
+    #[clap(
+        long,
+        short = 'L',
+        default_value = "info",
+        global = true,
+        help = "Log level (trace, debug, info, warn, error)"
+    )]
+    pub log_level: String,
 }
 
 // Subcommands for tools
 #[derive(Subcommand)]
 pub enum ToolsCommands {
     Docdb(DocdbOptions),
-    Collect(CollectOptions),
 }
 
-// Options for chk
+// Subcommands for collect
+#[derive(Subcommand)]
+pub enum CollectCommands {
+    Debug(DebugOptions),
+}
+
+// Options for report
 #[derive(Args)]
-pub struct ChkOptions {
+pub struct ReportOptions {
     #[clap(long, default_value = "127.0.0.1:12020", help = "Ng Monitor address")]
     pub ngurl: String,
 
@@ -56,5 +62,7 @@ pub struct ChkOptions {
 pub enum Commands {
     #[clap(subcommand)]
     Tools(ToolsCommands),
-    Chk(ChkOptions),
+    Report(ReportOptions),
+    #[clap(subcommand)]
+    Collect(CollectCommands),
 }

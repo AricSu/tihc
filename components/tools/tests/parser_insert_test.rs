@@ -6,21 +6,30 @@ mod tests {
     fn test_insert_basic() {
         let sql = "INSERT INTO users (id, name) VALUES (1, 'Alice')";
         let ast = replace_all_column_names(sql);
-        assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice')");
+        assert_eq!(
+            ast.unwrap(),
+            "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice')"
+        );
     }
 
     #[test]
     fn test_insert_multiple_values() {
         let sql = "INSERT INTO users (id, name) VALUES (1, 'Alice'), (2, 'Bob')";
         let ast = replace_all_column_names(sql);
-        assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice'), (2, 'Bob')");
+        assert_eq!(
+            ast.unwrap(),
+            "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice'), (2, 'Bob')"
+        );
     }
 
     #[test]
     fn test_insert_with_columns() {
         let sql = "INSERT INTO users (id, name) VALUES (1, 'Alice')";
         let ast = replace_all_column_names(sql);
-        assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice')");
+        assert_eq!(
+            ast.unwrap(),
+            "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice')"
+        );
     }
 
     #[test]
@@ -34,12 +43,16 @@ mod tests {
     fn test_insert_with_select() {
         let sql = "INSERT INTO users (id, name) SELECT id, name FROM old_users";
         let ast = replace_all_column_names(sql);
-        assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) SELECT tihc, tihc FROM old_users");
+        assert_eq!(
+            ast.unwrap(),
+            "INSERT INTO users (tihc, tihc) SELECT tihc, tihc FROM old_users"
+        );
     }
 
     #[test]
     fn test_insert_on_duplicate_key_update() {
-        let sql = "INSERT INTO users (id, name) VALUES (1, 'Alice') ON DUPLICATE KEY UPDATE name='Alice'";
+        let sql =
+            "INSERT INTO users (id, name) VALUES (1, 'Alice') ON DUPLICATE KEY UPDATE name='Alice'";
         let ast = replace_all_column_names(sql);
         assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice') ON DUPLICATE KEY UPDATE tihc = 'Alice'");
     }
@@ -63,13 +76,19 @@ mod tests {
     fn test_insert_with_default_values() {
         let sql = "INSERT INTO users (id, name) VALUES (DEFAULT, 'Alice')";
         let ast = replace_all_column_names(sql);
-        assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) VALUES (DEFAULT, 'Alice')");
+        assert_eq!(
+            ast.unwrap(),
+            "INSERT INTO users (tihc, tihc) VALUES (DEFAULT, 'Alice')"
+        );
     }
 
     #[test]
     fn test_insert_with_returning() {
         let sql = "INSERT INTO users (id, name) VALUES (1, 'Alice') RETURNING id, name";
         let ast = replace_all_column_names(sql);
-        assert_eq!(ast.unwrap(), "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice') RETURNING tihc, tihc");
+        assert_eq!(
+            ast.unwrap(),
+            "INSERT INTO users (tihc, tihc) VALUES (1, 'Alice') RETURNING tihc, tihc"
+        );
     }
 }

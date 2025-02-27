@@ -7,10 +7,7 @@ fn test_replace_all_column_names_update_simple() {
 
     match result {
         Ok(res) => {
-            assert_eq!(
-                res,
-                "UPDATE users SET tihc = 'John' WHERE tihc = 1"
-            );
+            assert_eq!(res, "UPDATE users SET tihc = 'John' WHERE tihc = 1");
         }
         Err(e) => {
             panic!("Test failed due to error: {}", e);

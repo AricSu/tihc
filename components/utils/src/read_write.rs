@@ -1,10 +1,8 @@
-use std::fs::File;
-use std::io::Write;
+use anyhow::{Context, Result};
 use serde_json::Value;
-use std::error::Error;
 
-pub fn save_json_to_file(json: &Value, file_path: &str) -> Result<(), Box<dyn Error>> {
-    let mut file = File::create(file_path)?;
-    file.write_all(serde_json::to_string_pretty(json)?.as_bytes())?;
+pub fn save_json_to_file(json: &Value, file_path: &str) -> Result<()> {
+    let json_string = serde_json::to_string_pretty(json).context("Failed to serialize JSON")?;
+    std::fs::write(file_path, json_string).context("Failed to write JSON to file")?;
     Ok(())
 }
