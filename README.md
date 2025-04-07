@@ -1,6 +1,6 @@
 # TiHC
 
-
+[github](https://github.com/AricSu/tihc)
 
 you can see more at [tihc doc](https://www.askaric.com/zh/tihc)
 ```

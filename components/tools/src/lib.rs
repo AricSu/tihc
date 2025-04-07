@@ -1,4 +1,7 @@
 pub mod column_replacer;
+pub mod slow_log_retriever;
+pub mod slow_query;
+pub mod slowlog_fields;
 use sqlparser::ast::Statement;
 use sqlparser::dialect::MySqlDialect;
 use sqlparser::parser::Parser;

@@ -1,6 +1,30 @@
 use thiserror::Error;
 
-pub type Result<T> = anyhow::Result<T>;
+#[derive(Debug, Error)]
+pub enum UtilsError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("HTTP error: {0}")]
+    Http(#[from] reqwest::Error),
+
+    #[error("Profile error: {0}")]
+    Profile(String),
+
+    #[error("Process error: {0}")]
+    Process(String),
+
+    #[error("SQL error: {0}")]
+    Sql(String),
+
+    #[error("Config error: {0}")]
+    Config(String),
+
+    #[error("Time error: {0}")]
+    Time(String),
+}
+
+pub type Result<T> = std::result::Result<T, UtilsError>;
 
 #[derive(Debug, Error)]
 pub enum ProfileError {

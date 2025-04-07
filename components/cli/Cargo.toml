@@ -7,3 +7,4 @@ edition = "2021"
 clap = "3.0"
 utils = { path = '../utils' }
 anyhow = "1.0"
+collect = { path = '../collect' }

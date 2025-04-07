@@ -9,10 +9,57 @@ use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
 use tracing::info;
 
 /// 向指定进程直接发送信号
+/// Sends specified signal to a process with validation and retries
+///
+/// # Arguments
+/// * `target_pid` - Valid process ID from sysinfo
+/// * `sig` - [`nix::sys::signal::Signal`] to send
+///
+/// # Errors
+/// Returns error if PID is invalid or signal delivery fails after 3 attempts
 pub fn send_signal_to_pid(target_pid: Pid, sig: Signal) -> Result<(), TestError> {
-    let nix_pid = nix::unistd::Pid::from_raw(target_pid.as_u32() as i32);
-    let _ = kill(nix_pid, sig);
-    Ok(())
+    let pid = target_pid.as_u32() as i32;
+    if pid <= 0 {
+        return Err(TestError::ProcessNotFound("Invalid PID".into()));
+    }
+
+    let nix_pid = nix::unistd::Pid::from_raw(pid);
+    let mut attempts = 3;
+    let mut last_error = None;
+
+    while attempts > 0 {
+        match kill(nix_pid, sig) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                last_error = Some(e);
+                attempts -= 1;
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+    }
+
+    Err(TestError::ProcessNotFound(format!(
+        "Failed to send {} to PID {} after 3 attempts: {:?}",
+        sig, pid, last_error
+    )))
+}
+
+/// Send SIGUSR1 signal to process
+///
+/// # Arguments
+/// * `pid` - Process ID to send signal to
+///
+/// # Errors
+/// Returns error with context if process not found or signal sending fails
+pub fn send_usr1_signal(pid: i32) -> anyhow::Result<()> {
+    if pid <= 0 {
+        return Err(TestError::ProcessNotFound("Invalid PID".into()).into());
+    }
+
+    Ok(send_signal_to_pid(
+        Pid::from(pid as usize),
+        Signal::SIGUSR1,
+    )?)
 }
 
 /// 获取日志绝对路径

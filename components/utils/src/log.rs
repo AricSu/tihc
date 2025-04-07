@@ -55,3 +55,10 @@ pub fn init_logging(log_file_path: &str, log_level: LevelFilter) -> Result<(), s
 
     Ok(())
 }
+
+pub fn generate_log_filename() -> String {
+    format!(
+        "tihc_started_at_{}.log",
+        chrono::Local::now().format("%Y%m%d_%H%M%S")
+    )
+}
