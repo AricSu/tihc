@@ -1,9 +1,10 @@
-use chrono::Offset;
-use sqlx::Executor;
-use std::io::{self, BufRead, Cursor};
+use std::io;
+use futures_util::StreamExt;
+use sqlx::MySqlPool;
+use tempfile;
 use test;
 use tools::{
-    slow_log_retriever::{get_batch_log, parse_time, split_by_colon},
+    slow_log_retriever::{parse_time, split_by_colon},
     slow_query::{DbOps, SlowQueryRow},
 };
 
@@ -103,7 +104,6 @@ fn test_parse_time() {
     }
 }
 
-
 #[test]
 fn test_retriever_parse_log() {
     let slow_log = r#"# Time: 2019-04-28T15:24:04.309074+08:00
@@ -151,8 +151,9 @@ select * from t;"#;
     assert_eq!(actual, expected);
 }
 
-#[test]
-fn test_get_batch_log_edge_cases() {
+
+#[tokio::test]
+async fn test_get_batch_log_edge_cases() {
     let test_cases = vec![
         (
             // 简单单条查询
@@ -166,7 +167,8 @@ SELECT 1;"#,
             r#"# Time: 2023-01-01T00:00:00.000000+08:00
 # Query_time: 0.1
 SELECT * FROM table
-WHERE id = 1;"#,
+WHERE id = 1;
+"#,
             1,
         ),
         (
@@ -176,56 +178,119 @@ WHERE id = 1;"#,
 SELECT 1;
 # Time: 2023-01-01T00:01:00.000000+08:00
 # Query_time: 0.2
-SELECT 2;"#,
+SELECT 2;
+"#,
             2,
         ),
     ];
 
     for (i, (input, expected)) in test_cases.iter().enumerate() {
-        let mut reader = io::BufReader::new(Cursor::new(input));
-        let mut offset = tools::slow_log_retriever::Offset::default();
-        let result = get_batch_log(&mut reader, &mut offset, 1024).unwrap();
-        assert_eq!(result.len(), *expected, "测试用例 {} 失败", i);
+        let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(64);
+
+        // 创建临时文件并设置文件路径
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        temp_file.write_all(input.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+        let file_path = temp_file.path().to_str().unwrap().to_string();
+        
+        // 打开文件并创建 BufReader
+        let file = std::fs::File::open(&file_path).unwrap();
+        let mut reader = io::BufReader::new(file);
+
+        // 使用 get_batch_log 直接获取日志批次
+        let mut offset = 0;
+        let logs = retriever.get_batch_log(&mut reader, &mut offset, *expected).await.unwrap();
+
+        // 验证日志批次的数量
+        assert_eq!(logs.len(), *expected, "测试用例 {} 失败", i);
+
     }
 }
 
+
 #[tokio::test]
-async fn test_import_slow_log_to_db_concurrent() -> Result<(), Box<dyn std::error::Error>> {
-    use sqlx::mysql::MySqlPoolOptions;
+async fn test_slow_query_retriever() -> Result<(), Box<dyn std::error::Error>> {
+    // 初始化日志
+    tracing_subscriber::fmt().init();
 
-    // 2. 使用 parse_data_for_slow_log 解析日志
-    let retriever = tools::slow_log_retriever::SlowQueryRetriever::new(4, 64);
-    let rows = retriever.parse_data_for_slow_log(
-        vec!["/Users/aric/Downloads/tidb_slow_query-2025-03/tidb_slow_query.log".to_string()],
-        4,
-        64
-    )?;
+    // 创建 SlowQueryRetriever 实例，设置批处理大小为 64
+    let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(64);
+
+    // 设置要处理的日志文件路径
+    let log_path = "/Users/aric/Downloads/tidb_slow_query-2025-03/tidb_slow_query.log";
     
-    // 3. 建立数据库连接池
-    let pool = MySqlPoolOptions::new()
-        .max_connections(5)
-        .connect("mysql://root:@127.0.0.1:4000/tihc")
-        .await?;
+    // 打开文件并创建 BufReader
+    let file = std::fs::File::open(log_path)?;
+    let mut reader = io::BufReader::new(file);
 
-    // 4. 初始化数据库环境
+    // 创建 channel 用于接收解析结果
+    let (sender, receiver) = tokio::sync::mpsc::channel(1024);
+
+    // 处理日志文件
+    retriever.parse_slow_log(&mut reader, sender).await?;
+
+    // 修改测试代码
+    let stream = retriever.data_for_slow_log(receiver).await;
+
+    // 验证结果
+    let mut count = 0;
+    let mut stream = Box::pin(stream); // 使用 Box::pin 确保流实现 Unpin
+    while let Some(Ok(rows)) = stream.next().await {
+        count += rows.len();
+    }
+
+    assert!(count > 0, "未解析到任何慢查询日志");
+    tracing::info!("成功解析 {} 条慢查询日志", count);
+
+    Ok(())
+}
+
+
+#[tokio::test]
+async fn test_slow_query_retriever_with_db() -> Result<(), Box<dyn std::error::Error>> {
+    // 初始化日志
+    tracing_subscriber::fmt().init();
+
+    // 创建 SlowQueryRetriever 实例，设置批处理大小为 64
+    let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(64);
+
+    // 设置要处理的日志文件路径
+    let log_path = "/Users/aric/Downloads/tidb_slow_query-2025-03/tidb_slow_query.log";
+    
+    // 打开文件并创建 BufReader
+    let file = std::fs::File::open(log_path)?;
+    let mut reader = io::BufReader::new(file);
+
+    // 创建 channel 用于接收解析结果
+    let (sender, receiver) = tokio::sync::mpsc::channel(1024);
+
+    // 处理日志文件
+    retriever.parse_slow_log(&mut reader, sender).await?;
+
+    // 修改测试代码
+    let stream = retriever.data_for_slow_log(receiver).await;
+
+    // 创建 MySQL 连接池
+    let pool = MySqlPool::connect("mysql://root@127.0.0.1:4000/tihc").await?;
+
+    // 初始化数据库和表
     SlowQueryRow::init_db(&pool).await?;
     SlowQueryRow::drop_table(&pool).await?;
     SlowQueryRow::init_table(&pool).await?;
 
-    // 5. 并发执行插入
-    let mut tasks = Vec::new();
-    for chunk in rows.chunks(1) { // 每个chunk只包含1条记录以测试并发
-        let pool = pool.clone();
-        let chunk = chunk.to_vec();
-        tasks.push(tokio::spawn(async move {
-            SlowQueryRow::batch_insert(&chunk, &pool).await
-        }));
+    // 处理数据流
+    let mut count = 0;
+    let mut stream = Box::pin(stream); // 使用 Box::pin 确保流实现 Unpin
+    while let Some(Ok(rows)) = stream.next().await {
+        count += rows.len();
+        // 写入数据库
+        SlowQueryRow::batch_insert(&rows, &pool).await?;
     }
 
-    // 等待所有任务完成并检查结果
-    for task in tasks {
-        task.await??;
-    }
+    // 验证结果
+    assert!(count > 0, "未解析到任何慢查询日志");
+    tracing::info!("成功解析 {} 条慢查询日志", count);
 
     Ok(())
 }

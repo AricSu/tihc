@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use sqlx::{MySqlPool, QueryBuilder}; // 添加这行
 
-#[derive(Default,Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct SlowQueryRow {
     pub time: String,
     pub txn_start_ts: u64,
@@ -150,7 +150,8 @@ impl DbOps for SlowQueryRow {
                 let offset = FixedOffset::east_opt(-local_offset).unwrap();
 
                 // 根据本地时区偏移量调整时间
-                let adjusted_time = utc_time.with_timezone(&offset)
+                let adjusted_time = utc_time
+                    .with_timezone(&offset)
                     .format("%Y-%m-%d %H:%M:%S%.6f")
                     .to_string();
 
@@ -431,4 +432,3 @@ impl DbOps for SlowQueryRow {
         Ok(())
     }
 }
-

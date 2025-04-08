@@ -1,9 +1,7 @@
 use crate::{slow_query::SlowQueryRow, slowlog_fields::SlowLogFields};
-use std::io::{self, BufRead};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use chrono::DateTime;
-use threadpool::ThreadPool;
-
+use std::io::{self, BufRead};
+use futures::stream::Stream;
 
 pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
     fn is_letter_or_numeric(c: char) -> bool {
@@ -134,22 +132,47 @@ pub fn parse_time(time_str: &str) -> String {
     time_str.to_string()
 }
 
-
 /// 新增通用字段设置方法
-fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str) {
+fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str, line_num: usize) {
+    // 定义一个内部函数来处理解析错误并记录日志
+    fn parse_with_log<T: std::str::FromStr + std::default::Default>(
+        value: &str,
+        field: &str,
+        line_num: usize,
+    ) -> T
+    where
+        T::Err: std::fmt::Display,
+    {
+        match value.parse::<T>() {
+            Ok(val) => val,
+            Err(e) => {
+                tracing::warn!(
+                    "解析慢查询日志字段失败: field={}, value={}, line={}, error={}",
+                    field,
+                    value,
+                    line_num,
+                    e
+                );
+                T::default()
+            }
+        }
+    }
+
     match field {
         // 整数类型
         SlowLogFields::EXEC_RETRY_COUNT => {
-            query.exec_retry_count = value.parse().unwrap_or_default()
+            query.exec_retry_count = parse_with_log(value, field, line_num)
         }
         SlowLogFields::PREPROC_SUBQUERIES => {
-            query.preproc_subqueries = value.parse().unwrap_or_default()
+            query.preproc_subqueries = parse_with_log(value, field, line_num)
         }
-        SlowLogFields::REQUEST_COUNT => query.request_count = value.parse().unwrap_or_default(),
-        SlowLogFields::TOTAL_KEYS => query.total_keys = value.parse().unwrap_or_default(),
-        SlowLogFields::PROCESS_KEYS => query.process_keys = value.parse().unwrap_or_default(),
+        SlowLogFields::REQUEST_COUNT => {
+            query.request_count = parse_with_log(value, field, line_num)
+        }
+        SlowLogFields::TOTAL_KEYS => query.total_keys = parse_with_log(value, field, line_num),
+        SlowLogFields::PROCESS_KEYS => query.process_keys = parse_with_log(value, field, line_num),
         SlowLogFields::ROCKSDB_DELETE_SKIPPED_COUNT => {
-            query.rocksdb_delete_skipped_count = value.parse().unwrap_or_default()
+            query.rocksdb_delete_skipped_count = parse_with_log(value, field, line_num)
         }
         SlowLogFields::ROCKSDB_KEY_SKIPPED_COUNT => {
             query.rocksdb_key_skipped_count = value.parse().unwrap_or_default()
@@ -268,7 +291,6 @@ fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str) {
     }
 }
 
-
 pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
     let mut data = Vec::new();
 
@@ -276,7 +298,9 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
         let mut query = SlowQueryRow::default();
         let mut start_flag = false;
 
-        for line in log {
+        for (index, line) in log.iter().enumerate() {
+            let line_num = index + 1;
+
             // 解析开始标记行
             if line.starts_with(SlowLogFields::START_PREFIX) {
                 query = SlowQueryRow::default();
@@ -300,6 +324,7 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
                         &mut query,
                         SlowLogFields::PREV_STMT,
                         &content[SlowLogFields::PREV_STMT_PREFIX.len()..],
+                        line_num,
                     );
                 } else if content.starts_with(SlowLogFields::USER_AND_HOST) {
                     let value = content
@@ -307,9 +332,9 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
                         .trim();
                     if let Some((user_val, host)) = value.split_once('@') {
                         let user = parse_user_or_host_value(user_val);
-                        set_column_value(&mut query, SlowLogFields::USER, &user);
+                        set_column_value(&mut query, SlowLogFields::USER, &user, line_num);
                         let host = parse_user_or_host_value(host);
-                        set_column_value(&mut query, SlowLogFields::HOST, &host);
+                        set_column_value(&mut query, SlowLogFields::HOST, &host, line_num);
                     }
                 } else if content.starts_with(SlowLogFields::COP_BACKOFF_PREFIX) {
                     let new_detail = content.to_string();
@@ -324,18 +349,20 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
                         &mut query,
                         SlowLogFields::WARNINGS,
                         &content[SlowLogFields::WARNINGS.len() + SlowLogFields::SPACE_MARK.len()..],
+                        line_num,
                     );
                 } else if content.starts_with(SlowLogFields::DB) {
                     set_column_value(
                         &mut query,
                         SlowLogFields::DB,
                         &content[SlowLogFields::DB.len() + SlowLogFields::SPACE_MARK.len()..],
+                        line_num,
                     );
                 } else {
                     // 通用字段解析
                     let (fields, values) = split_by_colon(content);
                     for (field, value) in fields.iter().zip(values.iter()) {
-                        set_column_value(&mut query, field, value);
+                        set_column_value(&mut query, field, value, line_num);
                     }
                 }
             }
@@ -347,7 +374,7 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
                 }
 
                 // 设置最终查询语句
-                query.query = line.to_string();
+                set_column_value(&mut query, SlowLogFields::QUERY, line, line_num);
 
                 // 添加完整查询到结果集
                 data.push(query);
@@ -360,184 +387,125 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
             }
         }
     }
+
     Ok(data)
 }
 
-pub fn get_batch_log<R: BufRead>(
-    reader: &mut R,
-    offset: &mut Offset,
-    batch_size: usize
-) -> io::Result<Vec<Vec<String>>> {
-    let mut logs = Vec::new();
-    let mut current_log = Vec::new();
-    let mut buffer = String::with_capacity(batch_size);
-
-    // 跳过已读取的行
-    for _ in 0..offset.offset {
-        if reader.read_line(&mut buffer)? == 0 {
-            return Ok(logs);
-        }
-        buffer.clear();
-    }
-
-    while reader.read_line(&mut buffer)? > 0 {
-        let line = buffer.trim_end();
-
-        if line.starts_with(SlowLogFields::START_PREFIX) && !current_log.is_empty() {
-            logs.push(current_log);
-            current_log = Vec::new();
-        }
-
-        current_log.push(line.to_string());
-        buffer.clear();
-    }
-
-    // 添加最后一个日志
-    if !current_log.is_empty() {
-        logs.push(current_log);
-    }
-
-    Ok(logs)
-}
-
-
-// 在文件顶部添加以下导入
-use std::sync::{Arc, Mutex, mpsc};
-use std::thread;
-use std::time::Duration;
-
-// 修改 Offset 结构体，实现 Default trait
-#[derive(Debug, Clone, Default)]
-pub struct Offset {
-    offset: usize,
-    length: usize,
-}
-
+/// Main structure for retrieving and processing slow query logs
+#[derive(Debug)]
 pub struct SlowQueryRetriever {
-    max_concurrency: usize, // 最大并发数
-    batch_size: usize, // 每次读取的日志数量
+    /// Number of logs to process in each batch
+    pub batch_size: usize,
+    /// Index of the current file being processed
+    pub current_file_index: usize,
+    /// List of file paths to process
+    pub file_paths: Vec<String>,
+    /// Current line number in the file
+    pub file_line: usize,
 }
-
-
 
 impl SlowQueryRetriever {
-    pub fn new(max_concurrency: usize, batch_size: usize) -> Self {
-        Self { max_concurrency, batch_size }
+    // 简化 new 方法
+    pub fn new(batch_size: usize) -> Self {
+        Self {
+            batch_size: batch_size.clamp(32, 256),
+            current_file_index: 0,
+            file_paths: Vec::new(),
+            file_line: 0,
+        }
+    }
+}
+
+impl SlowQueryRetriever {
+    // 简化 get_next_reader 方法
+    async fn get_next_reader(&mut self) -> io::Result<Option<io::BufReader<std::fs::File>>> {
+        self.current_file_index += 1;
+        if self.current_file_index < self.file_paths.len() {
+            let file = std::fs::File::open(&self.file_paths[self.current_file_index])?;
+            Ok(Some(io::BufReader::new(file)))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn parse_slow_log_concurrent<R: BufRead + Send + 'static>(
-        &self,
-        reader: R,
-        concurrency: usize,
-        batch_size: usize,
-    ) -> io::Result<Vec<SlowQueryRow>> {
-        let (tx, rx) = mpsc::sync_channel(concurrency * 2); // 使用同步通道提高性能
-        let reader = Arc::new(Mutex::new(reader));
-        let active_tasks = Arc::new(AtomicUsize::new(0)); // 使用原子类型替代Mutex
-        let mut offset = Offset::default();
+    // 简化 get_batch_log 方法
+    pub async fn get_batch_log(
+        &mut self,
+        reader: &mut io::BufReader<std::fs::File>,
+        offset: &mut usize,
+        log_num: usize,
+    ) -> io::Result<Vec<Vec<String>>> {
+        let mut logs = Vec::with_capacity(log_num);
+        let mut current_log = Vec::new();
 
-        let handle = thread::spawn(move || -> io::Result<()> {
-            Self::process_logs(reader, active_tasks, tx, concurrency, batch_size, &mut offset)
-        });
+        for _ in 0..log_num {
+            loop {
+                self.file_line += 1;
+                let mut buffer = String::new();
+                if reader.read_line(&mut buffer)? == 0 {
+                    self.file_line = 0;
+                    if let Some(new_reader) = self.get_next_reader().await? {
+                        *reader = new_reader;
+                        continue;
+                    }
+                    if !current_log.is_empty() {
+                        logs.push(current_log);
+                    }
+                    return Ok(logs);
+                }
 
-        let results = Self::collect_results(rx)?;
-        handle.join().map_err(|_| io::Error::new(io::ErrorKind::Other, "Thread panicked"))??;
-        
-        Ok(results)
-    }
+                let line = buffer.trim_end().to_string();
+                current_log.push(line.clone());
 
-    fn process_logs(
-        reader: Arc<Mutex<impl BufRead>>,
-        active_tasks: Arc<AtomicUsize>,
-        tx: mpsc::SyncSender<io::Result<Vec<SlowQueryRow>>>,
-        concurrency: usize,
-        batch_size: usize,
-        offset: &mut Offset,
-    ) -> io::Result<()> {
-        let thread_pool = ThreadPool::new(concurrency);
-
-        loop {
-            while active_tasks.load(Ordering::SeqCst) >= concurrency {
-                thread::sleep(Duration::from_millis(5));
+                if line.ends_with(SlowLogFields::SQL_SUFFIX) 
+                    && !line.starts_with("use") 
+                    && !line.starts_with(SlowLogFields::ROW_PREFIX) {
+                    break;
+                }
             }
 
-            let batch = {
-                let mut locked_reader = reader.lock().unwrap();
-                let batch = get_batch_log(&mut *locked_reader, offset, batch_size)?;
-                
-                // 更新offset
-                offset.offset += batch.iter().map(|log| log.len()).sum::<usize>();
-                offset.length = batch.last().map_or(0, |log| log.len());
-                
-                batch
-            };
+            logs.push(current_log);
+            current_log = Vec::new();
+            *offset += 1;
+        }
 
+        Ok(logs)
+    }
+
+
+
+    // 简化 parse_slow_log 方法
+    pub async fn parse_slow_log(
+        &mut self,
+        reader: &mut io::BufReader<std::fs::File>,
+        sender: tokio::sync::mpsc::Sender<io::Result<Vec<SlowQueryRow>>>,
+    ) -> io::Result<()> {
+        let mut offset = 0;
+
+        while let Ok(batch) = self.get_batch_log(reader, &mut offset, self.batch_size).await {
             if batch.is_empty() {
                 break;
             }
-
-            active_tasks.fetch_add(1, Ordering::SeqCst);
-            let tx = tx.clone();
-            let active_tasks = active_tasks.clone();
-
-            thread_pool.execute(move || {
-                let result = parse_log(&batch);
-                tx.send(result).unwrap();
-                active_tasks.fetch_sub(1, Ordering::SeqCst);
-            });
+            sender.send(parse_log(&batch)).await.map_err(|e| {
+                io::Error::new(io::ErrorKind::Other, format!("Failed to send result: {}", e))
+            })?;
         }
 
-        thread_pool.join();
         Ok(())
     }
 
-    fn collect_results(rx: mpsc::Receiver<io::Result<Vec<SlowQueryRow>>>) -> io::Result<Vec<SlowQueryRow>> {
-        let mut results = Vec::new();
-        while let Ok(result) = rx.recv() {
-            results.extend(result?);
-        }
-        Ok(results)
-    }
-
-    pub fn parse_data_for_slow_log(
-        &self,
-        file_list: Vec<String>,
-        concurrency: usize,
-        batch_size: usize,
-    ) -> io::Result<Vec<SlowQueryRow>> {
-        let mut results = Vec::new();
-        let file_count = file_list.len();
-        let (tx, rx) = mpsc::sync_channel(concurrency);
-
-        thread::scope(|s| {
-            for file_path in file_list.into_iter().rev() {
-                let tx = tx.clone();
-                s.spawn(move || {
-                    let reader = match std::fs::File::open(&file_path) {
-                        Ok(file) => std::io::BufReader::new(file),
-                        Err(e) => {
-                            tracing::warn!("Failed to open file {}: {}", file_path, e);
-                            return;
-                        }
-                    };
-                    
-                    match self.parse_slow_log_concurrent(reader, concurrency, batch_size) {
-                        Ok(rows) => tx.send(Ok(rows)).unwrap(),
-                        Err(e) => {
-                            tracing::error!("Failed to parse log file {}: {}", file_path, e);
-                            tx.send(Err(e)).unwrap();
-                        }
-                    }
-                });
+    // 简化 data_for_slow_log 方法
+    // 修改为返回异步流，解耦合数据库写入操作
+    pub async fn data_for_slow_log(
+        &mut self,
+        receiver: tokio::sync::mpsc::Receiver<io::Result<Vec<SlowQueryRow>>>,
+    ) -> impl futures::Stream<Item = io::Result<Vec<SlowQueryRow>>> + '_ {
+        futures::stream::unfold(receiver, |mut receiver| async move {
+            match receiver.recv().await {
+                Some(Ok(rows)) if !rows.is_empty() => Some((Ok(rows), receiver)),
+                Some(Err(e)) => Some((Err(e), receiver)),
+                _ => None,
             }
-        });
-
-        for _ in 0..file_count {
-            if let Ok(result) = rx.recv() {
-                results.extend(result?);
-            }
-        }
-        
-        Ok(results)
+        })
     }
 }
