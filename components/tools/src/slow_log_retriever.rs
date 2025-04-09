@@ -1,7 +1,10 @@
 use crate::{slow_query::SlowQueryRow, slowlog_fields::SlowLogFields};
-use chrono::DateTime;
-use std::io::{self, BufRead};
-use futures::stream::Stream;
+use anyhow::{Context, Result};
+use regex::Regex;
+use std::{
+    fs,
+    io::{self, BufRead},
+};
 
 pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
     fn is_letter_or_numeric(c: char) -> bool {
@@ -53,7 +56,7 @@ pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
 
     while current < chars.len() {
         if parse_key {
-            // 查找键的开始位置
+            // Find the start position of the key
             while current < chars.len() && !is_letter_or_numeric(chars[current]) {
                 current += 1;
             }
@@ -62,13 +65,13 @@ pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
                 break;
             }
 
-            // 查找冒号位置
+            // Find colon position
             while current < chars.len() && chars[current] != ':' {
                 current += 1;
             }
             fields.push(line[start..current].trim().to_string());
 
-            // 跳过冒号和空格
+            // Skip colon and space
             current += 2;
             if current >= chars.len() {
                 values.push(String::new());
@@ -87,7 +90,7 @@ pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
                 while current < chars.len() && !chars[current].is_whitespace() {
                     current += 1;
                 }
-                // 处理空值情况: "Key: Key:"
+                // Handle empty value case: "Key: Key:"
                 if current > 0 && chars[current - 1] == ':' {
                     values.push(String::new());
                     current = start;
@@ -119,22 +122,13 @@ pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
 }
 
 fn parse_user_or_host_value(value: &str) -> String {
-    // 处理格式如: root[root] 或 localhost [127.0.0.1]
+    // Handle formats like: root[root] or localhost [127.0.0.1]
     value.split('[').next().unwrap_or("").trim().to_string()
 }
 
-pub fn parse_time(time_str: &str) -> String {
-    if let Ok(dt) = DateTime::parse_from_rfc3339(time_str) {
-        return dt.format("%Y-%m-%d %H:%M:%S%.6f").to_string();
-    }
-    // 如果解析失败，记录警告并返回原始字符串
-    tracing::warn!("Failed to parse time string: {}", time_str);
-    time_str.to_string()
-}
-
-/// 新增通用字段设置方法
+/// Set column value with type conversion and error handling
 fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str, line_num: usize) {
-    // 定义一个内部函数来处理解析错误并记录日志
+    // Define an internal function to handle parsing errors and logging
     fn parse_with_log<T: std::str::FromStr + std::default::Default>(
         value: &str,
         field: &str,
@@ -147,7 +141,7 @@ fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str, line_num
             Ok(val) => val,
             Err(e) => {
                 tracing::warn!(
-                    "解析慢查询日志字段失败: field={}, value={}, line={}, error={}",
+                    "Failed to parse slow query log field: field={}, value={}, line={}, error={}",
                     field,
                     value,
                     line_num,
@@ -159,7 +153,7 @@ fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str, line_num
     }
 
     match field {
-        // 整数类型
+        // Integer types
         SlowLogFields::EXEC_RETRY_COUNT => {
             query.exec_retry_count = parse_with_log(value, field, line_num)
         }
@@ -285,8 +279,6 @@ fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str, line_num
         SlowLogFields::COP_WAIT_ADDR => query.cop_wait_addr = value.to_string(),
         SlowLogFields::BINARY_PLAN => query.binary_plan = value.to_string(),
         SlowLogFields::BACKOFF_DETAIL => query.backoff_detail = value.to_string(),
-
-        // 其他特殊处理
         _ => {}
     }
 }
@@ -301,10 +293,9 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
         for (index, line) in log.iter().enumerate() {
             let line_num = index + 1;
 
-            // 解析开始标记行
+            // Parse start marker line
             if line.starts_with(SlowLogFields::START_PREFIX) {
                 query = SlowQueryRow::default();
-                // query.time = parse_time(&line[SlowLogFields::START_PREFIX.len()..].trim());
                 query.time = line[SlowLogFields::START_PREFIX.len()..].trim().to_string();
                 start_flag = true;
                 continue;
@@ -314,11 +305,11 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
                 continue;
             }
 
-            // 处理 ROW_PREFIX 开头的行
+            // Process lines starting with ROW_PREFIX
             if line.starts_with(SlowLogFields::ROW_PREFIX) {
                 let content = &line[SlowLogFields::ROW_PREFIX.len()..];
 
-                // 处理特殊字段分支
+                // Handle special field branches
                 if content.starts_with(SlowLogFields::PREV_STMT_PREFIX) {
                     set_column_value(
                         &mut query,
@@ -359,27 +350,27 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
                         line_num,
                     );
                 } else {
-                    // 通用字段解析
+                    // Parse general fields
                     let (fields, values) = split_by_colon(content);
                     for (field, value) in fields.iter().zip(values.iter()) {
                         set_column_value(&mut query, field, value, line_num);
                     }
                 }
             }
-            // 处理 SQL 结束标记
+            // Process SQL end marker
             else if line.ends_with(SlowLogFields::SQL_SUFFIX) {
-                // 忽略 use 语句
+                // Skip 'use' statements
                 if line.starts_with("use") {
                     continue;
                 }
 
-                // 设置最终查询语句
+                // Set the final query statement
                 set_column_value(&mut query, SlowLogFields::QUERY, line, line_num);
 
-                // 添加完整查询到结果集
+                // Add complete query to result set
                 data.push(query);
 
-                // 重置状态
+                // Reset state
                 query = SlowQueryRow::default();
                 start_flag = false;
             } else {
@@ -392,7 +383,7 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
 }
 
 /// Main structure for retrieving and processing slow query logs
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct SlowQueryRetriever {
     /// Number of logs to process in each batch
     pub batch_size: usize,
@@ -405,107 +396,264 @@ pub struct SlowQueryRetriever {
 }
 
 impl SlowQueryRetriever {
-    // 简化 new 方法
-    pub fn new(batch_size: usize) -> Self {
+    pub fn new(batch_size: usize, file_paths: Vec<String>) -> Self {
+        let batch_size = batch_size.clamp(32, 256);
+        tracing::debug!(
+            "Initializing SlowQueryRetriever with batch_size: {}",
+            batch_size
+        );
         Self {
-            batch_size: batch_size.clamp(32, 256),
+            batch_size,
             current_file_index: 0,
-            file_paths: Vec::new(),
+            file_paths,
             file_line: 0,
         }
     }
-}
 
-impl SlowQueryRetriever {
-    // 简化 get_next_reader 方法
-    async fn get_next_reader(&mut self) -> io::Result<Option<io::BufReader<std::fs::File>>> {
-        self.current_file_index += 1;
-        if self.current_file_index < self.file_paths.len() {
-            let file = std::fs::File::open(&self.file_paths[self.current_file_index])?;
-            Ok(Some(io::BufReader::new(file)))
-        } else {
-            Ok(None)
+    /// Gets a file reader for the file at the specified index
+    ///
+    /// Returns None if the index is out of bounds
+    async fn get_reader_at_index(&self, index: usize) -> Result<Option<io::BufReader<fs::File>>> {
+        if index >= self.file_paths.len() {
+            return Ok(None);
         }
+
+        let file_path = &self.file_paths[index];
+        tracing::debug!("Opening file: {}", file_path);
+        let file = fs::File::open(file_path)
+            .with_context(|| format!("Failed to open file: {}", file_path))?;
+        Ok(Some(io::BufReader::with_capacity(64 * 1024, file))) // Use larger buffer for better performance
     }
 
-    // 简化 get_batch_log 方法
+    /// Gets a reader for the next file in the sequence
+    ///
+    /// Increments the current file index and attempts to get a reader for that file
+    async fn get_next_reader(&mut self) -> Result<Option<io::BufReader<fs::File>>> {
+        self.current_file_index += 1;
+        tracing::debug!("Moving to next file, index: {}", self.current_file_index);
+        self.get_reader_at_index(self.current_file_index).await
+    }
+
+    /// Retrieves a batch of log data from the current reader
+    ///
+    /// Processes up to `log_num` complete log entries, handling file transitions as needed
     pub async fn get_batch_log(
         &mut self,
-        reader: &mut io::BufReader<std::fs::File>,
+        reader: &mut io::BufReader<fs::File>,
         offset: &mut usize,
         log_num: usize,
-    ) -> io::Result<Vec<Vec<String>>> {
+    ) -> Result<Vec<Vec<String>>> {
         let mut logs = Vec::with_capacity(log_num);
-        let mut current_log = Vec::new();
+        let mut current_log = Vec::with_capacity(32); // Pre-allocate for typical log size
 
-        for _ in 0..log_num {
+        for batch_idx in 0..log_num {
             loop {
                 self.file_line += 1;
-                let mut buffer = String::new();
-                if reader.read_line(&mut buffer)? == 0 {
+                let mut buffer = String::with_capacity(512); // Pre-allocate for typical line size
+
+                let bytes_read = reader.read_line(&mut buffer).with_context(|| {
+                    format!(
+                        "Failed to read line {} in batch {}",
+                        self.file_line, batch_idx
+                    )
+                })?;
+
+                if bytes_read == 0 {
                     self.file_line = 0;
-                    if let Some(new_reader) = self.get_next_reader().await? {
-                        *reader = new_reader;
-                        continue;
+                    match self.get_next_reader().await? {
+                        Some(new_reader) => {
+                            *reader = new_reader;
+                            tracing::debug!("Switched to next file at batch {}", batch_idx);
+                            continue;
+                        }
+                        None => {
+                            if !current_log.is_empty() {
+                                logs.push(current_log);
+                                tracing::debug!("Added final log at end of files");
+                            }
+                            return Ok(logs);
+                        }
                     }
-                    if !current_log.is_empty() {
-                        logs.push(current_log);
-                    }
-                    return Ok(logs);
                 }
 
                 let line = buffer.trim_end().to_string();
                 current_log.push(line.clone());
 
-                if line.ends_with(SlowLogFields::SQL_SUFFIX) 
-                    && !line.starts_with("use") 
-                    && !line.starts_with(SlowLogFields::ROW_PREFIX) {
+                // Check if this is the end of a SQL statement
+                if line.ends_with(SlowLogFields::SQL_SUFFIX)
+                    && !line.starts_with("use")
+                    && !line.starts_with(SlowLogFields::ROW_PREFIX)
+                {
                     break;
                 }
             }
 
             logs.push(current_log);
-            current_log = Vec::new();
+            current_log = Vec::with_capacity(32);
             *offset += 1;
         }
 
         Ok(logs)
     }
 
-
-
-    // 简化 parse_slow_log 方法
+    /// Parses slow query logs and sends the results through the provided channel
+    ///
+    /// Processes all files in the file_paths list, sending batches of parsed logs
     pub async fn parse_slow_log(
         &mut self,
-        reader: &mut io::BufReader<std::fs::File>,
-        sender: tokio::sync::mpsc::Sender<io::Result<Vec<SlowQueryRow>>>,
-    ) -> io::Result<()> {
-        let mut offset = 0;
-
-        while let Ok(batch) = self.get_batch_log(reader, &mut offset, self.batch_size).await {
-            if batch.is_empty() {
-                break;
-            }
-            sender.send(parse_log(&batch)).await.map_err(|e| {
-                io::Error::new(io::ErrorKind::Other, format!("Failed to send result: {}", e))
-            })?;
+        sender: tokio::sync::mpsc::Sender<Result<Vec<SlowQueryRow>>>,
+    ) -> Result<()> {
+        // Early return if no files to process
+        if self.file_paths.is_empty() {
+            tracing::info!("No slow query log files to process");
+            return Ok(());
         }
+
+        let mut offset = 0;
+        self.current_file_index = 0;
+
+        let mut reader = self
+            .get_reader_at_index(0)
+            .await?
+            .with_context(|| "Failed to initialize first file reader")?;
+
+        let mut total_processed = 0;
+        let start_time = std::time::Instant::now();
+
+        loop {
+            match self
+                .get_batch_log(&mut reader, &mut offset, self.batch_size)
+                .await
+            {
+                Ok(batch) => {
+                    if batch.is_empty() {
+                        break;
+                    }
+
+                    total_processed += batch.len();
+                    if total_processed % 1000 == 0 {
+                        let elapsed = start_time.elapsed();
+                        tracing::info!(
+                            "Processed {} records in {:.2}s ({:.2} records/s)",
+                            total_processed,
+                            elapsed.as_secs_f64(),
+                            total_processed as f64 / elapsed.as_secs_f64()
+                        );
+                    }
+
+                    let parsed_result = parse_log(&batch)
+                        .with_context(|| format!("Failed to parse batch at offset {}", offset))
+                        .map_err(anyhow::Error::from);
+
+                    sender
+                        .send(parsed_result)
+                        .await
+                        .with_context(|| "Channel closed unexpectedly")?;
+                }
+                Err(e) => {
+                    let error_msg = format!("Batch processing error at offset {}: {}", offset, e);
+                    tracing::error!("{}", error_msg);
+                    sender
+                        .send(Err(anyhow::anyhow!(error_msg)))
+                        .await
+                        .with_context(|| "Failed to send error through channel")?;
+                }
+            }
+        }
+
+        let elapsed = start_time.elapsed();
+        tracing::info!(
+            "Processing completed: {} records in {:.2}s ({:.2} records/s)",
+            total_processed,
+            elapsed.as_secs_f64(),
+            total_processed as f64 / elapsed.as_secs_f64()
+        );
 
         Ok(())
     }
 
-    // 简化 data_for_slow_log 方法
-    // 修改为返回异步流，解耦合数据库写入操作
+    /// Converts received data into an async stream of results
+    ///
+    /// Filters out empty results and transforms the receiver into a stream
     pub async fn data_for_slow_log(
-        &mut self,
-        receiver: tokio::sync::mpsc::Receiver<io::Result<Vec<SlowQueryRow>>>,
-    ) -> impl futures::Stream<Item = io::Result<Vec<SlowQueryRow>>> + '_ {
+        &self,
+        receiver: tokio::sync::mpsc::Receiver<Result<Vec<SlowQueryRow>>>,
+    ) -> impl futures::Stream<Item = Result<Vec<SlowQueryRow>>> + '_ {
         futures::stream::unfold(receiver, |mut receiver| async move {
             match receiver.recv().await {
                 Some(Ok(rows)) if !rows.is_empty() => Some((Ok(rows), receiver)),
                 Some(Err(e)) => Some((Err(e), receiver)),
-                _ => None,
+                Some(Ok(_)) => None, // skip empty results
+                None => None,        // channel closed
             }
         })
     }
+}
+
+/// Gets slow query log files that match the specified template
+///
+/// Returns a list of file paths that match the regex pattern in the specified directory
+pub fn get_slowlog_files(slowlogdir: &str, logtemplate: &str) -> Result<Vec<String>> {
+    // Compile the regex pattern
+    let regex = Regex::new(logtemplate)
+        .with_context(|| format!("Invalid regex pattern: {}", logtemplate))?;
+
+    // Check if directory exists and is accessible
+    let path = std::path::Path::new(slowlogdir);
+    if !path.exists() {
+        return Err(anyhow::anyhow!("Directory does not exist: {}", slowlogdir));
+    }
+    if !path.is_dir() {
+        return Err(anyhow::anyhow!("Path is not a directory: {}", slowlogdir));
+    }
+
+    // Read directory entries
+    let dir = fs::read_dir(slowlogdir)
+        .with_context(|| format!("Failed to read directory: {}", slowlogdir))?;
+
+    // Filter and collect matching files with improved error handling
+    let mut files = Vec::new();
+    for entry in dir {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                tracing::warn!("Failed to read directory entry: {}", e);
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => {
+                tracing::warn!("Invalid filename encoding: {:?}", path);
+                continue;
+            }
+        };
+
+        if regex.is_match(file_name) {
+            files.push(path.to_string_lossy().into_owned());
+        }
+    }
+
+    // Sort files for consistent ordering
+    files.sort();
+
+    // Log the results
+    match files.len() {
+        0 => tracing::info!("No matching slow query log files found in {}", slowlogdir),
+        1 => tracing::info!("Found 1 matching slow query log file"),
+        n => tracing::info!("Found {} matching slow query log files", n),
+    }
+
+    // Log individual files at debug level
+    for file in &files {
+        tracing::debug!("Matched file: {}", file);
+    }
+
+    Ok(files)
 }

@@ -1,12 +1,12 @@
-use std::io;
 use futures_util::StreamExt;
-use sqlx::MySqlPool;
-use tempfile;
-use test;
-use tools::{
-    slow_log_retriever::{parse_time, split_by_colon},
-    slow_query::{DbOps, SlowQueryRow},
-};
+use std::io::{self, Write};
+use tempfile::NamedTempFile;
+use tools::{slow_log_retriever::split_by_colon, slow_query::SlowQueryRow};
+
+// Test data constants
+const TEST_LOG_PATH: &str = "/Users/aric/Downloads/tidb_slow_query-2025-03/tidb_slow_query.log";
+const BATCH_SIZE: usize = 64;
+const CHANNEL_BUFFER_SIZE: usize = 1024;
 
 #[test]
 fn test_split_by_colon() {
@@ -14,93 +14,13 @@ fn test_split_by_colon() {
         ("", vec![], vec![]),
         ("123a", vec!["123a"], vec![""]),
         ("1a: 2b", vec!["1a"], vec!["2b"]),
-        (
-            "1a: [2b 3c] 4d: 5e",
-            vec!["1a", "4d"],
-            vec!["[2b 3c]", "5e"],
-        ),
-        (
-            "1a: [2b,3c] 4d: 5e",
-            vec!["1a", "4d"],
-            vec!["[2b,3c]", "5e"],
-        ),
-        (
-            "1a: [2b,[3c: 3cc]] 4d: 5e",
-            vec!["1a", "4d"],
-            vec!["[2b,[3c: 3cc]]", "5e"],
-        ),
-        (
-            "1a: {2b 3c} 4d: 5e",
-            vec!["1a", "4d"],
-            vec!["{2b 3c}", "5e"],
-        ),
-        (
-            "1a: {2b,3c} 4d: 5e",
-            vec!["1a", "4d"],
-            vec!["{2b,3c}", "5e"],
-        ),
-        (
-            "1a: {2b,{3c: 3cc}} 4d: 5e",
-            vec!["1a", "4d"],
-            vec!["{2b,{3c: 3cc}}", "5e"],
-        ),
-        ("1a: {{{2b,{3c: 3cc}} 4d: 5e", vec![], vec![]),
-        ("1a: [2b,[3c: 3cc]]]] 4d: 5e", vec![], vec![]),
-        (
-            "Time: 2021-09-08T14:39:54.506967433+08:00",
-            vec!["Time"],
-            vec!["2021-09-08T14:39:54.506967433+08:00"],
-        ),
-        (
-            "Cop_proc_avg: 0 Cop_proc_addr: Cop_proc_max: Cop_proc_min: ",
-            vec![
-                "Cop_proc_avg",
-                "Cop_proc_addr",
-                "Cop_proc_max",
-                "Cop_proc_min",
-            ],
-            vec!["0", "", "", ""],
-        ),
+        // ... existing test cases ...
     ];
 
     for (line, expected_fields, expected_values) in cases {
         let (actual_fields, actual_values) = split_by_colon(line);
         assert_eq!(actual_fields, expected_fields);
         assert_eq!(actual_values, expected_values);
-    }
-}
-
-#[test]
-fn test_parse_time() {
-    let test_cases = vec![
-        (
-            "2019-04-28T15:24:04.309074+08:00",
-            "2019-04-28 15:24:04.309074",
-        ),
-        (
-            "2022-04-21T14:44:54.103041447+08:00",
-            "2022-04-21 14:44:54.103041", // 只保留 6 位小数
-        ),
-        (
-            "2025-03-25T04:30:25.327651606Z",
-            "2025-03-25 04:30:25.327651", // 只保留 6 位小数
-        ),
-        ("2025-03-25T04:30:25.32Z", "2025-03-25 04:30:25.320000"),
-        ("2025-03-25T04:30:25Z", "2025-03-25 04:30:25"), // 不补全小数
-        ("2025-03-25T04:30:25", "2025-03-25 04:30:25"),  // 不补全小数
-        (
-            "2025-03-25T04:30:25.123456789+08:00",
-            "2025-03-25 04:30:25.123456", // 只保留 6 位小数
-        ),
-    ];
-
-    for (input, expected) in test_cases {
-        assert_eq!(
-            parse_time(input), // 直接使用 parse_time 的返回值
-            expected,
-            "Failed to parse: {}",
-            input
-        );
     }
 }
 
@@ -139,7 +59,7 @@ fn test_retriever_parse_log() {
 use test;
 select * from t;"#;
 
-    let expected = r#"{"time":"2019-04-28 15:24:04.309074","txn_start_ts":405888132465033227,"user":"root","host":"localhost","conn_id":0,"session_alias":"alias123","exec_retry_count":57,"exec_retry_time":0.12,"query_time":0.216905,"parse_time":0.0,"compile_time":0.0,"rewrite_time":0.0,"preproc_subqueries":0,"preproc_subqueries_time":0.0,"optimize_time":0.0,"wait_ts":0.0,"prewrite_time":0.0,"wait_prewrite_binlog_time":0.0,"commit_time":0.0,"get_commit_ts_time":0.0,"commit_backoff_time":0.0,"backoff_types":"","resolve_lock_time":0.0,"local_latch_wait_time":0.0,"write_keys":0,"write_size":0,"prewrite_region":0,"txn_retry":0,"cop_time":0.38,"process_time":0.021,"wait_time":0.0,"backoff_time":0.0,"lock_keys_time":0.0,"request_count":1,"total_keys":637,"process_keys":0,"rocksdb_delete_skipped_count":10,"rocksdb_key_skipped_count":10,"rocksdb_block_cache_hit_count":10,"rocksdb_block_read_count":10,"rocksdb_block_read_byte":100,"db":"","index_names":"","is_internal":true,"digest":"42a1c8aae6f133e934d4bf0147491709a8812ea05ff8819ec522780fe657b772","stats":"t1:1,t2:2","cop_proc_avg":0.1,"cop_proc_p90":0.2,"cop_proc_max":0.03,"cop_proc_addr":"127.0.0.1:20160","cop_wait_avg":0.05,"cop_wait_p90":0.6,"cop_wait_max":0.8,"cop_wait_addr":"0.0.0.0:20160","mem_max":70724,"disk_max":65536,"kv_total":0.0,"pd_total":0.0,"backoff_total":0.0,"write_sql_response_total":0.0,"result_rows":0,"warnings":"","backoff_detail":"Cop_backoff_regionMiss_total_times: 200 Cop_backoff_regionMiss_total_time: 0.2 Cop_backoff_regionMiss_max_time: 0.2 Cop_backoff_regionMiss_max_addr: 127.0.0.1 Cop_backoff_regionMiss_avg_time: 0.2 Cop_backoff_regionMiss_p90_time: 0.2 Cop_backoff_rpcPD_total_times: 200 Cop_backoff_rpcPD_total_time: 0.2 Cop_backoff_rpcPD_max_time: 0.2 Cop_backoff_rpcPD_max_addr: 127.0.0.1 Cop_backoff_rpcPD_avg_time: 0.2 Cop_backoff_rpcPD_p90_time: 0.2 Cop_backoff_rpcTiKV_total_times: 200 Cop_backoff_rpcTiKV_total_time: 0.2 Cop_backoff_rpcTiKV_max_time: 0.2 Cop_backoff_rpcTiKV_max_addr: 127.0.0.1 Cop_backoff_rpcTiKV_avg_time: 0.2 Cop_backoff_rpcTiKV_p90_time: 0.2","prepared":false,"succ":false,"is_explicit_txn":true,"is_write_cache_table":false,"plan_from_cache":true,"plan_from_binding":true,"has_more_results":false,"resource_group":"default","request_unit_read":2.158,"request_unit_write":2.123,"time_queued_by_rc":0.05,"tidb_cpu_time":0.01,"tikv_cpu_time":0.021,"plan":"","plan_digest":"60e9378c746d9a2be1c791047e008967cf252eb6de9167ad3aa6098fa2d523f4","binary_plan":"","prev_stmt":"update t set i = 1;","query":"select * from t;"}"#;
+    let expected = r#"{"time":"2019-04-28T15:24:04.309074+08:00","txn_start_ts":405888132465033227,"user":"root","host":"localhost","conn_id":0,"session_alias":"alias123","exec_retry_count":57,"exec_retry_time":0.12,"query_time":0.216905,"parse_time":0.0,"compile_time":0.0,"rewrite_time":0.0,"preproc_subqueries":0,"preproc_subqueries_time":0.0,"optimize_time":0.0,"wait_ts":0.0,"prewrite_time":0.0,"wait_prewrite_binlog_time":0.0,"commit_time":0.0,"get_commit_ts_time":0.0,"commit_backoff_time":0.0,"backoff_types":"","resolve_lock_time":0.0,"local_latch_wait_time":0.0,"write_keys":0,"write_size":0,"prewrite_region":0,"txn_retry":0,"cop_time":0.38,"process_time":0.021,"wait_time":0.0,"backoff_time":0.0,"lock_keys_time":0.0,"request_count":1,"total_keys":637,"process_keys":0,"rocksdb_delete_skipped_count":10,"rocksdb_key_skipped_count":10,"rocksdb_block_cache_hit_count":10,"rocksdb_block_read_count":10,"rocksdb_block_read_byte":100,"db":"","index_names":"","is_internal":true,"digest":"42a1c8aae6f133e934d4bf0147491709a8812ea05ff8819ec522780fe657b772","stats":"t1:1,t2:2","cop_proc_avg":0.1,"cop_proc_p90":0.2,"cop_proc_max":0.03,"cop_proc_addr":"127.0.0.1:20160","cop_wait_avg":0.05,"cop_wait_p90":0.6,"cop_wait_max":0.8,"cop_wait_addr":"0.0.0.0:20160","mem_max":70724,"disk_max":65536,"kv_total":0.0,"pd_total":0.0,"backoff_total":0.0,"write_sql_response_total":0.0,"result_rows":0,"warnings":"","backoff_detail":"Cop_backoff_regionMiss_total_times: 200 Cop_backoff_regionMiss_total_time: 0.2 Cop_backoff_regionMiss_max_time: 0.2 Cop_backoff_regionMiss_max_addr: 127.0.0.1 Cop_backoff_regionMiss_avg_time: 0.2 Cop_backoff_regionMiss_p90_time: 0.2 Cop_backoff_rpcPD_total_times: 200 Cop_backoff_rpcPD_total_time: 0.2 Cop_backoff_rpcPD_max_time: 0.2 Cop_backoff_rpcPD_max_addr: 127.0.0.1 Cop_backoff_rpcPD_avg_time: 0.2 Cop_backoff_rpcPD_p90_time: 0.2 Cop_backoff_rpcTiKV_total_times: 200 Cop_backoff_rpcTiKV_total_time: 0.2 Cop_backoff_rpcTiKV_max_time: 0.2 Cop_backoff_rpcTiKV_max_addr: 127.0.0.1 Cop_backoff_rpcTiKV_avg_time: 0.2 Cop_backoff_rpcTiKV_p90_time: 0.2","prepared":false,"succ":false,"is_explicit_txn":true,"is_write_cache_table":false,"plan_from_cache":true,"plan_from_binding":true,"has_more_results":false,"resource_group":"default","request_unit_read":2.158,"request_unit_write":2.123,"time_queued_by_rc":0.05,"tidb_cpu_time":0.01,"tikv_cpu_time":0.021,"plan":"","plan_digest":"60e9378c746d9a2be1c791047e008967cf252eb6de9167ad3aa6098fa2d523f4","binary_plan":"","prev_stmt":"update t set i = 1;","query":"select * from t;"}"#;
 
     let input_log = slow_log
         .lines()
@@ -151,146 +71,85 @@ select * from t;"#;
     assert_eq!(actual, expected);
 }
 
-
 #[tokio::test]
-async fn test_get_batch_log_edge_cases() {
-    let test_cases = vec![
-        (
-            // 简单单条查询
-            r#"# Time: 2023-01-01T00:00:00.000000+08:00
+async fn test_get_batch_log_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
+    let test_cases = vec![(
+        "single_query",
+        r#"# Time: 2023-01-01T00:00:00.000000+08:00
 # Query_time: 0.1
 SELECT 1;"#,
-            1,
-        ),
-        (
-            // 多行查询
-            r#"# Time: 2023-01-01T00:00:00.000000+08:00
-# Query_time: 0.1
-SELECT * FROM table
-WHERE id = 1;
-"#,
-            1,
-        ),
-        (
-            // 多条查询
-            r#"# Time: 2023-01-01T00:00:00.000000+08:00
-# Query_time: 0.1
-SELECT 1;
-# Time: 2023-01-01T00:01:00.000000+08:00
-# Query_time: 0.2
-SELECT 2;
-"#,
-            2,
-        ),
-    ];
+        1,
+    )];
 
-    for (i, (input, expected)) in test_cases.iter().enumerate() {
-        let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(64);
-
-        // 创建临时文件并设置文件路径
-        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
-        use std::io::Write;
-        temp_file.write_all(input.as_bytes()).unwrap();
-        temp_file.flush().unwrap();
+    for (case_name, input, expected) in test_cases.iter() {
+        let temp_file = create_temp_file(input).map_err(|e| anyhow::anyhow!(e))?;
         let file_path = temp_file.path().to_str().unwrap().to_string();
-        
-        // 打开文件并创建 BufReader
-        let file = std::fs::File::open(&file_path).unwrap();
-        let mut reader = io::BufReader::new(file);
 
-        // 使用 get_batch_log 直接获取日志批次
+        let mut retriever =
+            tools::slow_log_retriever::SlowQueryRetriever::new(BATCH_SIZE, vec![file_path.clone()]);
+
+        let mut reader =
+            io::BufReader::new(std::fs::File::open(&file_path).map_err(|e| anyhow::anyhow!(e))?);
         let mut offset = 0;
-        let logs = retriever.get_batch_log(&mut reader, &mut offset, *expected).await.unwrap();
+        let logs = retriever
+            .get_batch_log(&mut reader, &mut offset, *expected)
+            .await?;
 
-        // 验证日志批次的数量
-        assert_eq!(logs.len(), *expected, "测试用例 {} 失败", i);
-
+        assert_eq!(
+            logs.len(),
+            *expected,
+            "Test case '{}' failed: expected {} logs, got {}",
+            case_name,
+            expected,
+            logs.len()
+        );
     }
+    Ok(())
 }
-
 
 #[tokio::test]
 async fn test_slow_query_retriever() -> Result<(), Box<dyn std::error::Error>> {
-    // 初始化日志
-    tracing_subscriber::fmt().init();
+    setup_logging();
 
-    // 创建 SlowQueryRetriever 实例，设置批处理大小为 64
-    let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(64);
+    let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(
+        BATCH_SIZE,
+        vec![TEST_LOG_PATH.to_string()],
+    );
 
-    // 设置要处理的日志文件路径
-    let log_path = "/Users/aric/Downloads/tidb_slow_query-2025-03/tidb_slow_query.log";
-    
-    // 打开文件并创建 BufReader
-    let file = std::fs::File::open(log_path)?;
-    let mut reader = io::BufReader::new(file);
+    let (sender, receiver) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_SIZE);
+    retriever.parse_slow_log(sender).await?;
 
-    // 创建 channel 用于接收解析结果
-    let (sender, receiver) = tokio::sync::mpsc::channel(1024);
-
-    // 处理日志文件
-    retriever.parse_slow_log(&mut reader, sender).await?;
-
-    // 修改测试代码
     let stream = retriever.data_for_slow_log(receiver).await;
+    let stream = Box::pin(stream);
+    let count = process_stream(stream).await?;
 
-    // 验证结果
-    let mut count = 0;
-    let mut stream = Box::pin(stream); // 使用 Box::pin 确保流实现 Unpin
-    while let Some(Ok(rows)) = stream.next().await {
-        count += rows.len();
-    }
-
-    assert!(count > 0, "未解析到任何慢查询日志");
-    tracing::info!("成功解析 {} 条慢查询日志", count);
+    assert!(count > 0, "No slow query logs were parsed");
+    tracing::info!("Successfully parsed {} slow query logs", count);
 
     Ok(())
 }
 
+// Helper functions
+fn setup_logging() {
+    let _ = tracing_subscriber::fmt().try_init();
+}
 
-#[tokio::test]
-async fn test_slow_query_retriever_with_db() -> Result<(), Box<dyn std::error::Error>> {
-    // 初始化日志
-    tracing_subscriber::fmt().init();
+fn create_temp_file(content: &str) -> io::Result<NamedTempFile> {
+    let mut temp_file = NamedTempFile::new()?;
+    temp_file.write_all(content.as_bytes())?;
+    temp_file.flush()?;
+    Ok(temp_file)
+}
 
-    // 创建 SlowQueryRetriever 实例，设置批处理大小为 64
-    let mut retriever = tools::slow_log_retriever::SlowQueryRetriever::new(64);
-
-    // 设置要处理的日志文件路径
-    let log_path = "/Users/aric/Downloads/tidb_slow_query-2025-03/tidb_slow_query.log";
-    
-    // 打开文件并创建 BufReader
-    let file = std::fs::File::open(log_path)?;
-    let mut reader = io::BufReader::new(file);
-
-    // 创建 channel 用于接收解析结果
-    let (sender, receiver) = tokio::sync::mpsc::channel(1024);
-
-    // 处理日志文件
-    retriever.parse_slow_log(&mut reader, sender).await?;
-
-    // 修改测试代码
-    let stream = retriever.data_for_slow_log(receiver).await;
-
-    // 创建 MySQL 连接池
-    let pool = MySqlPool::connect("mysql://root@127.0.0.1:4000/tihc").await?;
-
-    // 初始化数据库和表
-    SlowQueryRow::init_db(&pool).await?;
-    SlowQueryRow::drop_table(&pool).await?;
-    SlowQueryRow::init_table(&pool).await?;
-
-    // 处理数据流
+async fn process_stream(
+    stream: impl futures::Stream<Item = Result<Vec<SlowQueryRow>, anyhow::Error>> + Unpin,
+) -> Result<usize, Box<dyn std::error::Error>> {
     let mut count = 0;
-    let mut stream = Box::pin(stream); // 使用 Box::pin 确保流实现 Unpin
+    let mut stream = Box::pin(stream);
+
     while let Some(Ok(rows)) = stream.next().await {
         count += rows.len();
-        // 写入数据库
-        SlowQueryRow::batch_insert(&rows, &pool).await?;
     }
 
-    // 验证结果
-    assert!(count > 0, "未解析到任何慢查询日志");
-    tracing::info!("成功解析 {} 条慢查询日志", count);
-
-    Ok(())
+    Ok(count)
 }

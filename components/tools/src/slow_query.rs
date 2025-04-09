@@ -1,7 +1,7 @@
-use chrono::{DateTime, FixedOffset, Local, Offset, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use sqlx::{MySqlPool, QueryBuilder}; // 添加这行
+use sqlx::{MySqlPool, QueryBuilder};
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct SlowQueryRow {
@@ -95,16 +95,35 @@ impl std::fmt::Display for SlowQueryRow {
 }
 
 pub trait DbOps {
-    async fn batch_insert(rows: &[Self], pool: &MySqlPool) -> Result<(), sqlx::Error>
+    fn batch_insert(
+        rows: &[Self],
+        pool: &MySqlPool,
+        db: &str,
+        tz: &str,
+    ) -> impl std::future::Future<Output = Result<(), sqlx::Error>> + Send
     where
         Self: Sized;
-    async fn init_db(pool: &MySqlPool) -> Result<(), sqlx::Error>;
-    async fn init_table(pool: &MySqlPool) -> Result<(), sqlx::Error>;
-    async fn drop_table(pool: &MySqlPool) -> Result<(), sqlx::Error>;
+    fn init_db(
+        pool: &MySqlPool,
+        db: &str,
+    ) -> impl std::future::Future<Output = Result<(), sqlx::Error>> + Send;
+    fn init_table(
+        pool: &MySqlPool,
+        db: &str,
+    ) -> impl std::future::Future<Output = Result<(), sqlx::Error>> + Send;
+    fn drop_table(
+        pool: &MySqlPool,
+        db: &str,
+    ) -> impl std::future::Future<Output = Result<(), sqlx::Error>> + Send;
 }
 
 impl DbOps for SlowQueryRow {
-    async fn batch_insert(rows: &[Self], pool: &MySqlPool) -> Result<(), sqlx::Error> {
+    async fn batch_insert(
+        rows: &[Self],
+        pool: &MySqlPool,
+        db: &str,
+        tz: &str,
+    ) -> Result<(), sqlx::Error> {
         if rows.is_empty() {
             return Ok(());
         }
@@ -112,9 +131,9 @@ impl DbOps for SlowQueryRow {
         let mut tx = pool.begin().await?;
 
         for chunk in rows.chunks(10) {
-            let mut builder = QueryBuilder::new("INSERT INTO CLUSTER_SLOW_QUERY (");
+            let mut builder = QueryBuilder::new(format!("INSERT INTO {}.CLUSTER_SLOW_QUERY (", db));
 
-            // 添加所有字段
+            // Add all fields
             builder.push("time, txn_start_ts, user, host, conn_id, session_alias, exec_retry_count, \
                 exec_retry_time, query_time, parse_time, compile_time, rewrite_time, preproc_subqueries, \
                 preproc_subqueries_time, optimize_time, wait_ts, prewrite_time, wait_prewrite_binlog_time, \
@@ -140,20 +159,7 @@ impl DbOps for SlowQueryRow {
                 }
                 first = false;
 
-                // 解析时间字符串为 DateTime<Utc>
-                let utc_time = DateTime::parse_from_rfc3339(&row.time)
-                    .expect("Failed to parse time")
-                    .with_timezone(&Utc);
-
-                // 获取本地时区偏移量
-                let local_offset = Local::now().offset().fix().local_minus_utc();
-                let offset = FixedOffset::east_opt(-local_offset).unwrap();
-
-                // 根据本地时区偏移量调整时间
-                let adjusted_time = utc_time
-                    .with_timezone(&offset)
-                    .format("%Y-%m-%d %H:%M:%S%.6f")
-                    .to_string();
+                let adjusted_time = parse_time(&row.time, tz);
 
                 builder
                     .push_bind(adjusted_time)
@@ -326,16 +332,16 @@ impl DbOps for SlowQueryRow {
         Ok(())
     }
 
-    async fn init_db(pool: &MySqlPool) -> Result<(), sqlx::Error> {
-        sqlx::query("CREATE DATABASE IF NOT EXISTS tihc")
+    async fn init_db(pool: &MySqlPool, db: &str) -> Result<(), sqlx::Error> {
+        sqlx::query(&format!("CREATE DATABASE IF NOT EXISTS {}", db))
             .execute(pool)
             .await?;
         Ok(())
     }
 
-    async fn init_table(pool: &MySqlPool) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"CREATE TABLE IF NOT EXISTS `CLUSTER_SLOW_QUERY` (
+    async fn init_table(pool: &MySqlPool, db: &str) -> Result<(), sqlx::Error> {
+        sqlx::query(&format!(
+            r#"CREATE TABLE IF NOT EXISTS {}.CLUSTER_SLOW_QUERY (
                 `ID` bigint unsigned NOT NULL AUTO_RANDOM PRIMARY KEY,
                 `Time` timestamp(6) NOT NULL,
                 `Txn_start_ts` bigint unsigned DEFAULT NULL,
@@ -419,16 +425,53 @@ impl DbOps for SlowQueryRow {
                 `Prev_stmt` longtext DEFAULT NULL,
                 `Query` longtext DEFAULT NULL
                 )"#,
-        )
+            db
+        ))
         .execute(pool)
         .await?;
         Ok(())
     }
 
-    async fn drop_table(pool: &MySqlPool) -> Result<(), sqlx::Error> {
-        sqlx::query("DROP TABLE IF EXISTS CLUSTER_SLOW_QUERY")
+    async fn drop_table(pool: &MySqlPool, db: &str) -> Result<(), sqlx::Error> {
+        sqlx::query(&format!("DROP TABLE IF EXISTS {}.CLUSTER_SLOW_QUERY", db))
             .execute(pool)
             .await?;
         Ok(())
+    }
+}
+
+pub fn parse_time(time_str: &str, tz: &str) -> String {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(time_str) {
+        let utc_time = dt.with_timezone(&Utc);
+
+        // Parse timezone offset
+        let target_offset = match tz {
+            "UTC" => 0,
+            tz if tz.len() > 3 => match tz[3..].parse::<i32>() {
+                Ok(hours) if (-12..=14).contains(&hours) => hours * 3600,
+                _ => {
+                    tracing::warn!("Invalid timezone offset: {}, using UTC", tz);
+                    0
+                }
+            },
+            _ => {
+                tracing::warn!("Invalid timezone format: {}, using UTC", tz);
+                0
+            }
+        };
+
+        // Create timezone offset, defaulting to UTC if invalid
+        let offset = FixedOffset::east_opt(-target_offset).unwrap_or_else(|| {
+            tracing::warn!("Invalid offset seconds: {}, using UTC", target_offset);
+            FixedOffset::east_opt(0).unwrap()
+        });
+
+        utc_time
+            .with_timezone(&offset)
+            .format("%Y-%m-%d %H:%M:%S%.6f")
+            .to_string()
+    } else {
+        tracing::warn!("Failed to parse time string: {}", time_str);
+        time_str.to_string()
     }
 }

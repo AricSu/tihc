@@ -1,3 +1,4 @@
+pub mod docdb;
 pub mod pprof;
 
 use serde::{Deserialize, Serialize};

@@ -1,12 +1,12 @@
 pub mod collect_docdb;
-// Module for collecting performance profiles from TiDB components
 pub mod collect_pprof;
+pub mod commands;
 pub mod tools_slowlog;
 
 use clap::{Parser, Subcommand};
 use collect_docdb::DocdbOptions;
 use collect_pprof::PprofOptions;
-use tools_slowlog::SlowlogCommand;
+use tools_slowlog::SlowlogOptions;
 
 #[derive(Parser)]
 #[clap(
@@ -38,30 +38,27 @@ pub struct Cli {
     pub log_level: String,
 }
 
-// Subcommands for collect
-#[derive(Subcommand)]
-pub enum CollectCommands {
-    #[clap(about = "Collect performance info from TiDB components (tidb, tikv, pd, br)")]
-    Pprof(PprofOptions),
-    // Docdb(DocdbOptions),
-}
-
-// Subcommands for tihc
 #[derive(Subcommand)]
 pub enum Commands {
     #[clap(subcommand)]
+    #[clap(about = "Collect nessary info from TiDB components")]
     Tools(ToolsCommands),
-    // Report(ReportOptions),
+
     #[clap(subcommand)]
-    #[clap(about = "Collect info from TiDB components (tidb, tikv, pd, br)")]
+    #[clap(about = "There are some commands for tuning and investigation")]
     Collect(CollectCommands),
 }
 
-// Subcommands for tools
+#[derive(Subcommand)]
+pub enum CollectCommands {
+    #[clap(about = "Collect performance TOPSQL from Docdb of ng-monitor")]
+    Docdb(DocdbOptions),
+    #[clap(about = "Collect performance info from TiDB components (tidb, tikv, pd, br)")]
+    Pprof(PprofOptions),
+}
+
 #[derive(Subcommand)]
 pub enum ToolsCommands {
-    #[clap(about = "Docdb tools")]
-    Docdb(DocdbOptions),
-    #[clap(about = "Format TiDB slow log")]
-    Slowlog(SlowlogCommand),
+    #[clap(about = "Parse TiDB slow log file and import to database")]
+    Slowlog(SlowlogOptions),
 }
