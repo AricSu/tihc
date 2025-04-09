@@ -77,6 +77,7 @@ if command -v tihc &> /dev/null; then
     sudo mv /usr/local/bin/tihc "$BACKUP_PATH" || error "Failed to backup current installation"
 fi
 
+
 # Install new version
 echo -e "${YELLOW}Installing new version...${NC}"
 sudo mv "$TMP_DIR/tihc" /usr/local/bin/ || error "Installation failed"
