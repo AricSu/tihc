@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "cli",
+    "core",
+    "common",
+    "backend",
+    "plugins/plugin_lossy_ddl",
+    "plugins/plugin_slowlog",
+    "plugins/plugin_github_issue",
+    "plugins/plugin_rca_engine",
+    "plugins/plugin_sql_editor",
+    "plugins/plugin_profile_collector",
+    "plugins/plugin_alert_webhook"
+]
+resolver = "3"

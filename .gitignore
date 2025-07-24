@@ -1,0 +1,20 @@
+/target
+*.html
+*.json
+/bin
+tihc.log
+
+# Ignore node_modules and build artifacts for tihc-frontend
+/frontend/node_modules
+/frontend/dist
+
+
+# Compiled output
+*.vue.js
+*.js
+!vite.config.js
+tsconfig.tsbuildinfo
+
+# Keep original TypeScript/Vue files
+!*.ts
+!*.vue
