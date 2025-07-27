@@ -1,20 +1,20 @@
 <template>
   <n-form :model="settings" label-width="80">
-    <n-form-item label="字体大小">
+    <SettingsItem label="字体大小">
       <n-input-number v-model:value="settings.fontSize" :min="10" :max="32" />
-    </n-form-item>
-    <n-form-item label="Tab 宽度">
+    </SettingsItem>
+    <SettingsItem label="Tab 宽度">
       <n-input-number v-model:value="settings.tabSize" :min="2" :max="8" />
-    </n-form-item>
-    <n-form-item label="自动换行">
+    </SettingsItem>
+    <SettingsItem label="自动换行">
       <n-switch v-model:value="settings.wordWrap" />
-    </n-form-item>
-    <n-form-item label="自动保存">
+    </SettingsItem>
+    <SettingsItem label="自动保存">
       <n-switch v-model:value="settings.autoSave" />
-    </n-form-item>
-    <n-form-item label="超时时间">
+    </SettingsItem>
+    <SettingsItem label="超时时间">
       <n-input-number v-model:value="settings.queryTimeout" :min="5" :max="120" />
-    </n-form-item>
+    </SettingsItem>
     <n-form-item>
       <n-space>
         <n-button type="primary" @click="saveSettings">保存</n-button>
@@ -24,9 +24,11 @@
   </n-form>
 </template>
 
+
 <script setup lang="ts">
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 import { useMessage } from 'naive-ui'
+import SettingsItem from './SettingsItem.vue'
 
 const DEFAULT_SETTINGS = {
   fontSize: 14,

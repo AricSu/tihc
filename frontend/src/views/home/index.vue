@@ -16,14 +16,14 @@
           —— 查尔斯·史考伯
         </p>
       </n-card>
-      <n-card class="ml-12 w-70%" title="✨ 欢迎使用 Vue Naive Admin 2.0">
+      <n-card class="ml-12 w-70%" title="✨ 欢迎使用 TiHC 1.1.0">
         <template #header-extra>
           <a
             class="text-highlight text-14 text-primary hover:underline hover:opacity-80"
-            href="https://isme.top"
+            href="https://askaric.com"
             target="_blank"
           >
-            isme.top
+            askaric
           </a>
         </template>
 

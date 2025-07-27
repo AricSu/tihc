@@ -11,11 +11,13 @@
       @show-settings="sqlEditor.setShowSettings(true)"
     />
     <n-layout has-sider style="height: calc(100vh - 120px);">
-      <SchemaSidebar
-        :show-sidebar="sqlEditor.showSidebar"
-        :slow-query-schema="sqlEditor.slowQuerySchema"
+      <SqlEditorSidebar
+        :showSidebar="sqlEditor.showSidebar"
+        :slowQuerySchema="sqlEditor.slowQuerySchema"
+        :loadingSchema="sqlEditor.loadingSchema"
         @refresh-schema="sqlEditor.refreshSchema"
         @update:showSidebar="sqlEditor.setShowSidebar($event)"
+        @insert-template="sqlEditor.insertTemplate"
       />
       <n-layout-content>
         <n-split direction="vertical" :min="0.3" :max="0.7" :default-size="0.5" :resizer-style="{ backgroundColor: '#e0e6ed', height: '2px' }">
@@ -65,16 +67,24 @@
         />
       </n-layout-sider>
     </n-layout>
-    <!-- 连接管理弹窗 -->
-    <n-modal v-model:show="sqlEditor.showConnectionModal" preset="dialog" title="连接管理" style="width: 480px">
-      <ConnectionManager @switch="sqlEditor.setCurrentConnection" @open-slowlog="sqlEditor.setShowSlowlogPanel(true)" />
-      <template #action>
-        <n-button @click="sqlEditor.setShowConnectionModal(false)">关闭</n-button>
-      </template>
-    </n-modal>
+<!-- 连接管理弹窗 -->
+    <ConnectionManager
+      v-model:modelValue="sqlEditor.showConnectionModal"
+      :savedConnections="sqlEditor.connections"
+      :currentConnection="sqlEditor.currentConnection"
+      :activeTab="sqlEditor.activeTab"
+      :connectingTo="sqlEditor.connectingTo"
+      @update:activeTab="sqlEditor.setActiveTab"
+      @save-connection="sqlEditor.saveConnection"
+      @test-connection="sqlEditor.testConnection"
+      @connect-to-saved="sqlEditor.setCurrentConnection"
+      @duplicate-connection="sqlEditor.duplicateConnection"
+      @delete-connection="sqlEditor.deleteConnection"
+      @open-slowlog="sqlEditor.setShowSlowlogPanel(true)"
+    />
     <!-- 设置弹窗 -->
     <n-modal v-model:show="sqlEditor.showSettings" preset="dialog" title="设置" style="width: 480px">
-      <SettingsForm />
+        <SettingsForm />
       <template #action>
         <n-button @click="sqlEditor.setShowSettings(false)">关闭</n-button>
       </template>
@@ -93,7 +103,7 @@
 import { computed } from 'vue'
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 import EditorHeader from './components/EditorHeader.vue'
-import SchemaSidebar from './components/SchemaSidebar.vue'
+import SqlEditorSidebar from './components/SqlEditorSidebar.vue'
 import QueryEditor from './components/QueryEditor.vue'
 import ResultsPanel from './components/ResultsPanel.vue'
 import ConnectionManager from './components/ConnectionManager.vue'
@@ -188,11 +198,4 @@ function handleQueryError(msg = '执行失败') {
 }
 </script>
 
-<style scoped>
-.bytebase-sql-editor {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f8f9fa;
-}
-</style>
+

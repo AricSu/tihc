@@ -5,6 +5,7 @@
     :date-locale="dateZhCN"
     :theme="appStore.isDark ? darkTheme : undefined"
     :theme-overrides="appStore.naiveThemeOverrides"
+    :hljs="$hljs"
   >
     <router-view v-if="Layout" v-slot="{ Component, route: curRoute }">
       <component :is="Layout">
