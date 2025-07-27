@@ -9,26 +9,24 @@ This is the complete, structured **"TiDB Intelligent Health Check (tihc)" Design
 
 ## 1️⃣ Project Goals
 
-`tihc` is a CLI + Web integrated tool platform for DBAs, aiming to provide:
-
-* **TiDB cluster inspection and diagnostics**
-* **Slow log and performance analysis**
-* **DDL change checking**
-* **GitHub bug analysis and alerting**
-* **Future root cause analysis (RCA/AWR-like features)**
-
-Supports plugin-based extension, solid domain modeling, cross-platform deployment, and self-contained packaging.
+tihc 是一个为 DBAs 提供的 CLI + Web 集成工具平台，旨在提供：
+TiDB 集群检测与诊断
+慢查询日志和性能分析
+DDL 变更检查
+GitHub 问题分析和告警
+未来的根本原因分析（RCA / AWR 类特性）
+支持插件扩展、坚实的领域建模、跨平台部署和自包含的打包。
 
 ---
 
 ## 2️⃣ Core Architectural Principles
 
-| Layer         | Pattern/Approach              | Description                                 |
-| ------------- | ---------------------------- | ------------------------------------------- |
-| Core Platform | Microkernel Architecture      | Plugin scheduling/lifecycle/interface mgmt   |
-| Plugin Design | DDD + Clean Architecture     | Each plugin is a bounded context, single responsibility |
-| Plugin Comm   | Service Registry + Event/Command Bus | Decoupled plugin invocation                |
-| Startup Mode  | CLI + Web Server             | Single binary, self-contained deployment    |
+| Layer         | Pattern/Approach                     | Description       |
+| ------------- | ------------------------------------ | ----------------- |
+| Core Platform | Microkernel Architecture             | 插件调度/生命周期/接口管理    |
+| Plugin Design | DDD + Clean Architecture             | 每个插件是一个有界上下文，单一责任 |
+| Plugin Comm   | Service Registry + Event/Command Bus | 解耦插件调用            |
+| Startup Mode  | CLI + Web Server                     | 单一二进制包，支持自包含部署    |
 
 ---
 
@@ -88,20 +86,18 @@ Supports plugin-based extension, solid domain modeling, cross-platform deploymen
 
 ### ✅ Inter-plugin Calls: ServiceRegistry + Dependency Inversion Principle
 
-**Core Idea**:
+Inter-plugin Calls: ServiceRegistry + Dependency Inversion Principle
+核心理念：
 
-1. Plugin A defines and implements a `trait` interface (e.g., `DdlCheckerService`).
-2. Plugin A registers the interface with the core `ServiceRegistry` during registration.
-3. Plugin B obtains the capability via `registry.resolve::<dyn DdlCheckerService>()`.
+插件 A 定义并实现 trait 接口（如 DdlCheckerService）。
+插件 A 在注册时将该接口注册到核心的 ServiceRegistry。
+插件 B 通过 registry.resolve::<dyn DdlCheckerService>() 获取该能力。
+因此，插件通过 trait 接口解耦通信，核心系统不依赖具体的插件实现。
 
-Thus, **plugins are decoupled and communicate only via trait interfaces**; the core does not depend on concrete plugin implementations.
+🔁 Plugin Event Propagation: EventBus + CommandBus
+插件之间不需要了解彼此，事件会广播（例如 DDL 事件触发告警插件）。
 
-### 🔁 Plugin Event Propagation: EventBus + CommandBus
-
-* Plugins do not need to be aware of each other; events are broadcast (e.g., DDL event triggers alert plugin).
-* CommandBus can be used for CLI/Web to dispatch UseCase handlers in plugins.
-
----
+CommandBus 可用于 CLI/Web 调度插件中的 UseCase 处理程序。
 
 ## 5️⃣ Plugin Directory Structure (Example)
 
@@ -139,16 +135,16 @@ impl Plugin for LossyDdlPlugin {
 
 ## 6️⃣ Backend Key Technology Choices
 
-| Module      | Technology                        | Reason                |
-| ----------- | -------------------------------- | --------------------- |
-| Web Framework | `axum` + `tower`               | High performance, composable |
-| ORM         | `sqlx`                           | Zero runtime overhead, async |
-| Local Analytics DB | `DuckDB`                   | Supports complex OLAP queries |
-| Config Mgmt  | `config` + `serde`              | Multi-source config         |
-| Logging      | `tracing`, `anyhow`, `thiserror`| Reliable diagnostics        |
-| Metrics      | `prometheus-client`             | Internal observability      |
-| Plugin Mgmt  | Custom PluginManager + trait    | Controllable plugin lifecycle |
-| API Comm     | JSON REST API + `reqwest`       | Easy integration (e.g. Grafana) |
+| Module             | Technology                       | Reason          |
+| ------------------ | -------------------------------- | --------------- |
+| Web Framework      | `axum` + `tower`                 | 高性能、可组合的 Web 框架 |
+| ORM                | `sqlx`                           | 零运行时开销，异步支持     |
+| Local Analytics DB | `DuckDB`                         | 支持复杂 OLAP 查询    |
+| Config Mgmt        | `config` + `serde`               | 支持多源配置          |
+| Logging            | `tracing`, `anyhow`, `thiserror` | 可靠的诊断工具         |
+| Metrics            | `prometheus-client`              | 内部监控与可视化        |
+| Plugin Mgmt        | 自定义 PluginManager + trait        | 可控的插件生命周期       |
+| API Comm           | JSON REST API + `reqwest`        | 易于集成（如 Grafana） |
 
 ---
 
@@ -156,26 +152,28 @@ impl Plugin for LossyDdlPlugin {
 
 ### 🧱 Tech Stack
 
-| Technology  | Purpose      |
-| ----------- | ------------|
-| Vue 3       | UI framework |
-| Vite        | Build tool   |
-| TypeScript  | Static typing|
-| Pinia       | State mgmt   |
-| Axios       | HTTP client  |
-| Naive UI    | High-quality UI components |
-| ECharts     | Charting, diagnostics visualization |
+| Technology      | Purpose                          |
+| --------------- | -------------------------------- |
+| Vue 3           | UI 框架                            |
+| Vite            | 构建工具                             |
+| TypeScript      | 静态类型                             |
+| Pinia           | 状态管理                             |
+| Axios           | HTTP 客户端                         |
+| Naive UI        | 高质量 UI 组件库                       |
+| ECharts         | 数据可视化与图表                         |
+| Vue Naive Admin | Vue 3 + Naive UI 后台管理模板，快速构建管理界面 |
+
 
 ### 📄 Page Modules
 
-| Page         | Functionality  |
-| ------------ | --------------|
-| Dashboard    | Overview & status panel |
-| Slow Log Analysis | Query/import/aggregation views |
-| DDL Safety Check | Check SQL change risks |
-| SQL Editor   | Execute/history mgmt |
-| Profile Collection | Flamegraph display |
-| Webhook Alert Config | Set push channels and rules |
+| Page                 | Functionality |
+| -------------------- | ------------- |
+| Dashboard            | 概览与状态面板       |
+| Slow Log Analysis    | 查询/导入/聚合视图    |
+| DDL Safety Check     | 检查 SQL 变更风险   |
+| SQL Editor           | 执行/历史管理       |
+| Profile Collection   | Flamegraph 显示 |
+| Webhook Alert Config | 设置推送通道和规则     |
 
 ---
 
@@ -209,10 +207,11 @@ tihc plugin run slowlog-parser --file slow.log
 
 ## 🔒 10️⃣ Packaging & Deployment
 
-* Build backend: `cargo build --release`
-* Build frontend: `pnpm build`
-* Static embedding: use `include_dir!` or `rust-embed`
-* Single binary packaging: no external dependencies, supports container deployment
+构建后端：cargo build --release
+构建前端：pnpm build
+静态嵌入：使用 include_dir! 或 rust-embed
+单一二进制打包：不依赖外部依赖，支持容器部署
+
 
 ---
 
@@ -458,3 +457,8 @@ rust
 rust-analyzer	提示文档结构、跳转与补全
 cargo doc	编译 API 文档 (target/doc)
 cargo clippy	提示注释格式错误与未使用文档
+
+
+## 包管理
+fronted ： 使用 yran 管理
+backend ： 使用 cargo 管理

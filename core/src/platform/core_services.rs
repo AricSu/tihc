@@ -1,6 +1,5 @@
 //! Core services provided by the system, such as logging, database connection, and configuration management.
 use crate::infrastructure::config::AppConfig;
-use std::collections::HashMap;
 
 pub struct CoreServices {
     pub config_service: ConfigService,
