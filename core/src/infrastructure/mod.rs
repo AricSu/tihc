@@ -1,5 +1,4 @@
+pub mod config;
+pub mod logging;
 pub mod db;
 
-pub fn init_infrastructure() {
-    println!("Infrastructure initialized");
-}

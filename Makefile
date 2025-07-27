@@ -4,6 +4,7 @@ PNPM = yarn
 FRONTEND_DIR = frontend
 WORKSPACE_MEMBERS = cli core web common plugins
 BIN_DIR = bin
+LOG_PATH = tihc.log
 
 # 默认目标：构建全部
 all: server dashboard
@@ -11,6 +12,7 @@ all: server dashboard
 # 构建 Rust backend（workspace所有crate），并复制 binary 到 bin/
 server:
 	rm -rf $(BIN_DIR)
+	rm -rf $(LOG_PATH)
 	$(CARGO) build --release
 	mkdir -p $(BIN_DIR)
 	cp target/release/cli $(BIN_DIR)/tihc

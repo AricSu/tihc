@@ -1,108 +1,109 @@
-以下是整理后的、完整结构化的 **《TiDB Intelligent Health Check (tihc)》设计文档**，涵盖微内核架构与 DDD 模式的结合方式，并着重突出插件通信机制、模块边界、技术选型与扩展策略。
+
+This is the complete, structured **"TiDB Intelligent Health Check (tihc)" Design Document**, covering the integration of microkernel architecture and DDD, with a focus on plugin communication, module boundaries, technology choices, and extension strategies.
 
 ---
 
-# 📘 TiDB Intelligent Health Check (tihc) — 架构设计文档
+# 📘 TiDB Intelligent Health Check (tihc) — Architecture Design Document
 
 ---
 
-## 1️⃣ 项目目标
+## 1️⃣ Project Goals
 
-`tihc` 是一个面向 DBA 的 CLI + Web 综合工具平台，旨在提供：
+`tihc` is a CLI + Web integrated tool platform for DBAs, aiming to provide:
 
-* **TiDB 集群巡检与诊断能力**
-* **慢日志与性能分析**
-* **DDL 变更检查**
-* **GitHub Bug 分析与告警**
-* **未来的根因分析（RCA/AWR 类功能）**
+* **TiDB cluster inspection and diagnostics**
+* **Slow log and performance analysis**
+* **DDL change checking**
+* **GitHub bug analysis and alerting**
+* **Future root cause analysis (RCA/AWR-like features)**
 
-支持插件化扩展、良好的领域建模、跨平台部署、自包含打包。
-
----
-
-## 2️⃣ 核心架构理念
-
-| 架构层面 | 采用模式                     | 说明               |
-| ---- | ------------------------ | ---------------- |
-| 核心平台 | 微内核架构 Microkernel        | 插件调度/生命周期管理/接口注册 |
-| 插件结构 | DDD + Clean Architecture | 插件即限界上下文，职责单一    |
-| 插件通信 | 服务注册中心 + 事件/命令总线         | 解耦插件之间的调用        |
-| 启动模式 | CLI + Web Server         | 单 Binary，自包含部署   |
+Supports plugin-based extension, solid domain modeling, cross-platform deployment, and self-contained packaging.
 
 ---
 
-## 3️⃣ 总体架构图（逻辑视图）
+## 2️⃣ Core Architectural Principles
+
+| Layer         | Pattern/Approach              | Description                                 |
+| ------------- | ---------------------------- | ------------------------------------------- |
+| Core Platform | Microkernel Architecture      | Plugin scheduling/lifecycle/interface mgmt   |
+| Plugin Design | DDD + Clean Architecture     | Each plugin is a bounded context, single responsibility |
+| Plugin Comm   | Service Registry + Event/Command Bus | Decoupled plugin invocation                |
+| Startup Mode  | CLI + Web Server             | Single binary, self-contained deployment    |
+
+---
+
+## 3️⃣ Overall Architecture Diagram (Logical View)
 
 ```
 +-----------------------------------------------------+
-|                 CLI / Web Server 启动入口           |
+|                 CLI / Web Server Entry Point        |
 +-----------------------------------------------------+
-|              🌐 微内核核心（Microkernel）            |
+|              🌐 Microkernel Core                    |
 | +-----------------------------------------------+ |
-| | 核心服务 Core Services                        | |
+| | Core Services                                 | |
 | | - ConfigService                               | |
 | | - LoggingService (tracing)                    | |
 | | - DatabaseService (SQLx)                      | |
 | | - MetricsService (Prometheus)                 | |
 | | - EventBus / CommandBus                       | |
-| | - ServiceRegistry (插件服务注册/发现)         | |
+| | - ServiceRegistry (Plugin Service Registry)   | |
 | +-----------------------------------------------+ |
-| | 插件管理 PluginManager                        | |
-| | - 插件发现 / 加载 / 生命周期管理              | |
-| | - 插件热更新（后续支持）                      | |
+| | Plugin Management (PluginManager)             | |
+| | - Plugin discovery/loading/lifecycle mgmt     | |
+| | - Plugin hot-reload (future)                  | |
 | +-----------------------------------------------+ |
 +-----------------------------------------------------+
-|                📦 插件系统 Plugins (DDD Context)   |
-| 插件 = 限界上下文，每个插件自包含领域与服务          |
+|                📦 Plugin System (DDD Context)      |
+| Plugin = Bounded Context, each plugin encapsulates its own domain and services |
 | +-------------------------------------------------+ |
-| | LossyDDLChecker       | 诊断 DDL 丢失风险         | |
-| | SlowLogParser         | 解析 slow.log 入库         | |
-| | GitHubIssueTracker    | GitHub issue 映射分析     | |
-| | RCAEngine             | 根因分析 (AWR/ADDM 类)   | |
-| | SQL Editor            | 可视化 SQL 编辑器         | |
-| | ProfileCollector      | profile & metrics 抓取     | |
-| | AlertWebhook          | 告警推送 & 配置           | |
+| | LossyDDLChecker       | Diagnose lossy DDL risks  | |
+| | SlowLogParser         | Parse slow.log and import | |
+| | GitHubIssueTracker    | GitHub issue mapping      | |
+| | RCAEngine             | Root cause analysis (AWR/ADDM) | |
+| | SQL Editor            | Visual SQL editor         | |
+| | ProfileCollector      | Profile & metrics capture | |
+| | AlertWebhook          | Alert push & config       | |
 | +-------------------------------------------------+ |
 +-----------------------------------------------------+
-|              🧠 每个插件内部 DDD 层级结构           |
+|              🧠 DDD Layer Structure in Each Plugin  |
 | +-----------------------------------------------+ |
-| | domain         | 领域模型 / 规则 / 实体 / 事件     | |
-| | application    | 用例层 / 领域服务协调             | |
-| | infrastructure | 数据库 / HTTP / Prometheus 实现 | |
-| | interface      | CLI/Web API 层                   | |
+| | domain         | Domain model/rules/entities/events| |
+| | application    | Use case layer/domain service coordination | |
+| | infrastructure | DB/HTTP/Prometheus implementation| |
+| | interface      | CLI/Web API layer                | |
 | +-----------------------------------------------+ |
 +-----------------------------------------------------+
-|             📡 外部依赖 / 数据源支持（统一适配）      |
+|             📡 External Dependencies/Data Sources (Unified Adapter) |
 | +-------------------------------------------------+ |
 | | SQLx + TiDB / MySQL / PG                        | |
-| | DuckDB 嵌入式分析数据库                         | |
+| | DuckDB embedded analytics DB                    | |
 | | Prometheus / Grafana HTTP API                   | |
-| | profile 接口抓取 (tidb/tikv/pd/ticdc)           | |
+| | profile API capture (tidb/tikv/pd/ticdc)        | |
 | +-------------------------------------------------+ |
 ```
 
 ---
 
-## 4️⃣ 插件通信机制设计
+## 4️⃣ Plugin Communication Mechanism
 
-### ✅ 插件之间相互调用：ServiceRegistry + 依赖倒置原则
+### ✅ Inter-plugin Calls: ServiceRegistry + Dependency Inversion Principle
 
-**核心思路**：
+**Core Idea**:
 
-1. 插件 A 定义并实现 `trait` 接口（例如 `DdlCheckerService`）。
-2. 插件 A 在注册阶段将接口注册到核心 `ServiceRegistry`。
-3. 插件 B 通过 `registry.resolve::<dyn DdlCheckerService>()` 获取能力。
+1. Plugin A defines and implements a `trait` interface (e.g., `DdlCheckerService`).
+2. Plugin A registers the interface with the core `ServiceRegistry` during registration.
+3. Plugin B obtains the capability via `registry.resolve::<dyn DdlCheckerService>()`.
 
-这样，**插件之间解耦，仅通过 trait 接口通信**，核心不依赖具体插件实现。
+Thus, **plugins are decoupled and communicate only via trait interfaces**; the core does not depend on concrete plugin implementations.
 
-### 🔁 插件事件传播：EventBus + CommandBus
+### 🔁 Plugin Event Propagation: EventBus + CommandBus
 
-* 插件之间无需主动感知，通过发布事件实现广播式通信（例如：DDL 事件触发告警插件）
-* CommandBus 可用于 CLI/Web 调用调度各插件的 UseCase handler
+* Plugins do not need to be aware of each other; events are broadcast (e.g., DDL event triggers alert plugin).
+* CommandBus can be used for CLI/Web to dispatch UseCase handlers in plugins.
 
 ---
 
-## 5️⃣ 插件目录结构规范（示例）
+## 5️⃣ Plugin Directory Structure (Example)
 
 ```text
 plugin-lossy-ddl/
@@ -115,11 +116,11 @@ plugin-lossy-ddl/
 │   └── parser_adapter.rs
 ├── interface/
 │   └── cli.rs / web.rs
-├── plugin.rs        // Plugin Trait 实现 + 注册
+├── plugin.rs        // Plugin trait implementation + registration
 ├── lib.rs
 ```
 
-### 插件注册代码
+### Plugin Registration Example
 
 ```rust
 pub struct LossyDdlPlugin;
@@ -136,141 +137,141 @@ impl Plugin for LossyDdlPlugin {
 
 ---
 
-## 6️⃣ 后端关键技术选型
+## 6️⃣ Backend Key Technology Choices
 
-| 模块      | 技术                               | 理由                  |
-| ------- | -------------------------------- | ------------------- |
-| Web 框架  | `axum` + `tower`                 | 高性能、组合灵活            |
-| ORM     | `sqlx`                           | 零运行时开销、异步           |
-| 本地分析 DB | `DuckDB`                         | 支持复杂 OLAP 查询        |
-| 配置管理    | `config` + `serde`               | 多来源配置               |
-| 日志追踪    | `tracing`, `anyhow`, `thiserror` | 稳定可靠的诊断工具链          |
-| 监控指标    | `prometheus-client`              | 内部状态可观测             |
-| 插件管理    | 自定义 PluginManager + trait        | 插件生命周期可控            |
-| 接口通信    | JSON REST API + `reqwest`        | 易集成其他服务，如 Grafana 等 |
-
----
-
-## 7️⃣ 前端架构设计（Vue 3 + TS）
-
-### 🧱 技术栈
-
-| 技术         | 用途         |
-| ---------- | ---------- |
-| Vue 3      | UI 框架      |
-| Vite       | 构建工具       |
-| TypeScript | 静态类型       |
-| Pinia      | 状态管理       |
-| Axios      | 请求库        |
-| Naive UI   | 高质量 UI 组件库 |
-| ECharts    | 图表组件，诊断可视化 |
-
-### 📄 页面模块
-
-| 页面           | 功能            |
-| ------------ | ------------- |
-| Dashboard    | 概览 & 状态面板     |
-| 慢日志分析        | 查询、导入、聚合视图    |
-| DDL 安全检测     | 检查 SQL 变更风险   |
-| SQL 编辑器      | 执行 / 历史记录管理   |
-| Profile 采集   | flamegraph 展示 |
-| Webhook 告警设置 | 设置推送通道和规则     |
+| Module      | Technology                        | Reason                |
+| ----------- | -------------------------------- | --------------------- |
+| Web Framework | `axum` + `tower`               | High performance, composable |
+| ORM         | `sqlx`                           | Zero runtime overhead, async |
+| Local Analytics DB | `DuckDB`                   | Supports complex OLAP queries |
+| Config Mgmt  | `config` + `serde`              | Multi-source config         |
+| Logging      | `tracing`, `anyhow`, `thiserror`| Reliable diagnostics        |
+| Metrics      | `prometheus-client`             | Internal observability      |
+| Plugin Mgmt  | Custom PluginManager + trait    | Controllable plugin lifecycle |
+| API Comm     | JSON REST API + `reqwest`       | Easy integration (e.g. Grafana) |
 
 ---
 
-## 8️⃣ CLI 命令设计
+## 7️⃣ Frontend Architecture (Vue 3 + TS)
+
+### 🧱 Tech Stack
+
+| Technology  | Purpose      |
+| ----------- | ------------|
+| Vue 3       | UI framework |
+| Vite        | Build tool   |
+| TypeScript  | Static typing|
+| Pinia       | State mgmt   |
+| Axios       | HTTP client  |
+| Naive UI    | High-quality UI components |
+| ECharts     | Charting, diagnostics visualization |
+
+### 📄 Page Modules
+
+| Page         | Functionality  |
+| ------------ | --------------|
+| Dashboard    | Overview & status panel |
+| Slow Log Analysis | Query/import/aggregation views |
+| DDL Safety Check | Check SQL change risks |
+| SQL Editor   | Execute/history mgmt |
+| Profile Collection | Flamegraph display |
+| Webhook Alert Config | Set push channels and rules |
+
+---
+
+## 8️⃣ CLI Command Design
 
 ```bash
-# CLI 模式下诊断
+# CLI mode diagnosis
 tihc check lossy-ddl --file ddl.sql
 
-# 启动 Web 服务 + UI
+# Start Web service + UI
 tihc web --port 8080
 
-# 插件相关
+# Plugin related
 tihc plugin list
 tihc plugin run slowlog-parser --file slow.log
 ```
 
 ---
 
-## 9️⃣ 测试策略
+## 9️⃣ Testing Strategy
 
-| 层级            | 测试方式                               |
-| ------------- | ---------------------------------- |
-| domain 层      | 单元测试                               |
-| application 层 | 用例组合测试                             |
-| interface 层   | HTTP/CLI 接口测试                      |
-| 插件集成          | 插件加载/调用测试                          |
-| 核心平台          | PluginManager & ServiceRegistry 测试 |
-
----
-
-## 🔒 10️⃣ 打包与部署
-
-* 构建后端：`cargo build --release`
-* 构建前端：`pnpm build`
-* 静态嵌入：使用 `include_dir!` 或 `rust-embed`
-* 单 Binary 打包：无需依赖外部服务，支持容器部署
+| Layer          | Test Approach                        |
+| -------------- | ------------------------------------|
+| Domain         | Unit tests                           |
+| Application    | Use case combination tests           |
+| Interface      | HTTP/CLI interface tests             |
+| Plugin Integration | Plugin load/invoke tests          |
+| Core Platform  | PluginManager & ServiceRegistry tests|
 
 ---
 
-## 🛤️ 11️⃣ Roadmap（阶段目标）
+## 🔒 10️⃣ Packaging & Deployment
 
-| 阶段    | 功能点                                      |
-| ----- | ---------------------------------------- |
-| MVP   | CLI 模式、lossy ddl 检测、慢日志解析、Prometheus 指标  |
-| Alpha | Web UI、GitHub Tracker、SQL Editor、Webhook |
-| Beta  | Profile 抓取、Grafana 数据集成、巡检报告生成           |
-| GA    | RCA 框架、规则/模型驱动推理、插件市场/热插拔支持              |
+* Build backend: `cargo build --release`
+* Build frontend: `pnpm build`
+* Static embedding: use `include_dir!` or `rust-embed`
+* Single binary packaging: no external dependencies, supports container deployment
 
 ---
 
-## ✅ 架构设计原则总结
+## 🛤️ 11️⃣ Roadmap (Milestones)
 
-* 插件即 DDD 限界上下文：封闭一致性、高内聚低耦合
-* 微内核只负责调度、注册、日志、配置等横向能力，不承载业务
-* 插件通信统一通过核心接口（注册中心 + trait）
-* 所有模块可独立测试，支持自包含构建与交付
+| Phase  | Features                                 |
+| ------ | -----------------------------------------|
+| MVP    | CLI mode, lossy ddl check, slow log parsing, Prometheus metrics |
+| Alpha  | Web UI, GitHub Tracker, SQL Editor, Webhook |
+| Beta   | Profile collection, Grafana integration, inspection report generation |
+| GA     | RCA framework, rule/model-driven inference, plugin marketplace/hot-plug support |
 
 ---
-## 目录结构
+
+## ✅ Architectural Design Principles Summary
+
+* Plugins are DDD bounded contexts: strong consistency, high cohesion, low coupling.
+* Microkernel only handles scheduling, registration, logging, config, not business logic.
+* Plugin communication is unified via core interfaces (registry + trait).
+* All modules are independently testable and support self-contained build/delivery.
+
+---
+## Directory Structure
 
 ```
 tihc/                          # 根项目目录，Rust workspace
 ├── Cargo.toml                 # workspace 配置
-├── cli/                      # CLI 启动器
+├── cli/                      # CLI launcher
 │   ├── Cargo.toml
 │   └── src/
-│       └── main.rs           # 命令行解析，调度核心服务
+│       └── main.rs           # CLI parsing, core service dispatch
 │
-├── core/                     # 核心库：微内核架构 + DDD 分层 + 插件框架
+├── core/                     # Core lib: microkernel + DDD + plugin framework
 │   ├── Cargo.toml
 │   └── src/
-│       ├── domain/           # 领域层（实体、聚合、领域事件、规则）
-│       ├── application/      # 应用层（UseCase、领域服务协调）
-│       ├── infrastructure/  # 基础设施层（数据库、HTTP、外部系统接口）
-│       ├── interface/        # 适配层（CLI适配器、Web API适配器等）
-│       ├── platform/         # 微内核平台核心（插件管理、事件总线、ServiceRegistry）
-│       └── plugin_api/       # 插件公共接口定义（trait等）
+│       ├── domain/           # Domain layer (entities, aggregates, events, rules)
+│       ├── application/      # Application layer (use cases, domain service coordination)
+│       ├── infrastructure/   # Infrastructure (DB, HTTP, external system adapters)
+│       ├── interface/        # Interface layer (CLI adapters, Web API adapters, etc.)
+│       ├── platform/         # Microkernel core (plugin mgmt, event bus, service registry)
+│       └── plugin_api/       # Plugin public interface definitions (traits, etc.)
 │
-├── plugins/                  # 插件合集，每个插件独立 crate（DDD 限界上下文）
-│   ├── plugin_lossy_ddl/     # LossyDDL 诊断插件
+├── plugins/                  # Plugin collection, each as an independent crate (DDD context)
+│   ├── plugin_lossy_ddl/     # LossyDDL diagnosis plugin
 │   │   ├── Cargo.toml
 │   │   └── src/
-│   ├── plugin_slowlog/       # 慢日志解析插件
-│   ├── plugin_github_issue/  # GitHub Issue 追踪插件
-│   ├── plugin_rca_engine/    # 根因分析插件
-│   ├── plugin_sql_editor/    # SQL 编辑器插件
-│   ├── plugin_profile_collector/ # Profile 采集插件
-│   └── plugin_alert_webhook/ # 告警推送插件
+│   ├── plugin_slowlog/       # Slow log parsing plugin
+│   ├── plugin_github_issue/  # GitHub Issue tracking plugin
+│   ├── plugin_rca_engine/    # Root cause analysis plugin
+│   ├── plugin_sql_editor/    # SQL editor plugin
+│   ├── plugin_profile_collector/ # Profile collection plugin
+│   └── plugin_alert_webhook/ # Alert webhook plugin
 │
-├── backend/                      # Web 服务启动器，依赖 core，提供 REST API
+├── backend/                      # Web service launcher, depends on core, provides REST API
 │   ├── Cargo.toml
 │   └── src/
-│       └── lib.rs           # Axum 服务入口
+│       └── lib.rs           # Axum service entry point
 │
-├── frontend/       # Vue 3 前端项目，独立 npm 管理
+├── frontend/       # Vue 3 frontend project, managed independently with npm
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── src/
@@ -280,11 +281,180 @@ tihc/                          # 根项目目录，Rust workspace
 │       ├── composables/
 │       └── main.ts
 │
-├── common/                   # 通用工具库（类型定义、辅助函数、错误类型等）
+├── common/                   # Common utility lib (types, helpers, error types, etc.)
 │   ├── Cargo.toml
 │   └── src/
 │
-├── scripts/                  # 脚本（构建、发布、数据库迁移等）
+├── scripts/                  # Scripts (build, release, DB migration, etc.)
 │
-└── docs/                     # 设计文档、API 说明、开发规范
+└── docs/                     # Design docs, API specs, dev guidelines
 ```
+
+
+## 文档注释规范
+基础格式
+使用三斜杠 /// 进行结构化注释。
+
+注释必须为完整、规范的英文句子，首字母大写，结尾使用句号。
+
+统一使用 Markdown 语法支持格式化（rustdoc 默认支持）。
+
+📚 注释对象与规则
+1. Modules（mod）
+使用 //! 放在模块文件开头，描述模块职责、用途、暴露内容。
+
+rust
+复制
+编辑
+//! Handles the parsing and normalization of slow query logs.
+//!
+//! This module provides functions to load, analyze, and store
+//! slow log entries for further inspection by diagnostic plugins.
+2. Struct / Enum / Trait
+✅ Struct / Enum
+rust
+复制
+编辑
+/// Represents a parsed slow log entry from TiDB or MySQL.
+///
+/// This structure is populated by the `SlowLogParser` plugin
+/// and ingested into DuckDB for analysis.
+pub struct SlowLogEntry {
+    /// The SQL text of the slow query.
+    pub sql: String,
+
+    /// The total execution time in milliseconds.
+    pub duration_ms: u64,
+}
+✅ Trait
+rust
+复制
+编辑
+/// Defines a diagnostic service for DDL safety checks.
+///
+/// Implementors are responsible for detecting risky or lossy
+/// DDL patterns that may cause data loss or downtime.
+pub trait DdlCheckerService {
+    /// Analyzes the given SQL statements for lossy DDL patterns.
+    fn check(&self, sql: &str) -> Result<Vec<CheckResult>>;
+}
+3. Function / Method
+✅ 公共函数（包括 async/handler）
+rust
+复制
+编辑
+/// Runs the lossy DDL check on the specified SQL input.
+///
+/// Returns a list of detected issues or an empty list if the input is safe.
+pub fn check_lossy_ddl(input: &str) -> anyhow::Result<Vec<CheckResult>> { ... }
+⚠️ 私有函数（仅必要时）
+rust
+复制
+编辑
+// Parses an individual SQL statement into an AST node.
+// Used internally by the lossy DDL checker.
+fn parse_stmt(sql: &str) -> Option<SqlStmt> { ... }
+4. Constants / Type Aliases
+rust
+复制
+编辑
+/// Default duration threshold (in ms) for slow query classification.
+pub const DEFAULT_SLOW_QUERY_THRESHOLD: u64 = 300;
+rust
+复制
+编辑
+/// Alias for a list of formatted DDL warnings.
+pub type DdlWarnings = Vec<CheckResult>;
+5. Errors
+使用 thiserror + 文档注释说明错误含义。
+
+rust
+复制
+编辑
+/// Errors that can occur while parsing a slow log file.
+#[derive(thiserror::Error, Debug)]
+pub enum SlowLogParseError {
+    /// File could not be opened or read.
+    #[error("failed to read log file")]
+    Io(#[from] std::io::Error),
+
+    /// Log entry could not be parsed.
+    #[error("invalid slow log format")]
+    InvalidFormat,
+}
+6. Tests
+测试函数可简要说明测试目标。
+
+rust
+复制
+编辑
+#[test]
+/// Ensures that `parse_stmt` correctly detects CREATE TABLE statements.
+fn test_parse_create_table() {
+    ...
+}
+🔁 注释风格建议（最佳实践）
+项目	推荐做法
+命名	使用清晰一致的英文名称，避免缩写
+动词	函数/方法首句应以“Does/Parses/Returns...”等动词开头
+段落结构	第一段简要描述用途，后续段落用 Markdown 标题/列表分层
+示例	对复杂行为使用 # Examples 块举例说明
+
+示例：
+rust
+复制
+编辑
+/// Resolves all registered services that implement the specified trait.
+///
+/// This function is typically used by plugins to access capabilities
+/// provided by other plugins via the shared `ServiceRegistry`.
+///
+/// # Examples
+/// ```
+/// let svc = registry.resolve::<dyn DdlCheckerService>().unwrap();
+/// ```
+🚫 禁止事项
+❌ 禁止在任何代码注释中使用中文
+
+❌ 不要使用行内 // 中文说明
+
+❌ 不要将设计性、逻辑性的描述藏在代码中，应移至设计文档（/docs）
+
+📦 插件注释示例（完整）
+rust
+复制
+编辑
+/// A plugin that checks for lossy or unsafe DDL statements.
+///
+/// This plugin parses SQL files or CLI input and flags any DDL operations
+/// that could result in data loss (e.g., `DROP COLUMN`, `MODIFY COLUMN` with shrink).
+pub struct LossyDdlPlugin;
+
+impl Plugin for LossyDdlPlugin {
+    fn name(&self) -> &str { "lossy_ddl" }
+
+    /// Registers the plugin with the provided runtime context.
+    ///
+    /// This includes command handlers, service trait implementations,
+    /// and any event subscriptions if needed.
+    fn register(&mut self, ctx: &mut PluginContext) {
+        ctx.register_command("check-lossy-ddl", LossyDdlHandler);
+        ctx.service_registry
+            .register::<dyn DdlCheckerService>(Arc::new(LossyDdlServiceImpl));
+    }
+}
+🧪 开发期间辅助注释规范
+开发期间可使用临时 TODO / FIXME 注释，但必须是英文：
+
+rust
+复制
+编辑
+// TODO: Implement fallback when service not found.
+// FIXME: This fails on malformed input; needs better validation.
+开发完成后应清理多余注释，并保留必要的文档注释和维护性说明。
+
+🗂️ 推荐工具链
+工具	说明
+rust-analyzer	提示文档结构、跳转与补全
+cargo doc	编译 API 文档 (target/doc)
+cargo clippy	提示注释格式错误与未使用文档

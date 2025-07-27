@@ -1,0 +1,8 @@
+# TiHC config.toml 示例
+# 支持 core::infrastructure::config::AppConfig 结构
+
+some_option = "example_value"
+log_level = "info"
+log_file = "tihc.log"
+enable_log_rotation = true
+# 更多配置项可在 core/src/infrastructure/config.rs 的 AppConfig 结构体中添加

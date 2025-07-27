@@ -1,12 +1,17 @@
+
 [package]
 name = "cli"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+tracing-appender = "0.2.3"
+tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 core = { path = "../core" }
 anyhow = "1"
-
 chrono = { version = "0.4", features = ["clock"] }
+plugin_slowlog = { path = "../plugins/plugin_slowlog" }
+backend = { path = "../backend" }

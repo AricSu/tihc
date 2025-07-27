@@ -1,0 +1,42 @@
+use core::platform::command_registry::CommandHandler;
+use std::sync::{Arc, Mutex};
+use core::platform::service_registry::ServiceRegistry;
+use tracing::info;
+use crate::application::slowlog_service::SlowLogService;
+
+pub struct SlowLogCommandHandler {
+    pub registry: Arc<Mutex<ServiceRegistry>>,
+}
+
+impl CommandHandler for SlowLogCommandHandler {
+    fn handle(&self, args: &[String]) -> anyhow::Result<()> {
+        let log_dir = args.get(0).cloned().unwrap_or_else(|| ".".to_string());
+        let pattern = args.get(1).cloned().unwrap_or_else(|| "*.log".to_string());
+        let registry_guard = self.registry.lock().unwrap();
+        let service = registry_guard
+            .resolve::<Box<dyn SlowLogService>>()
+            .ok_or_else(|| anyhow::anyhow!("SlowLogService not found"))?;
+        let rt = tokio::runtime::Runtime::new()?;
+        let files = rt.block_on(service.scan_files(&log_dir, &pattern))?;
+        info!("Matched files: {:?}", files);
+        Ok(())
+    }
+}
+
+pub struct SlowLogParseAndImportHandler {
+    pub registry: Arc<Mutex<ServiceRegistry>>,
+}
+
+impl CommandHandler for SlowLogParseAndImportHandler {
+    fn handle(&self, args: &[String]) -> anyhow::Result<()> {
+        let log_dir = args.get(0).cloned().unwrap_or_else(|| ".".to_string());
+        let pattern = args.get(1).cloned().unwrap_or_else(|| "*.log".to_string());
+        let registry_guard = self.registry.lock().unwrap();
+        let service = registry_guard
+            .resolve::<Box<dyn SlowLogService>>()
+            .ok_or_else(|| anyhow::anyhow!("SlowLogService not found"))?;
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(service.parse_and_import(&log_dir, &pattern))?;
+        Ok(())
+    }
+}

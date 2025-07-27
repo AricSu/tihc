@@ -1,5 +1,10 @@
+use core::platform::command_registry::CommandRegistry;
 use anyhow::Result;
-use clap::{Args, CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use core::infrastructure::{config, logging};
+use crate::commands::slowlog::SlowlogOptions;
+use crate::commands::web::WebOptions;
+mod commands;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -11,128 +16,138 @@ use clap::{Args, CommandFactory, Parser, Subcommand};
     after_help = "USAGE:\n    tihc [OPTIONS] <SUBCOMMAND>\n\nFor more information, visit: https://www.askaric.com/en/tihc"
 )]
 struct Cli {
-    /// Log file path
-    #[arg(short = 'l', long = "log-file", global = true, default_value_t = default_log_file())]
-    log_file: String,
-    /// Log level
-    #[arg(short = 'L', long = "log-level", global = true, default_value = "info")]
+    /// Log file path.
+    #[arg(
+        short = 'l',
+        long = "log-file",
+        global = true,
+        required = false,
+        help = "Log file path"
+    )]
+    log_file: Option<String>,
+    /// Log level.
+    #[arg(
+        short = 'L',
+        long = "log-level",
+        global = true,
+        required = false,
+        default_value = "info"
+    )]
     log_level: String,
+    /// 是否启用日志切割
+    #[arg(
+        short = 'r',
+        long = "enable-log-rotation",
+        global = true,
+        required = false,
+        default_value_t = false
+    )]
+    enable_log_rotation: bool,
+    /// Config file path.
+    #[arg(
+        short = 'c',
+        long = "config",
+        global = true,
+        required = false,
+        default_value = "config.toml",
+        help = "Config file path"
+    )]
+    config_file: String,
+    /// CLI subcommand.
     #[command(subcommand)]
     command: Option<Commands>,
 }
 
-fn default_log_file() -> String {
-    use chrono::Local;
-    format!(
-        "tihc_started_at_{}.log",
-        Local::now().format("%Y%m%d_%H%M%S")
-    )
-}
-
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Inspection and diagnosis commands
-    Check {
-        #[command(subcommand)]
-        check_cmd: CheckSubCommand,
-    },
-    /// Plugin related commands
-    Plugin {
-        #[command(subcommand)]
-        plugin_cmd: PluginSubCommand,
-    },
-    /// Start web service
-    Web {
-        #[arg(long, default_value_t = 8080)]
-        port: u16,
-    },
+    #[clap(subcommand, about = "Collect nessary info from TiDB components")]
+    Tools(ToolsCommands),
+    // #[clap(subcommand, about = "There are some commands for tuning and investigation")]
+    // Collect(CollectCommands),
+    #[clap(about = "Start the HTTP server for dashboard integration")]
+    Server(WebOptions),
 }
 
 #[derive(Subcommand, Debug)]
-enum CheckSubCommand {
-    /// Check DDL change risk
-    LossyDdl {
-        #[arg(long)]
-        file: String,
-    },
-    /// Parse slowlog
-    Slowlog {
-        #[arg(long)]
-        file: String,
-    },
+pub enum ToolsCommands {
+    #[clap(about = "Parse TiDB slow log file and import to database")]
+    Slowlog(SlowlogOptions),
+    // #[clap(about = "Get issue info from GitHub")]
+    // BugInfo(BugInfoOptions),
 }
 
-#[derive(Subcommand, Debug)]
-enum PluginSubCommand {
-    /// List all plugins
-    List,
-    /// Run a specific plugin
-    Run {
-        name: String,
-        #[arg(long)]
-        file: Option<String>,
-    },
+fn register_all_plugins(kernel: &mut core::platform::Microkernel, command_registry: &mut CommandRegistry) {
+    use plugin_slowlog::SlowLogPlugin;
+    let mut ctx = core::plugin_api::traits::PluginContext {
+        service_registry: kernel.service_registry.clone(),
+        command_registry: Some(unsafe { std::mem::transmute::<&mut CommandRegistry, &'static mut CommandRegistry>(command_registry) }),
+    };
+    kernel.plugin_manager.register_plugin(Box::new(SlowLogPlugin), &mut ctx);
 }
 
-#[derive(Subcommand)]
-enum CheckCommands {
-    /// 检查 DDL 变更风险
-    LossyDdl {
-        #[arg(long)]
-        file: String,
-    },
-}
 
-#[derive(Subcommand)]
-enum PluginCommands {
-    /// 列出所有插件
-    List,
-    /// 运行指定插件
-    Run {
-        name: String,
-        #[arg(long)]
-        file: Option<String>,
-    },
-}
-
+/// Main entry point for TiDB Intelligent Health Check (tihc) CLI/Web.
+///
+/// - CLI: tihc [OPTIONS] <SUBCOMMAND>
+/// - Web: tihc server --host 127.0.0.1 --port 5000
+// ...existing code...
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    // 全局参数可用于日志初始化等
-    // println!("[TiHC] Log file: {} | Log level: {}", cli.log_file, cli.log_level);
+    let config_path = &cli.config_file;
+    // === 配置加载与日志初始化（合并 CLI/config，CLI 优先） ===
+    let app_config = match config::load_config(config_path) {
+        Ok(cfg) => {
+            tracing::info!("Loaded config: {:?}", cfg);
+            cfg
+        }
+        Err(e) => {
+            tracing::warn!("Config not loaded: {} (path={})", e, config_path);
+            config::AppConfig {
+                some_option: None,
+                enable_log_rotation: None,
+                log_file: None,
+                log_level: None,
+            }
+        }
+    };
+    let merged = config::MergedConfig::from(
+        &cli.log_level,
+        cli.log_file.as_deref(),
+        cli.enable_log_rotation,
+        &app_config,
+    );
 
+    logging::init_logging(
+        merged.log_file.as_ref(),
+        merged.log_level.as_ref(),
+        merged.enable_log_rotation,
+    )?;
+
+    let mut kernel = core::platform::Microkernel::new(app_config.clone());
+    let mut command_registry = CommandRegistry::new();
+    register_all_plugins(&mut kernel, &mut command_registry);
+    // === 演示 handler 层访问全局配置（只打印一次即可） ===
+    {
+        use tracing::info;
+        let app_config = kernel.core_services.config_service.get();
+        info!(target: "tihc", "[demo] config.some_option={:?}", app_config.some_option);
+    }
     match &cli.command {
-        Some(Commands::Check { check_cmd }) => match check_cmd {
-            CheckSubCommand::LossyDdl { file } => {
-                println!(
-                    "[TiHC] DDL Risk Check\nInput file: {}\n[Mock Result] Check completed.",
-                    file
-                );
-            }
-            CheckSubCommand::Slowlog { file } => {
-                println!(
-                    "[TiHC] Slowlog Parse\nInput file: {}\n[Mock Result] Parse completed.",
-                    file
-                );
-            }
-        },
-        Some(Commands::Plugin { plugin_cmd }) => match plugin_cmd {
-            PluginSubCommand::List => {
-                println!(
-                    "[TiHC] Available plugins:\n- lossy_ddl        DDL Risk Check\n- slowlog_parser   Slowlog Parse"
-                );
-            }
-            PluginSubCommand::Run { name, file } => {
-                println!(
-                    "[TiHC] Run plugin: {}\nInput file: {:?}\n[Mock Result] Execution completed.",
-                    name, file
-                );
-            }
-        },
-        Some(Commands::Web { port }) => {
-            println!(
-                "[TiHC] Start web service, port: {}\n[Mock] Web service started.",
-                port
-            );
+        Some(Commands::Tools(tools_cmd)) => {
+            let (cmd, args) = match tools_cmd {
+                ToolsCommands::Slowlog(opts) => {
+                    let mut args = Vec::new();
+                    args.push(opts.log_dir.clone());
+                    args.push(opts.pattern.clone());
+                    ("slowlog-scan", args)
+                }
+            };
+            command_registry.execute(cmd, &args)?;
+        }
+        Some(Commands::Server(web_opts)) => {
+            // Start the web server for dashboard integration
+            let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+            rt.block_on(commands::web::start_web_service(web_opts))?;
         }
         None => {
             Cli::command().print_help()?;

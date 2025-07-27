@@ -1,5 +1,5 @@
-use std::io;
 use crate::domain::{fields::SlowLogFields, table::SlowQueryRow};
+use std::io;
 
 pub fn split_by_colon(line: &str) -> (Vec<String>, Vec<String>) {
     tracing::debug!("Starting to parse line: {}", line);
@@ -310,7 +310,7 @@ fn set_column_value(query: &mut SlowQueryRow, field: &str, value: &str, line_num
     }
 }
 
-pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
+pub(crate) fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
     let mut data = Vec::new();
 
     for log in logs {
@@ -407,15 +407,4 @@ pub fn parse_log(logs: &[Vec<String>]) -> io::Result<Vec<SlowQueryRow>> {
     }
 
     Ok(data)
-}
-
-
-// Enable debug log in test
-#[test]
-fn test_parse_commit_slow_log() {
-    let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .try_init();
-
-    // ... existing test code ...
 }
