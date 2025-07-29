@@ -10,8 +10,11 @@ impl ServiceRegistry {
         }
     }
 
-    pub fn register<T: Send + Sync + 'static>(&mut self, service: Box<T>) {
-        self.services.insert(std::any::type_name::<T>().to_string(), service);
+    pub fn register<T: Sized + Send + Sync + 'static>(&mut self, service: T) {
+        self.services.insert(
+            std::any::type_name::<T>().to_string(),
+            Box::new(service) as Box<dyn std::any::Any + Send + Sync>,
+        );
     }
 
     pub fn resolve<T: 'static>(&self) -> Option<&T> {

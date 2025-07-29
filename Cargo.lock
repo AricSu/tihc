@@ -163,11 +163,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "chrono",
  "clap",
+ "common",
  "core",
+ "futures",
+ "once_cell",
  "plugin_slowlog",
+ "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "tower-http",
  "tracing",
 ]
@@ -294,6 +300,7 @@ dependencies = [
  "clap",
  "core",
  "plugin_slowlog",
+ "plugin_sql_editor",
  "tokio",
  "tracing",
  "tracing-appender",
@@ -319,6 +326,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "serde",
+ "serde_json",
  "toml",
  "tracing",
  "tracing-log",
@@ -848,6 +856,7 @@ dependencies = [
  "globset",
  "regex",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-appender",
@@ -858,7 +867,13 @@ dependencies = [
 name = "plugin_sql_editor"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "chrono",
+ "common",
  "core",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -1168,6 +1183,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
+ "tokio",
 ]
 
 [[package]]

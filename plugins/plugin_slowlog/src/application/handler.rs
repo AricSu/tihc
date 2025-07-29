@@ -3,13 +3,16 @@ use std::sync::{Arc, Mutex};
 use core::platform::service_registry::ServiceRegistry;
 use tracing::info;
 use crate::application::slowlog_service::SlowLogService;
+use serde_json;
+use crate::domain::SlowLogScanResult;
+use crate::domain::ImportStatus;
 
 pub struct SlowLogCommandHandler {
     pub registry: Arc<Mutex<ServiceRegistry>>,
 }
 
 impl CommandHandler for SlowLogCommandHandler {
-    fn handle(&self, args: &[String]) -> anyhow::Result<()> {
+    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         let log_dir = args.get(0).cloned().unwrap_or_else(|| ".".to_string());
         let pattern = args.get(1).cloned().unwrap_or_else(|| "*.log".to_string());
         let registry_guard = self.registry.lock().unwrap();
@@ -19,7 +22,8 @@ impl CommandHandler for SlowLogCommandHandler {
         let rt = tokio::runtime::Runtime::new()?;
         let files = rt.block_on(service.scan_files(&log_dir, &pattern))?;
         info!("Matched files: {:?}", files);
-        Ok(())
+        let result = SlowLogScanResult { matched_files: files };
+        Ok(serde_json::to_value(result)?)
     }
 }
 
@@ -28,7 +32,7 @@ pub struct SlowLogParseAndImportHandler {
 }
 
 impl CommandHandler for SlowLogParseAndImportHandler {
-    fn handle(&self, args: &[String]) -> anyhow::Result<()> {
+    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         let log_dir = args.get(0).cloned().unwrap_or_else(|| ".".to_string());
         let pattern = args.get(1).cloned().unwrap_or_else(|| "*.log".to_string());
         let registry_guard = self.registry.lock().unwrap();
@@ -37,6 +41,7 @@ impl CommandHandler for SlowLogParseAndImportHandler {
             .ok_or_else(|| anyhow::anyhow!("SlowLogService not found"))?;
         let rt = tokio::runtime::Runtime::new()?;
         rt.block_on(service.parse_and_import(&log_dir, &pattern))?;
-        Ok(())
+        let status = ImportStatus { status: "imported".to_string() };
+        Ok(serde_json::to_value(status)?)
     }
 }

@@ -1,6 +1,7 @@
 //! Implements the 'web' command logic for tihc CLI.
 
 use clap::Args;
+use core::platform::command_registry::CommandRegistry;
 
 #[derive(Args, Debug, Default)]
 pub struct WebOptions {
@@ -12,6 +13,6 @@ pub struct WebOptions {
     pub host: String,
 }
 
-pub async fn start_web_service(opts: &WebOptions) -> anyhow::Result<()> {
-    backend::server::start_server(opts.host.clone(), opts.port).await
+pub async fn start_web_service(opts: &WebOptions, command_registry: CommandRegistry) -> anyhow::Result<()> {
+    backend::server::start_server(opts.host.clone(), opts.port, command_registry).await
 }

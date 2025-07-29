@@ -7,7 +7,7 @@ This is the complete, structured **"TiDB Intelligent Health Check (tihc)" Design
 
 ---
 
-## 1️⃣ Project Goals
+## 1️⃣  项目定位与目标
 
 tihc 是一个为 DBAs 提供的 CLI + Web 集成工具平台，旨在提供：
 TiDB 集群检测与诊断
@@ -16,17 +16,18 @@ DDL 变更检查
 GitHub 问题分析和告警
 未来的根本原因分析（RCA / AWR 类特性）
 支持插件扩展、坚实的领域建模、跨平台部署和自包含的打包。
+平台采用微内核架构，所有业务逻辑均以插件形式扩展，核心只负责插件调度、生命周期管理、服务注册与事件驱动。
 
 ---
 
-## 2️⃣ Core Architectural Principles
+## 2️⃣ 架构核心原则
 
 | Layer         | Pattern/Approach                     | Description       |
 | ------------- | ------------------------------------ | ----------------- |
-| Core Platform | Microkernel Architecture             | 插件调度/生命周期/接口管理    |
-| Plugin Design | DDD + Clean Architecture             | 每个插件是一个有界上下文，单一责任 |
-| Plugin Comm   | Service Registry + Event/Command Bus | 解耦插件调用            |
-| Startup Mode  | CLI + Web Server                     | 单一二进制包，支持自包含部署    |
+| Core Platform | Microkernel Architecture             | 插件调度/生命周期/接口管理，微内核只负责调度与基础服务，不参与具体业务。    |
+| Plugin Design | DDD + Clean Architecture             | 插件即有界上下文，采用 DDD 分层（domain/application/infrastructure），每个插件独立建模、独立测试。 |
+| Plugin Comm   | Service Registry + Event/Command Bus | 插件通信统一通过 ServiceRegistry（trait接口解耦）与 EventBus（事件驱动），保证高扩展性与低耦合。  |
+| Startup Mode  | CLI + Web Server                     | 单一二进制包，支持自包含部署，所有入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，plugin 层只关注业务逻辑和命令注册。    |
 
 ---
 
@@ -68,7 +69,6 @@ GitHub 问题分析和告警
 | | domain         | Domain model/rules/entities/events| |
 | | application    | Use case layer/domain service coordination | |
 | | infrastructure | DB/HTTP/Prometheus implementation| |
-| | interface      | CLI/Web API layer                | |
 | +-----------------------------------------------+ |
 +-----------------------------------------------------+
 |             📡 External Dependencies/Data Sources (Unified Adapter) |
@@ -94,6 +94,10 @@ Inter-plugin Calls: ServiceRegistry + Dependency Inversion Principle
 插件 B 通过 registry.resolve::<dyn DdlCheckerService>() 获取该能力。
 因此，插件通过 trait 接口解耦通信，核心系统不依赖具体的插件实现。
 
+插件注册时将 trait 实现注册到 ServiceRegistry，其他插件通过 resolve 获取能力，完全解耦。
+事件总线 EventBus 支持插件间异步事件通知，适合告警、异步分析等场景。
+CommandBus 支持 CLI/Web 入口统一调度插件 usecase 层命令处理器。
+
 🔁 Plugin Event Propagation: EventBus + CommandBus
 插件之间不需要了解彼此，事件会广播（例如 DDL 事件触发告警插件）。
 
@@ -110,8 +114,7 @@ plugin-lossy-ddl/
 │   └── lossy_ddl_service.rs
 ├── infrastructure/
 │   └── parser_adapter.rs
-├── interface/
-│   └── cli.rs / web.rs
+    # 入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，无需 plugin 层 interface/
 ├── plugin.rs        // Plugin trait implementation + registration
 ├── lib.rs
 ```
@@ -226,12 +229,14 @@ tihc plugin run slowlog-parser --file slow.log
 
 ---
 
+
 ## ✅ Architectural Design Principles Summary
 
 * Plugins are DDD bounded contexts: strong consistency, high cohesion, low coupling.
 * Microkernel only handles scheduling, registration, logging, config, not business logic.
 * Plugin communication is unified via core interfaces (registry + trait).
 * All modules are independently testable and support self-contained build/delivery.
+* 入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，plugin 层只关注业务逻辑和命令注册。
 
 ---
 ## Directory Structure
@@ -462,3 +467,18 @@ cargo clippy	提示注释格式错误与未使用文档
 ## 包管理
 fronted ： 使用 yran 管理
 backend ： 使用 cargo 管理
+
+
+## 插件命令处理器接口设计
+
+推荐所有插件命令处理器实现如下 trait，返回结构化 JSON 数据，兼容 API 层与前端调用：
+```
+/// 所有插件命令处理器需实现此 trait，返回结构化 JSON 数据。
+/// 有返回需求的插件直接返回数据，无返回需求的插件返回 Null 或简单状态。
+pub trait CommandHandler: Send + Sync {
+    /// 处理命令参数，返回 JSON 数据。
+    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value>;
+}
+```
+这样设计可保证插件间调用、API 层、前端都能统一处理结果，无需区分类型。
+slowlog 等无返回插件可直接返回 Ok(serde_json::Value::Null) 或 Ok(json!({"status": "success"}))。

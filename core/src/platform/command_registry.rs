@@ -1,8 +1,8 @@
 /// CommandHandler trait: 所有命令处理器需实现此 trait。
 /// 实现 Send + Sync 以支持多线程和插件微内核场景。
 pub trait CommandHandler: Send + Sync {
-    /// 处理命令参数
-    fn handle(&self, args: &[String]) -> anyhow::Result<()>;
+    /// 处理命令参数，返回 JSON 数据
+    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value>;
 }
 
 /// CommandRegistry: 命令注册与分发中心。
@@ -39,9 +39,9 @@ impl CommandRegistry {
         self.handlers.keys().cloned().collect()
     }
 
-    /// 根据命令名分发执行
+    /// 根据命令名分发执行，返回 JSON 数据
     /// 未找到命令时返回错误
-    pub fn execute(&self, name: &str, args: &[String]) -> anyhow::Result<()> {
+    pub fn execute(&self, name: &str, args: &[String]) -> anyhow::Result<serde_json::Value> {
         if let Some(handler) = self.handlers.get(name) {
             handler.handle(args)
         } else {

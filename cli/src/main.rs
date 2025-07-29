@@ -78,11 +78,13 @@ pub enum ToolsCommands {
 
 fn register_all_plugins(kernel: &mut core::platform::Microkernel, command_registry: &mut CommandRegistry) {
     use plugin_slowlog::SlowLogPlugin;
+    use plugin_sql_editor::SqlEditorPlugin;
     let mut ctx = core::plugin_api::traits::PluginContext {
         service_registry: kernel.service_registry.clone(),
         command_registry: Some(unsafe { std::mem::transmute::<&mut CommandRegistry, &'static mut CommandRegistry>(command_registry) }),
     };
     kernel.plugin_manager.register_plugin(Box::new(SlowLogPlugin), &mut ctx);
+    kernel.plugin_manager.register_plugin(Box::new(SqlEditorPlugin), &mut ctx);
 }
 
 
@@ -147,7 +149,8 @@ fn main() -> Result<()> {
         Some(Commands::Server(web_opts)) => {
             // Start the web server for dashboard integration
             let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-            rt.block_on(commands::web::start_web_service(web_opts))?;
+            // 注入 command_registry 到 web 服务
+            rt.block_on(commands::web::start_web_service(web_opts, command_registry))?;
         }
         None => {
             Cli::command().print_help()?;
