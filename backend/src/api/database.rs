@@ -8,7 +8,7 @@ use core::platform::command_registry::CommandRegistry;
 
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct DBConnectionnRequest {
+pub struct DBConnectionRequest {
     pub id: u64,
     pub name: String,
     pub engine: String,
@@ -31,7 +31,7 @@ fn exec_cmd(registry: &Arc<ServiceRegistry>, cmd: &str, args: Vec<String>) -> se
     }
 }
 
-pub async fn update_connection(Extension(registry): Extension<Arc<ServiceRegistry>>, Path(conn_id): Path<u64>, Json(req): Json<DBConnectionnRequest>) -> Json<serde_json::Value> {
+pub async fn update_connection(Extension(registry): Extension<Arc<ServiceRegistry>>, Path(conn_id): Path<u64>, Json(req): Json<DBConnectionRequest>) -> Json<serde_json::Value> {
     Json(exec_cmd(&registry, "editor-connections-update", vec![conn_id.to_string(), serde_json::to_string(&req).unwrap()]))
 }
 
@@ -43,7 +43,7 @@ pub async fn list_connections(Extension(registry): Extension<Arc<ServiceRegistry
     Json(exec_cmd(&registry, "editor-connections-list", vec![]))
 }
 
-pub async fn create_connection(Extension(registry): Extension<Arc<ServiceRegistry>>, Json(req): Json<DBConnectionnRequest>) -> Json<serde_json::Value> {
+pub async fn create_connection(Extension(registry): Extension<Arc<ServiceRegistry>>, Json(req): Json<DBConnectionRequest>) -> Json<serde_json::Value> {
     tracing::info!(target: "backend_api", "[create_connection] called, req={:?}", req);
     Json(exec_cmd(&registry, "editor-connections-create", vec![serde_json::to_string(&req).unwrap()]))
 }
@@ -73,13 +73,12 @@ pub async fn delete_column(Extension(registry): Extension<Arc<ServiceRegistry>>,
     Json(exec_cmd(&registry, "editor-tables-delete-column", vec![table_name, column_name]))
 }
 
-pub async fn test_connection(Json(req): Json<DBConnectionnRequest>) -> Json<serde_json::Value> {
-    let success = req.host != "fail";
-    if success {
-        Json(json!({ "status": "success", "message": "Connection successful" }))
-    } else {
-        Json(json!({ "status": "error", "message": "Connection failed" }))
-    }
+pub async fn test_connection(
+    Extension(registry): Extension<Arc<ServiceRegistry>>,
+    Json(req): Json<DBConnectionRequest>
+) -> Json<serde_json::Value> {
+    let args = vec![serde_json::to_string(&req).unwrap()];
+    Json(exec_cmd(&registry, "editor-connections-test", args))
 }
 
 // 数据库管理 API

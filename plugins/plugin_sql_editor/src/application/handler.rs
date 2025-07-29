@@ -1,225 +1,348 @@
-// 获取连接命令
-pub struct GetConnectionCommand {
-    pub store: Arc<ConnectionStore>,
-}
-impl CommandHandler for GetConnectionCommand {
+use crate::infrastructure::database_store::DatabaseStore;
+impl CommandHandler for Command<DatabaseStore> {
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        tracing::info!(target: "plugin_sql_editor", "[GetConnectionCommand] args={:?}", args);
-        let id: u64 = args[0].parse()?;
-        let list = self.store.list();
-        if let Some(conn) = list.iter().find(|c| c.id == id) {
-            tracing::info!(target: "plugin_sql_editor", "[GetConnectionCommand] Found connection: id={}, name={}", conn.id, conn.name);
-            Ok(serde_json::to_value(conn)?)
-        } else {
-            tracing::warn!(target: "plugin_sql_editor", "[GetConnectionCommand] Connection not found: id={}", id);
-            let status = StatusResult {
-                status: "not_found".to_string(),
-                message: Some("Connection not found".to_string()),
-            };
-            Ok(serde_json::to_value(status)?)
+        use tokio::runtime::Runtime;
+        let rt = Runtime::new().unwrap();
+        match self.op {
+            Op::AddDatabase => {
+                let mut db: crate::domain::database::Database = serde_json::from_str(&args[0])?;
+                db.created_at = Some(chrono::Utc::now().to_rfc3339());
+                let conn: crate::domain::database::DatabaseConnection =
+                    serde_json::from_str(&args[1])?;
+                match conn.engine.as_str() {
+                    "mysql" => {
+                        rt.block_on(DatabaseStore::with_mysql(&conn).add(&db))?;
+                        Ok(serde_json::json!({"status": "success"}))
+                    }
+                    "postgres" => {
+                        rt.block_on(DatabaseStore::with_postgres(&conn).add(&db))?;
+                        Ok(serde_json::json!({"status": "success"}))
+                    }
+                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                }
+            }
+            Op::ListDatabase => {
+                let conn: crate::domain::database::DatabaseConnection =
+                    serde_json::from_str(&args[0])?;
+                match conn.engine.as_str() {
+                    "mysql" => {
+                        let list = rt.block_on(DatabaseStore::with_mysql(&conn).list())?;
+                        Ok(serde_json::to_value(list)?)
+                    }
+                    "postgres" => {
+                        let list = rt.block_on(DatabaseStore::with_postgres(&conn).list())?;
+                        Ok(serde_json::to_value(list)?)
+                    }
+                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                }
+            }
+            Op::DeleteDatabase => {
+                let name = &args[0];
+                let conn: crate::domain::database::DatabaseConnection =
+                    serde_json::from_str(&args[1])?;
+                match conn.engine.as_str() {
+                    "mysql" => {
+                        let success = rt.block_on(DatabaseStore::with_mysql(&conn).delete(name))?;
+                        Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+                    }
+                    "postgres" => {
+                        let success =
+                            rt.block_on(DatabaseStore::with_postgres(&conn).delete(name))?;
+                        Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+                    }
+                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                }
+            }
+            Op::GetDatabase => {
+                let name = &args[0];
+                let conn: crate::domain::database::DatabaseConnection =
+                    serde_json::from_str(&args[1])?;
+                match conn.engine.as_str() {
+                    "mysql" => match rt.block_on(DatabaseStore::with_mysql(&conn).get(name))? {
+                        Some(db) => Ok(serde_json::to_value(db)?),
+                        None => Ok(serde_json::json!({"status": "not_found"})),
+                    },
+                    "postgres" => {
+                        match rt.block_on(DatabaseStore::with_postgres(&conn).get(name))? {
+                            Some(db) => Ok(serde_json::to_value(db)?),
+                            None => Ok(serde_json::json!({"status": "not_found"})),
+                        }
+                    }
+                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                }
+            }
+            Op::UpdateDatabase => {
+                let name = &args[0];
+                let update: crate::domain::database::Database = serde_json::from_str(&args[1])?;
+                let conn: crate::domain::database::DatabaseConnection =
+                    serde_json::from_str(&args[2])?;
+                match conn.engine.as_str() {
+                    "mysql" => {
+                        let success =
+                            rt.block_on(DatabaseStore::with_mysql(&conn).update(name, &update))?;
+                        Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+                    }
+                    "postgres" => {
+                        let success =
+                            rt.block_on(DatabaseStore::with_postgres(&conn).update(name, &update))?;
+                        Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+                    }
+                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                }
+            }
+            _ => Ok(serde_json::json!({"status": "not_supported"})),
         }
     }
 }
-
-// 更新连接命令
-pub struct UpdateConnectionCommand {
-    pub store: Arc<ConnectionStore>,
-}
-impl CommandHandler for UpdateConnectionCommand {
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        tracing::info!(target: "plugin_sql_editor", "[UpdateConnectionCommand] args={:?}", args);
-        let id: u64 = args[0].parse()?;
-        let update: DatabaseConnection = serde_json::from_str(&args[1])?;
-        let mut conns = self.store.connections.lock().unwrap();
-        if let Some(conn) = conns.iter_mut().find(|c| c.id == id) {
-            tracing::info!(target: "plugin_sql_editor", "[UpdateConnectionCommand] Update connection: id={}, name={}", id, update.name);
-            *conn = update;
-            let status = StatusResult {
-                status: "success".to_string(),
-                message: None,
-            };
-            Ok(serde_json::to_value(status)?)
-        } else {
-            tracing::warn!(target: "plugin_sql_editor", "[UpdateConnectionCommand] Connection not found: id={}", id);
-            let status = StatusResult {
-                status: "not_found".to_string(),
-                message: Some("Connection not found".to_string()),
-            };
-            Ok(serde_json::to_value(status)?)
-        }
-    }
-}
-// 新增表命令
-pub struct AddTableCommand {
-    pub store: Arc<TableStore>,
-}
-impl CommandHandler for AddTableCommand {
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        tracing::info!(target: "plugin_sql_editor", "[AddTableCommand] args={:?}", args);
-        let table: Table = serde_json::from_str(&args[0])?;
-        tracing::info!(target: "plugin_sql_editor", "[AddTableCommand] Add table: name={}", table.name);
-        self.store.add(table);
-        let status = StatusResult {
-            status: "success".to_string(),
-            message: None,
-        };
-        Ok(serde_json::to_value(status)?)
-    }
-}
-
-// 删除表命令
-pub struct DeleteTableCommand {
-    pub store: Arc<TableStore>,
-}
-impl CommandHandler for DeleteTableCommand {
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        tracing::info!(target: "plugin_sql_editor", "[DeleteTableCommand] args={:?}", args);
-        let table_name = &args[0];
-        let mut tables = self.store.tables.lock().unwrap();
-        let len_before = tables.len();
-        tables.retain(|t| t.name != *table_name);
-        let success = len_before != tables.len();
-        if success {
-            tracing::info!(target: "plugin_sql_editor", "[DeleteTableCommand] Deleted table: name={}", table_name);
-        } else {
-            tracing::warn!(target: "plugin_sql_editor", "[DeleteTableCommand] Table not found: name={}", table_name);
-        }
-        let status = StatusResult {
-            status: if success {"success".to_string()} else {"not_found".to_string()},
-            message: None,
-        };
-        Ok(serde_json::to_value(status)?)
-    }
-}
-use std::sync::Arc;
-use core::platform::command_registry::CommandHandler;
-use serde_json;
-use crate::domain::{ConnectionListResult, TableListResult, StatusResult, SqlQueryResult};
-use crate::domain::database::{DatabaseConnection, Table, Column};
+use crate::domain::database::{Column, DatabaseConnection, Table};
+use crate::domain::{ConnectionListResult, StatusResult, TableListResult};
 use crate::infrastructure::{connection_store::ConnectionStore, table_store::TableStore};
-use tracing;
-
-// 通用命令处理器 trait，支持泛型存储和操作
-pub trait StoreCommand<T>: Send + Sync {
-    fn store(&self) -> &Arc<T>;
+use core::platform::command_registry::CommandHandler;
+// ...existing code...
+// 通用命令操作枚举
+pub enum Op {
+    AddConnection,
+    ListConnection,
+    DeleteConnection,
+    TestConnection,
+    AddTable,
+    ListTable,
+    GetTable,
+    UpdateTable,
+    DeleteTable,
+    AddColumn,
+    DeleteColumn,
+    // Database/schema ops
+    AddDatabase,
+    ListDatabase,
+    DeleteDatabase,
+    GetDatabase,
+    UpdateDatabase,
 }
 
-// 泛型命令结构体
-pub struct Command<T: Send + Sync> {
-    pub store: Arc<T>,
+// 泛型命令处理器
+pub struct Command<T> {
+    pub store: std::sync::Arc<T>,
+    pub op: Op,
 }
 
-impl<T: Send + Sync> StoreCommand<T> for Command<T> {
-    fn store(&self) -> &Arc<T> { &self.store }
-}
-
-pub enum ConnectionOp {
-    Create,
-    List,
-}
-
-pub struct ConnectionCommand {
-    pub store: Arc<ConnectionStore>,
-    pub op: ConnectionOp,
-}
-
-impl CommandHandler for ConnectionCommand {
+impl CommandHandler for Command<ConnectionStore> {
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         match self.op {
-            ConnectionOp::Create => {
-                tracing::info!(target: "plugin_sql_editor", "[ConnectionCommand] Create called, args={:?}", args);
+            Op::AddConnection => {
                 let mut req: DatabaseConnection = serde_json::from_str(&args[0])?;
                 req.id = chrono::Utc::now().timestamp_millis() as u64;
                 req.created_at = chrono::Utc::now().to_rfc3339();
-                tracing::info!(target: "plugin_sql_editor", "[ConnectionCommand] Created connection: id={}, name={}", req.id, req.name);
                 self.store.add(req);
-                let status = StatusResult { status: "success".to_string(), message: None };
-                Ok(serde_json::to_value(status)?)
+                Ok(serde_json::json!({"status": "success"}))
             }
-            ConnectionOp::List => {
-                tracing::info!(target: "plugin_sql_editor", "[ConnectionCommand] List called");
+            Op::ListConnection => {
                 let list = self.store.list();
-                tracing::info!(target: "plugin_sql_editor", "[ConnectionCommand] List result count={}", list.len());
-                let result = ConnectionListResult { data: list };
+                Ok(serde_json::to_value(ConnectionListResult { data: list })?)
+            }
+            Op::DeleteConnection => {
+                let id: u64 = args[0].parse()?;
+                let success = self.store.delete(id);
+                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+            }
+            Op::TestConnection => {
+                use sqlx::{Connection, MySqlConnection, PgConnection, SqliteConnection};
+                let conn: DatabaseConnection = serde_json::from_str(&args[0])?;
+                let engine = conn.engine.as_str();
+                let host = conn.host.as_str();
+                let port = conn.port;
+                let username = conn.username.as_str();
+                let password = conn.password.as_deref().unwrap_or("");
+                let database = conn.database.as_deref().unwrap_or("");
+                let result = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        match engine {
+                            "postgres" => {
+                                let url = format!(
+                                    "postgres://{}:{}@{}:{}/{}",
+                                    username, password, host, port, database
+                                );
+                                match PgConnection::connect(&url).await {
+                                    Ok(_) => StatusResult {
+                                        status: "success".to_string(),
+                                        message: None,
+                                    },
+                                    Err(e) => StatusResult {
+                                        status: "failed".to_string(),
+                                        message: Some(format!("{}", e)),
+                                    },
+                                }
+                            }
+                            "mysql" => {
+                                let url = format!(
+                                    "mysql://{}:{}@{}:{}/{}",
+                                    username, password, host, port, database
+                                );
+                                match MySqlConnection::connect(&url).await {
+                                    Ok(_) => StatusResult {
+                                        status: "success".to_string(),
+                                        message: None,
+                                    },
+                                    Err(e) => StatusResult {
+                                        status: "failed".to_string(),
+                                        message: Some(format!("{}", e)),
+                                    },
+                                }
+                            }
+                            "sqlite" => {
+                                let url = database;
+                                match SqliteConnection::connect(url).await {
+                                    Ok(_) => StatusResult {
+                                        status: "success".to_string(),
+                                        message: None,
+                                    },
+                                    Err(e) => StatusResult {
+                                        status: "failed".to_string(),
+                                        message: Some(format!("{}", e)),
+                                    },
+                                }
+                            }
+                            _ => StatusResult {
+                                status: "failed".to_string(),
+                                message: Some("Unsupported engine".to_string()),
+                            },
+                        }
+                    })
+                });
                 Ok(serde_json::to_value(result)?)
             }
+            _ => Ok(serde_json::json!({"status": "not_supported"})),
         }
     }
 }
-// 列表命令（表）
 impl CommandHandler for Command<TableStore> {
-    fn handle(&self, _args: &[String]) -> anyhow::Result<serde_json::Value> {
-        let list = self.store.list();
-        let result = TableListResult { data: list };
+    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
+        match self.op {
+            Op::AddTable => {
+                let table: Table = serde_json::from_str(&args[0])?;
+                self.store.add(table);
+                Ok(serde_json::json!({"status": "success"}))
+            }
+            Op::ListTable => {
+                let list = self.store.list();
+                Ok(serde_json::to_value(TableListResult { data: list })?)
+            }
+            Op::GetTable => {
+                let table_name = &args[0];
+                match self.store.get(table_name) {
+                    Some(table) => Ok(serde_json::to_value(table)?),
+                    None => Ok(serde_json::json!({"status": "not_found"})),
+                }
+            }
+            Op::UpdateTable => {
+                let table_name = &args[0];
+                let update: Table = serde_json::from_str(&args[1])?;
+                let success = self.store.update(table_name, update);
+                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+            }
+            Op::DeleteTable => {
+                let table_name = &args[0];
+                let success = self.store.delete(table_name);
+                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+            }
+            Op::AddColumn => {
+                let table_name = &args[0];
+                let column: Column = serde_json::from_str(&args[1])?;
+                let success = self.store.add_column(table_name, column);
+                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+            }
+            Op::DeleteColumn => {
+                let table_name = &args[0];
+                let column_name = &args[1];
+                let success = self.store.delete_column(table_name, column_name);
+                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+            }
+            _ => Ok(serde_json::json!({"status": "not_supported"})),
+        }
+    }
+}
+
+// 测试连接命令
+pub struct TestConnectionCommand;
+impl CommandHandler for TestConnectionCommand {
+    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
+        use sqlx::{Connection, MySqlConnection, PgConnection, SqliteConnection};
+        use tokio::runtime::Runtime;
+        let conn: DatabaseConnection = serde_json::from_str(&args[0])?;
+        let engine = conn.engine.as_str();
+        let host = conn.host.as_str();
+        let port = conn.port;
+        let username = conn.username.as_str();
+        let password = conn.password.as_deref().unwrap_or("");
+        let database = conn.database.as_deref().unwrap_or("");
+        let result = Runtime::new().unwrap().block_on(async {
+            match engine {
+                "postgres" => {
+                    let url = format!(
+                        "postgres://{}:{}@{}:{}/{}",
+                        username, password, host, port, database
+                    );
+                    match PgConnection::connect(&url).await {
+                        Ok(_) => StatusResult {
+                            status: "success".to_string(),
+                            message: None,
+                        },
+                        Err(e) => StatusResult {
+                            status: "failed".to_string(),
+                            message: Some(format!("{}", e)),
+                        },
+                    }
+                }
+                "mysql" => {
+                    let url = format!(
+                        "mysql://{}:{}@{}:{}/{}",
+                        username, password, host, port, database
+                    );
+                    match MySqlConnection::connect(&url).await {
+                        Ok(_) => StatusResult {
+                            status: "success".to_string(),
+                            message: None,
+                        },
+                        Err(e) => StatusResult {
+                            status: "failed".to_string(),
+                            message: Some(format!("{}", e)),
+                        },
+                    }
+                }
+                "sqlite" => {
+                    let url = database;
+                    match SqliteConnection::connect(url).await {
+                        Ok(_) => StatusResult {
+                            status: "success".to_string(),
+                            message: None,
+                        },
+                        Err(e) => StatusResult {
+                            status: "failed".to_string(),
+                            message: Some(format!("{}", e)),
+                        },
+                    }
+                }
+                _ => StatusResult {
+                    status: "failed".to_string(),
+                    message: Some("Unsupported engine".to_string()),
+                },
+            }
+        });
         Ok(serde_json::to_value(result)?)
     }
 }
 
-// 删除命令（连接/表字段）
-pub struct DeleteCommand<T> {
-    pub store: Arc<T>,
-}
-impl CommandHandler for DeleteCommand<ConnectionStore> {
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        let id: u64 = args[0].parse()?;
-        let success = self.store.delete(id);
-        let status = StatusResult {
-            status: if success {"success".to_string()} else {"not_found".to_string()},
-            message: None,
-        };
-        Ok(serde_json::to_value(status)?)
-    }
-}
-impl CommandHandler for DeleteCommand<TableStore> {
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        let table_name = &args[0];
-        let column_name = &args[1];
-        let success = self.store.delete_column(table_name, column_name);
-        let status = StatusResult {
-            status: if success {"success".to_string()} else {"not_found".to_string()},
-            message: None,
-        };
-        Ok(serde_json::to_value(status)?)
-    }
-}
-
-// 增加字段命令
-pub struct AddColumnCommand {
-    pub store: Arc<TableStore>,
-}
-impl CommandHandler for AddColumnCommand {
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        let table_name = &args[0];
-        let column: Column = serde_json::from_str(&args[1])?;
-        let success = self.store.add_column(table_name, column);
-        let status = StatusResult {
-            status: if success {"success".to_string()} else {"not_found".to_string()},
-            message: None,
-        };
-        Ok(serde_json::to_value(status)?)
-    }
-}
-
 // SQL 执行命令
-pub struct ExecuteSqlCommand;
+pub struct ExecuteSqlCommand {}
 impl CommandHandler for ExecuteSqlCommand {
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         let sql = &args[0];
-        // mock: select 返回一行，其他返回成功
         if sql.trim().to_lowercase().starts_with("select") {
-            let result = SqlQueryResult {
-                status: "success".to_string(),
-                data: Some(vec![serde_json::json!({"id": 1, "name": "Alice", "email": "alice@example.com"})]),
-                message: None,
-            };
-            Ok(serde_json::to_value(result)?)
+            Ok(
+                serde_json::json!({"status": "success", "data": [{"id": 1, "name": "Alice", "email": "alice@example.com"}]}),
+            )
         } else {
-            let result = SqlQueryResult {
-                status: "success".to_string(),
-                data: None,
-                message: Some("SQL executed".to_string()),
-            };
-            Ok(serde_json::to_value(result)?)
+            Ok(serde_json::json!({"status": "success", "message": "SQL executed"}))
         }
     }
 }

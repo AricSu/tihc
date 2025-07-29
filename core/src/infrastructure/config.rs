@@ -1,5 +1,5 @@
-use std::{borrow::Cow, fs};
 use serde::Deserialize;
+use std::{borrow::Cow, fs};
 
 /// 全局配置结构体（可扩展）
 #[derive(Debug, Deserialize, Clone)]
@@ -23,7 +23,12 @@ pub struct MergedConfig<'a> {
 
 impl<'a> MergedConfig<'a> {
     /// 构造合并后的配置
-    pub fn from(cli_log_level: &'a str, cli_log_file: Option<&'a str>, cli_enable_log_rotation: bool, config: &'a AppConfig) -> Self {
+    pub fn from(
+        cli_log_level: &'a str,
+        cli_log_file: Option<&'a str>,
+        cli_enable_log_rotation: bool,
+        config: &'a AppConfig,
+    ) -> Self {
         let log_level = if !cli_log_level.is_empty() {
             Cow::Borrowed(cli_log_level)
         } else if let Some(l) = config.log_level.as_ref() {

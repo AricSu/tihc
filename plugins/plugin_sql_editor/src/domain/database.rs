@@ -1,11 +1,17 @@
-//! Domain model for database connections in plugin_sql_editor.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct Database {
+    pub name: String,
+    pub description: Option<String>,
+    pub created_at: Option<String>,
+}
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConnection {
     pub id: u64,
     pub name: String,
+    /// 数据库类型，如 "mysql" 或 "postgres"
     pub engine: String,
     pub host: String,
     pub port: u16,

@@ -75,11 +75,11 @@
       :activeTab="sqlEditor.activeTab"
       :connectingTo="sqlEditor.connectingTo"
       @update:activeTab="sqlEditor.setActiveTab"
-      @save-connection="sqlEditor.saveConnection"
-      @test-connection="sqlEditor.testConnection"
+      @save-connection="handleSaveConnection"
+      @test-connection="handleTestConnection"
       @connect-to-saved="sqlEditor.setCurrentConnection"
       @duplicate-connection="sqlEditor.duplicateConnection"
-      @delete-connection="sqlEditor.deleteConnection"
+      @delete-connection="handleDeleteConnection"
       @open-slowlog="sqlEditor.setShowSlowlogPanel(true)"
     />
     <!-- 设置弹窗 -->
@@ -111,11 +111,64 @@ import SettingsForm from './components/SettingsForm.vue'
 import QueryHistory from './components/QueryHistory.vue'
 import SlowlogDrawer from './components/SlowlogDrawer.vue'
 import { ref } from 'vue'
+import {
+  createConnection,
+  testConnection,
+  deleteConnection,
+  listConnections as getConnections,
+  getConnection,
+  updateConnection,
+  Connection
+} from '@/api/connection'
 const sqlEditor = useSqlEditorStore()
 const isMac = /Mac/.test(navigator.userAgent)
 const isExecuting = computed(() => sqlEditor.isExecuting)
 const lineCount = computed(() => sqlEditor.sqlContent.split('\n').length)
 const slowlogDrawerRef = ref()
+
+async function handleSaveConnection(conn: Connection) {
+  showGlobalLoading()
+  try {
+    await createConnection(conn)
+    await fetchConnections()
+    handleQuerySuccess('连接已保存')
+  } catch (e) {
+    handleQueryError('保存连接失败')
+  }
+}
+
+async function handleTestConnection(conn: Connection) {
+  showGlobalLoading()
+  try {
+    await testConnection(conn)
+    handleQuerySuccess('连接测试成功')
+  } catch (e) {
+    handleQueryError('连接测试失败')
+  }
+}
+
+async function handleDeleteConnection(conn: Connection) {
+  showGlobalLoading()
+  try {
+    await deleteConnection(conn.id as string | number)
+    await fetchConnections()
+    handleQuerySuccess('连接已删除')
+  } catch (e) {
+    handleQueryError('删除连接失败')
+  }
+}
+
+async function fetchConnections() {
+  try {
+    const res = await getConnections()
+    sqlEditor.connections = res.data.data || []
+  } catch (e) {
+    sqlEditor.connections = []
+  }
+}
+
+// 初始化时自动加载连接列表
+fetchConnections()
 
 
 // 事件处理示例，可根据实际业务完善

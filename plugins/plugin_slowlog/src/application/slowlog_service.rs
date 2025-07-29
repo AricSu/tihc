@@ -9,8 +9,16 @@ use std::pin::Pin;
 use std::{fs, io};
 
 pub(crate) trait SlowLogService: Send + Sync {
-    fn parse_and_import<'a>(&'a self, log_dir: &'a str, pattern: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + 'a>>;
-    fn scan_files<'a>(&'a self, dir: &'a str, pattern: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<Vec<String>>> + Send + 'a>>;
+    fn parse_and_import<'a>(
+        &'a self,
+        log_dir: &'a str,
+        pattern: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + 'a>>;
+    fn scan_files<'a>(
+        &'a self,
+        dir: &'a str,
+        pattern: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<Vec<String>>> + Send + 'a>>;
     fn parse_slow_log(
         self: Box<Self>,
         sender: tokio::sync::mpsc::Sender<Result<Vec<SlowQueryRow>>>,
@@ -112,7 +120,11 @@ impl SlowLogServiceImpl {
 }
 
 impl SlowLogService for SlowLogServiceImpl {
-    fn parse_and_import<'a>(&'a self, log_dir: &'a str, pattern: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + 'a>> {
+    fn parse_and_import<'a>(
+        &'a self,
+        log_dir: &'a str,
+        pattern: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + 'a>> {
         Box::pin(async move {
             // 1. 扫描文件
             let files = Self::scan_slowlog_files(log_dir, pattern)?;
@@ -125,11 +137,21 @@ impl SlowLogService for SlowLogServiceImpl {
                 let mut offset = 0;
                 let mut batch_idx = 0;
                 loop {
-                    let batch = self.get_batch_log_from_file(&file_path, &mut offset, self.batch_size).await?;
-                    if batch.is_empty() { break; }
-                    let parsed_result = crate::infrastructure::retriever::parse_log(&batch).map_err(anyhow::Error::from);
+                    let batch = self
+                        .get_batch_log_from_file(&file_path, &mut offset, self.batch_size)
+                        .await?;
+                    if batch.is_empty() {
+                        break;
+                    }
+                    let parsed_result = crate::infrastructure::retriever::parse_log(&batch)
+                        .map_err(anyhow::Error::from);
                     match &parsed_result {
-                        Ok(rows) => tracing::info!("Parsed file={} batch={} rows={}", file_path, batch_idx, rows.len()),
+                        Ok(rows) => tracing::info!(
+                            "Parsed file={} batch={} rows={}",
+                            file_path,
+                            batch_idx,
+                            rows.len()
+                        ),
                         Err(e) => tracing::error!("Parse error: {e}"),
                     }
                     batch_idx += 1;
@@ -138,10 +160,13 @@ impl SlowLogService for SlowLogServiceImpl {
             Ok(())
         })
     }
-    fn scan_files<'a>(&'a self, dir: &'a str, pattern: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<Vec<String>>> + Send + 'a>> {
-        Box::pin(async move {
-            Self::scan_slowlog_files(dir, pattern)
-        })
+    fn scan_files<'a>(
+        &'a self,
+        dir: &'a str,
+        pattern: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<Vec<String>>> + Send + 'a>>
+    {
+        Box::pin(async move { Self::scan_slowlog_files(dir, pattern) })
     }
 
     fn parse_slow_log(

@@ -1,9 +1,9 @@
-use core::platform::command_registry::CommandRegistry;
+use crate::commands::slowlog::SlowlogOptions;
+use crate::commands::web::WebOptions;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use core::infrastructure::{config, logging};
-use crate::commands::slowlog::SlowlogOptions;
-use crate::commands::web::WebOptions;
+use core::platform::command_registry::CommandRegistry;
 mod commands;
 
 #[derive(Parser, Debug)]
@@ -76,17 +76,27 @@ pub enum ToolsCommands {
     // BugInfo(BugInfoOptions),
 }
 
-fn register_all_plugins(kernel: &mut core::platform::Microkernel, command_registry: &mut CommandRegistry) {
+fn register_all_plugins(
+    kernel: &mut core::platform::Microkernel,
+    command_registry: &mut CommandRegistry,
+) {
     use plugin_slowlog::SlowLogPlugin;
     use plugin_sql_editor::SqlEditorPlugin;
     let mut ctx = core::plugin_api::traits::PluginContext {
         service_registry: kernel.service_registry.clone(),
-        command_registry: Some(unsafe { std::mem::transmute::<&mut CommandRegistry, &'static mut CommandRegistry>(command_registry) }),
+        command_registry: Some(unsafe {
+            std::mem::transmute::<&mut CommandRegistry, &'static mut CommandRegistry>(
+                command_registry,
+            )
+        }),
     };
-    kernel.plugin_manager.register_plugin(Box::new(SlowLogPlugin), &mut ctx);
-    kernel.plugin_manager.register_plugin(Box::new(SqlEditorPlugin), &mut ctx);
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(SlowLogPlugin), &mut ctx);
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(SqlEditorPlugin), &mut ctx);
 }
-
 
 /// Main entry point for TiDB Intelligent Health Check (tihc) CLI/Web.
 ///

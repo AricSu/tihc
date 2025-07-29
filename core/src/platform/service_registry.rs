@@ -2,7 +2,6 @@ pub struct ServiceRegistry {
     services: std::collections::HashMap<String, Box<dyn std::any::Any + Send + Sync>>,
 }
 
-
 impl ServiceRegistry {
     pub fn new() -> Self {
         ServiceRegistry {

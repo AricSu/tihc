@@ -9,4 +9,3 @@ pub mod plugin;
 
 /// Plugin main entry, for microkernel platform discovery and registration
 pub use plugin::SlowLogPlugin;
-

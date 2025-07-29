@@ -13,6 +13,9 @@ pub struct WebOptions {
     pub host: String,
 }
 
-pub async fn start_web_service(opts: &WebOptions, command_registry: CommandRegistry) -> anyhow::Result<()> {
+pub async fn start_web_service(
+    opts: &WebOptions,
+    command_registry: CommandRegistry,
+) -> anyhow::Result<()> {
     backend::server::start_server(opts.host.clone(), opts.port, command_registry).await
 }
