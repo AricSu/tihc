@@ -33,7 +33,6 @@
             <n-input
               v-model:value="form.logDir"
               placeholder="/Users/aric/Downloads or /var/log/tidb"
-              :disabled="props.connected === false"
             />
             <template #feedback>
               <n-text depth="3" style="font-size: 11px;">
@@ -45,7 +44,6 @@
             <n-input
               v-model:value="form.pattern"
               placeholder=".*slow.*.log or cl-.*-tidb-.*slowlog.log"
-              :disabled="props.connected === false"
               type="text"
             />
             <template #feedback>
@@ -60,7 +58,7 @@
               <n-button 
                 @click="scanFiles" 
                 :loading="scanning"
-                :disabled="!connected"
+                :disabled="!hasConnection"
                 secondary
                 block
               >
@@ -69,13 +67,18 @@
               <n-button 
                 @click="processFiles" 
                 :loading="processing"
-                :disabled="!connected || scannedFiles.length === 0"
+                :disabled="!hasConnection || scannedFiles.length === 0"
                 type="primary"
                 block
               >
                 Parse & Import
               </n-button>
             </n-space>
+          </n-form-item>
+          <n-form-item v-if="!hasConnection">
+            <n-alert type="warning" title="Not Connected" style="margin-top: 8px;">
+              Please select a valid connection before using slowlog tools.
+            </n-alert>
           </n-form-item>
         </n-form>
       </n-card>
@@ -115,17 +118,8 @@
             Found {{ scannedFiles.length }} matching file{{ scannedFiles.length > 1 ? 's' : '' }}
           </n-alert>
           <n-list bordered size="small">
-            <n-list-item v-for="file in scannedFiles" :key="file.path">
-              <n-thing>
-                <template #header>
-                  <n-text style="font-size: 12px;">{{ file.name }}</n-text>
-                </template>
-                <template #description>
-                  <n-text depth="3" style="font-size: 11px;">
-                    {{ file.size }} • {{ file.modified }}
-                  </n-text>
-                </template>
-              </n-thing>
+            <n-list-item v-for="file in scannedFiles" :key="file">
+              <n-text style="font-size: 13px;">{{ file }}</n-text>
             </n-list-item>
           </n-list>
         </div>
@@ -150,8 +144,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, toRefs } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
+import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 import { NDrawer, NDrawerContent, NCard, NForm, NFormItem, NInput, NButton, NSpace, NText, NAlert, NList, NListItem, NThing, NProgress, NCode } from 'naive-ui'
+import { getSlowlogFiles, processSlowlogFiles } from '@/api/slowlog'
 
 interface Props {
   modelValue: boolean
@@ -162,17 +158,19 @@ const props = withDefaults(defineProps<Props>(), {
   connected: false,
   files: () => []
 })
-const emit = defineEmits(['update:modelValue', 'scan-files', 'process-files'])
+const emit = defineEmits(['update:modelValue'])
 const formRef = ref()
 const scanning = ref(false)
 const processing = ref(false)
 const scanCompleted = ref(false)
 const scannedFiles = ref<any[]>([])
 const processStatus = ref<any>(null)
-const { connected } = toRefs(props)
+const sqlEditor = useSqlEditorStore()
+const hasConnection = computed(() => !!sqlEditor.currentConnection?.id)
+// 默认填充示例值，提升体验
 const form = reactive({
-  logDir: '',
-  pattern: ''
+  logDir: '/Users/aric/Downloads',
+  pattern: '.*slow.*log'
 })
 const rules = {
   logDir: [
@@ -182,31 +180,109 @@ const rules = {
     { required: true, message: 'Please input pattern', trigger: 'blur' },
     { validator: (_rule: any, value: string) => {
       if (!value || value.trim() === '') return new Error('Pattern is required')
-      try { new RegExp(value); return true } catch { return new Error('Invalid regular expression') }
+      try { new RegExp(value); return true } catch { return new Error('Invalid regex pattern') }
     }, trigger: ['blur', 'change'] }
   ]
 }
+
+const processFiles = async () => {
+  if (!hasConnection.value || scannedFiles.value.length === 0) {
+    window.$message?.warning('请先选择连接并扫描到慢日志文件')
+    return
+  }
+  processing.value = true
+  processStatus.value = null
+  try {
+    const connectionId = sqlEditor.currentConnection?.id
+    const logDir = form.logDir
+    const pattern = form.pattern
+    console.log('[SlowlogDrawer] processFiles called, connectionId:', connectionId, 'logDir:', logDir, 'pattern:', pattern)
+    const res = await processSlowlogFiles(connectionId, logDir, pattern)
+    console.log('[SlowlogDrawer] processSlowlogFiles response:', res)
+    if (res?.status === 'success') {
+      processStatus.value = {
+        status: 'success',
+        progress: 100,
+        message: `慢日志导入成功`,
+        details: res.processed ? `已处理文件: ${res.processed.join(', ')}` : ''
+      }
+      window.$message?.success('慢日志导入成功')
+    } else {
+      processStatus.value = {
+        status: 'error',
+        progress: 0,
+        message: res?.error || '慢日志导入失败',
+        details: res?.result ? JSON.stringify(res.result) : ''
+      }
+      window.$message?.error('慢日志导入失败：' + (res?.error || '未知错误'))
+    }
+  } catch (err) {
+    processStatus.value = {
+      status: 'error',
+      progress: 0,
+      message: err?.message || '慢日志导入异常',
+      details: err ? JSON.stringify(err) : ''
+    }
+    window.$message?.error('慢日志导入异常：' + (err?.message || err))
+  } finally {
+    processing.value = false
+  }
+}
+
 const scanFiles = async () => {
   try {
     await formRef.value?.validate()
     scanning.value = true
     scanCompleted.value = false
     scannedFiles.value = []
-    emit('scan-files', { logDir: form.logDir.trim(), pattern: form.pattern.trim() })
-  } catch {}
+    console.log('[SlowlogDrawer] scanFiles called, form:', { logDir: form.logDir, pattern: form.pattern })
+    const res = await getSlowlogFiles({ logDir: form.logDir.trim(), pattern: form.pattern })
+    console.log('[SlowlogDrawer] getSlowlogFiles response:', res)
+    if (res?.code && res.code !== 200) {
+      let msg = ''
+      switch (res.reason) {
+        case 'not_found': msg = `目录不存在：${form.logDir}`; break
+        case 'permission': msg = `没有权限访问目录：${form.logDir}`; break
+        case 'fs_error': msg = `文件系统错误：${res.error}`; break
+        case 'internal': msg = `服务异常：${res.error}`; break
+        default: msg = res.error || '未知错误';
+      }
+      window.$message?.error(msg)
+      scannedFiles.value = []
+      scanCompleted.value = true
+      return
+    }
+    // 兼容后端返回 result.matched_files 或 files
+    let files: any[] = []
+    // 兼容 axios 响应结构 res.data?.result?.matched_files
+    const result = (res as any)?.result || (res as any)?.data?.result
+    if (Array.isArray(res?.files)) {
+      files = res.files
+    } else if (Array.isArray(result?.matched_files)) {
+      files = result.matched_files
+    }
+    // 拼接目录路径，确保 scannedFiles.value 为全路径
+    scannedFiles.value = files.map(f => {
+      if (typeof f === 'string') {
+        // 如果后端只返回文件名，则拼接目录路径
+        if (!f.startsWith('/') && !f.match(/^([a-zA-Z]:\\|\\)/)) {
+          return form.logDir.replace(/\/$/, '') + '/' + f
+        }
+        return f
+      }
+      return f
+    })
+    scanCompleted.value = true
+  } catch (err) {
+    console.error('[SlowlogDrawer] scanFiles error:', err)
+    window.$message?.error('慢日志扫描失败：' + (err?.message || err))
+    scannedFiles.value = []
+    scanCompleted.value = true
+  } finally {
+    scanning.value = false
+  }
 }
-const processFiles = async () => {
-  try {
-    await formRef.value?.validate()
-    processing.value = true
-    processStatus.value = { progress: 0, status: 'info', message: 'Starting slowlog processing...', details: 'Initializing...' }
-    emit('process-files', { logDir: form.logDir.trim(), pattern: form.pattern.trim(), files: scannedFiles.value })
-  } catch {}
-}
-watch(() => props.files, (newFiles) => {
-  scannedFiles.value = newFiles || []
-  scanCompleted.value = Array.isArray(newFiles)
-}, { immediate: true, deep: true })
+
 const setScanResult = (files: any[]) => {
   scannedFiles.value = files
   scanCompleted.value = Array.isArray(files) && files.length > 0

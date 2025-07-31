@@ -32,6 +32,13 @@ impl DatabaseStore {
             pool: DbPool::Postgres(pool),
         }
     }
+
+    /// 构造 Dummy 数据库存储
+    pub fn dummy() -> Self {
+        DatabaseStore {
+            pool: DbPool::Dummy,
+        }
+    }
 }
 use crate::domain::database::Database;
 use sqlx::{MySqlPool, PgPool};

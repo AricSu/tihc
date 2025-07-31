@@ -6,8 +6,8 @@
           <n-form-item label="Connection Name" path="name">
             <n-input v-model:value="form.name" placeholder="My TiDB Connection" @blur="generateConnectionName" />
           </n-form-item>
-          <n-form-item label="Database Type" path="type">
-            <n-select v-model:value="form.type" :options="databaseTypes" @update:value="handleDatabaseTypeChange" />
+          <n-form-item label="Database Type" path="engine">
+            <n-select v-model:value="form.engine" :options="databaseTypes" @update:value="handleDatabaseTypeChange" />
           </n-form-item>
           <n-form-item label="Host" path="host">
             <n-input v-model:value="form.host" placeholder="localhost" />
@@ -23,6 +23,12 @@
           </n-form-item>
           <n-form-item label="Database" path="database">
             <n-input v-model:value="form.database" placeholder="test (optional)" />
+          </n-form-item>
+          <n-form-item label="Use TLS" path="use_tls">
+            <n-switch v-model:value="form.use_tls" />
+          </n-form-item>
+          <n-form-item v-if="form.use_tls" label="CA Cert Path" path="ca_cert_path">
+            <n-input v-model:value="form.ca_cert_path" placeholder="/path/to/ca.pem (optional)" />
           </n-form-item>
         </n-form>
         <n-space justify="end" style="margin-top: 16px;">
@@ -56,7 +62,7 @@
                       <template #description>
                         <div class="connection-info">
                           <n-text depth="3">
-                            {{ (conn.type || '').toUpperCase() }} • {{ conn.host }}:{{ conn.port }}
+                            {{ (conn.engine || '').toUpperCase() }} • {{ conn.host }}:{{ conn.port }}
                           </n-text>
                           <n-text depth="3" v-if="conn.database">
                             Database: {{ conn.database }}
@@ -74,7 +80,7 @@
                         <n-button 
                           size="small" 
                           type="primary"
-                          :disabled="isCurrentConnection(conn)"
+                          :disabled="!!isCurrentConnection(conn)"
                           :loading="connectingTo === (conn.id || conn.name)"
                           @click="() => emit('connect-to-saved', conn)"
                         >
@@ -169,14 +175,17 @@ function getConnectionMenuOptions(conn: Connection) {
 }
 
 interface Connection {
-  id?: string
+id?: number
   name: string
-  type: string
+  engine: string
   host: string
   port: number
   username: string
   password?: string
   database?: string
+  use_tls?: boolean
+  ca_cert_path?: string
+  created_at?: string
 }
 const props = defineProps({
   modelValue: Boolean,
@@ -208,6 +217,7 @@ const emit = defineEmits([
   'save-connection',
   'connect-to-saved',
   'edit-connection',
+  'update-connection',
   'duplicate-connection',
   'delete-connection'
 ])
@@ -218,13 +228,17 @@ const testingFromMenu = ref<string | null>(null)
 const formRef = ref()
 
 const form = reactive({
+  id: undefined as number | undefined,
   name: '',
-  type: 'mysql',
+  engine: 'tidb',
   host: 'localhost',
-  port: 3306,
+  port: 4000,
   username: 'root',
   password: '',
-  database: ''
+  database: '',
+  use_tls: false,
+  ca_cert_path: '',
+  created_at: ''
 })
 
 // When modal opens, just reset form
@@ -238,11 +252,11 @@ watch(
 )
 
 const databaseTypes = [
-  { label: 'MySQL', value: 'mysql' },
   { label: 'TiDB', value: 'tidb' }
 ]
 const rules = {
   name: { required: true, message: '请输入连接名称', trigger: 'blur' },
+  engine: { required: true, message: '请选择数据库类型', trigger: 'change' },
   host: { required: true, message: '请输入主机地址', trigger: 'blur' },
   port: {
     required: true,
@@ -259,54 +273,99 @@ const rules = {
     }
   },
   username: { required: true, message: '请输入用户名', trigger: 'blur' },
-  password: { required: false, trigger: 'blur' }
+  password: { required: false, trigger: 'blur' },
+  use_tls: { required: false },
+  ca_cert_path: { required: false },
+  created_at: { required: false }
 }
 function generateConnectionName() {
-  if (!form.name && form.host && form.type) {
+  if (!form.name && form.host && form.engine) {
     const typeMap = {
-      mysql: 'MySQL',
       tidb: 'TiDB'
     }
-    form.name = `${typeMap[form.type] || 'Database'} - ${form.host}`
+    form.name = `${typeMap[form.engine] || 'Database'} - ${form.host}`
   }
 }
 function handleDatabaseTypeChange(type: string) {
+  form.engine = type
   const defaultPorts = {
-    mysql: 3306,
     tidb: 4000
   }
-  form.port = defaultPorts[type] || 3306
+  form.port = defaultPorts[type] || 4000
 }
 function fillForm(conn: Connection) {
   Object.assign(form, {
+    id: conn.id,
     name: conn.name,
-    type: conn.type,
+    engine: conn.engine,
     host: conn.host,
     port: conn.port,
     username: conn.username,
     password: conn.password || '',
-    database: conn.database || ''
+    database: conn.database || '',
+    use_tls: conn.use_tls ?? false,
+    ca_cert_path: conn.ca_cert_path || '',
+    created_at: conn.created_at || ''
   })
 }
 function resetForm() {
   Object.assign(form, {
+    id: undefined,
     name: '',
-    type: 'mysql',
+    engine: 'tidb',
     host: 'localhost',
-    port: 3306,
+    port: 4000,
     username: 'root',
     password: '',
-    database: ''
+    database: '',
+    use_tls: false,
+    ca_cert_path: '',
+    created_at: ''
   })
 }
 function onTestConnection() {
   formRef.value?.validate().then(() => {
-    emit('test-connection', { ...form })
+    if (!form.created_at) {
+      form.created_at = new Date().toISOString()
+    }
+    // 确保 use_tls 和 ca_cert_path 字段始终存在
+    const payload = {
+      ...form,
+      use_tls: form.use_tls ?? false,
+      ca_cert_path: form.ca_cert_path ?? ''
+    }
+    console.log('test-connection payload', payload)
+    emit('test-connection', payload)
   })
 }
 function onSaveConnection() {
   formRef.value?.validate().then(() => {
-    emit('save-connection', { ...form })
+    // 检查名称唯一性
+    const exists = props.savedConnections.some(
+      c => c.name === form.name && c.id !== form.id
+    )
+    if (exists) {
+      window.$message?.error?.('连接名称已存在，请使用唯一名称')
+      return
+    }
+    if (!form.created_at) {
+      form.created_at = new Date().toISOString()
+    }
+    // 判断是编辑还是新建
+    const idNum = typeof form.id === 'number' ? form.id : Number(form.id)
+    const isEdit = props.savedConnections.some(c => c.id === idNum)
+    const payload = {
+      ...form,
+      id: isEdit ? idNum : Date.now(),
+      use_tls: form.use_tls ?? false,
+      ca_cert_path: form.ca_cert_path ?? ''
+    }
+    console.log(isEdit ? 'edit-connection payload' : 'save-connection payload', payload)
+    if (isEdit) {
+      emit('update-connection', payload)
+    } else {
+      emit('save-connection', payload)
+    }
     resetForm()
     emit('update:activeTab', 'saved')
     emit('update:modelValue', false)
@@ -317,13 +376,24 @@ function onConnectToSaved(conn) {
 }
 function onConnectionMenu(key, conn) {
   switch (key) {
-    case 'edit':
-      fillForm(conn)
+    case 'edit': {
+      // 编辑时保留原 id，确保保存时为更新，id 类型强制为 number
+      const idNum = typeof conn.id === 'string' ? Number(conn.id) : conn.id
+      fillForm({ ...conn, id: idNum })
       emit('update:activeTab', 'new')
       break
-    case 'duplicate':
-      emit('duplicate-connection', conn)
+    }
+    case 'duplicate': {
+      // 复制时 id 置为 undefined，名称加 (copy)
+      const duplicated = {
+        ...conn,
+        id: undefined,
+        name: conn.name + ' (copy)'
+      }
+      fillForm(duplicated)
+      emit('update:activeTab', 'new')
       break
+    }
     case 'test':
       emit('test-connection', conn)
       break

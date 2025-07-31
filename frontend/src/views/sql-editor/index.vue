@@ -3,8 +3,8 @@
     <EditorHeader
       :selected-connection="sqlEditor.currentConnection"
       :connection-options="sqlEditor.connections"
-      :connection-status="sqlEditor.currentConnection?.status || 'disconnected'"
-      @switch-connection="sqlEditor.setCurrentConnection"
+      :connection-status="currentConnectionStatus"
+      @switch-connection="conn => handleConnectionAction('switch', conn)"
       @open-new-connection-modal="() => sqlEditor.setShowConnectionModal(true)"
       @open-connection-management-modal="() => sqlEditor.setShowConnectionModal(true)"
       @show-query-history="sqlEditor.setShowQueryHistory(true)"
@@ -25,7 +25,7 @@
             <QueryEditor
               v-model:sqlContent="sqlEditor.sqlContent"
               :is-executing="isExecuting"
-              :connection-status="sqlEditor.currentConnection?.status || 'disconnected'"
+              :connection-status="currentConnectionStatus"
               :is-mac="isMac"
               :line-count="lineCount"
               :show-slowlog-panel="sqlEditor.showSlowlogPanel"
@@ -60,7 +60,7 @@
           ref="slowlogDrawerRef"
           v-model:show="sqlEditor.showSlowlogPanel"
           :model-value="sqlEditor.showSlowlogPanel"
-          :connected="sqlEditor.currentConnection?.status === 'connected'"
+          :connected="currentConnectionStatus === 'connected'"
           :files="sqlEditor.slowlogFiles"
           @scan-files="handleScanFiles"
           @process-files="handleProcessFiles"
@@ -75,11 +75,11 @@
       :activeTab="sqlEditor.activeTab"
       :connectingTo="sqlEditor.connectingTo"
       @update:activeTab="sqlEditor.setActiveTab"
-      @save-connection="handleSaveConnection"
-      @test-connection="handleTestConnection"
-      @connect-to-saved="sqlEditor.setCurrentConnection"
-      @duplicate-connection="sqlEditor.duplicateConnection"
-      @delete-connection="handleDeleteConnection"
+      @save-connection="conn => handleConnectionAction('save', conn)"
+      @update-connection="conn => handleConnectionAction('update', conn)"
+      @test-connection="conn => handleConnectionAction('test', conn)"
+      @connect-to-saved="conn => handleConnectionAction('switch', conn)"
+      @delete-connection="conn => handleConnectionAction('delete', conn)"
       @open-slowlog="sqlEditor.setShowSlowlogPanel(true)"
     />
     <!-- 设置弹窗 -->
@@ -100,8 +100,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useSqlEditorStore } from '@/store/modules/sqlEditor'
+// 慢日志相关事件处理
+function handleScanFiles(files: any) {
+  // 这里可以根据实际需求处理文件列表
+  sqlEditor.slowlogFiles = files
+  window.$message?.success('慢日志文件已扫描')
+}
+
+function handleProcessFiles(files: any) {
+  // 这里可以根据实际需求处理文件内容
+  // 例如触发后端 API 或更新 store
+  window.$message?.success('慢日志文件已处理')
+}
 import EditorHeader from './components/EditorHeader.vue'
 import SqlEditorSidebar from './components/SqlEditorSidebar.vue'
 import QueryEditor from './components/QueryEditor.vue'
@@ -110,115 +120,99 @@ import ConnectionManager from './components/ConnectionManager.vue'
 import SettingsForm from './components/SettingsForm.vue'
 import QueryHistory from './components/QueryHistory.vue'
 import SlowlogDrawer from './components/SlowlogDrawer.vue'
-import { ref } from 'vue'
 import {
   createConnection,
   testConnection,
   deleteConnection,
-  listConnections as getConnections,
-  getConnection,
-  updateConnection,
+  listConnections,
+  handleUpdateConnection,
   Connection
 } from '@/api/connection'
+import { computed, ref } from 'vue'
+import { useSqlEditorStore } from '@/store/modules/sqlEditor'
+
 const sqlEditor = useSqlEditorStore()
 const isMac = /Mac/.test(navigator.userAgent)
 const isExecuting = computed(() => sqlEditor.isExecuting)
 const lineCount = computed(() => sqlEditor.sqlContent.split('\n').length)
 const slowlogDrawerRef = ref()
 
-async function handleSaveConnection(conn: Connection) {
+// 当前连接状态从 connections 列表查找
+const currentConnectionStatus = computed(() => {
+  const conn = sqlEditor.connections.find(c => c.id === sqlEditor.currentConnection?.id)
+  return conn?.status || 'disconnected'
+})
+
+// 统一连接管理方法
+async function handleConnectionAction(action, conn) {
   showGlobalLoading()
   try {
-    await createConnection(conn)
-    await fetchConnections()
-    handleQuerySuccess('连接已保存')
-  } catch (e) {
-    handleQueryError('保存连接失败')
+    let res
+    switch (action) {
+      case 'save':
+        await createConnection({ ...conn, id: conn.id ?? Date.now(), use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
+        await fetchConnections()
+        handleQuerySuccess('连接已保存')
+        break
+      case 'update':
+        await handleUpdateConnection({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '', id: conn.id })
+        await fetchConnections()
+        handleQuerySuccess('连接已更新')
+        break
+      case 'delete':
+        await deleteConnection(conn.id)
+        await fetchConnections()
+        handleQuerySuccess('连接已删除')
+        break
+      case 'test':
+        res = await testConnection({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
+        updateConnectionStatus(conn, res.data.status === 'success' ? 'connected' : 'disconnected')
+        if (res.data.status === 'success') {
+          handleQuerySuccess('连接测试成功')
+        } else {
+          handleQueryError(res.data.message || '连接测试失败')
+        }
+        break
+      case 'switch':
+        sqlEditor.setCurrentConnection(conn)
+        await handleConnectionAction('test', conn)
+        break
+    }
+  } catch {
+    handleQueryError(`${getActionErrorMsg(action)}`)
+    if (action === 'test' || action === 'switch') {
+      updateConnectionStatus(conn, 'disconnected')
+    }
   }
 }
 
-async function handleTestConnection(conn: Connection) {
-  showGlobalLoading()
-  try {
-    await testConnection(conn)
-    handleQuerySuccess('连接测试成功')
-  } catch (e) {
-    handleQueryError('连接测试失败')
-  }
+function updateConnectionStatus(conn, status) {
+  const idx = sqlEditor.connections.findIndex(c => c.id === conn.id)
+  if (idx !== -1) sqlEditor.connections[idx].status = status
 }
 
-async function handleDeleteConnection(conn: Connection) {
-  showGlobalLoading()
-  try {
-    await deleteConnection(conn.id as string | number)
-    await fetchConnections()
-    handleQuerySuccess('连接已删除')
-  } catch (e) {
-    handleQueryError('删除连接失败')
+function getActionErrorMsg(action) {
+  switch (action) {
+    case 'save': return '保存连接失败'
+    case 'update': return '更新连接失败'
+    case 'delete': return '删除连接失败'
+    case 'test': return '连接测试失败'
+    case 'switch': return '切换连接失败'
+    default: return '操作失败'
   }
 }
 
 async function fetchConnections() {
   try {
-    const res = await getConnections()
-    sqlEditor.connections = res.data.data || []
-  } catch (e) {
+    const res = await listConnections()
+    sqlEditor.connections = (res.data.data || []).map(conn => ({ ...conn, status: conn.status || 'disconnected' }))
+  } catch {
     sqlEditor.connections = []
   }
 }
 
-// 初始化时自动加载连接列表
+// 页面首次加载时同步后端连接列表
 fetchConnections()
-
-
-// 事件处理示例，可根据实际业务完善
-// 模拟后端 API
-async function fakeScanApi(logDir: string, pattern: string) {
-  // 实际应为 await fetch/post
-  await new Promise(r => setTimeout(r, 800))
-  if (logDir && pattern) {
-    return [
-      { path: logDir + '/tidb-slow-20250727.log', name: 'tidb-slow-20250727.log', size: '2.1MB', modified: '2025-07-27 10:00' },
-      { path: logDir + '/tidb-slow-20250726.log', name: 'tidb-slow-20250726.log', size: '1.8MB', modified: '2025-07-26 09:00' }
-    ]
-  }
-  return []
-}
-async function fakeProcessApi(files) {
-  // 实际应为 await fetch/post
-  for (let i = 0; i <= 100; i += 20) {
-    sqlEditor.slowlogProcessStatus = { progress: i, status: 'info', message: `Processing...${i}%`, details: '' }
-    await new Promise(r => setTimeout(r, 200))
-  }
-  sqlEditor.slowlogProcessStatus = { progress: 100, status: 'success', message: 'Done', details: '' }
-}
-
-// Pinia 状态：slowlogFiles, slowlogProcessStatus
-if (typeof sqlEditor.slowlogFiles === 'undefined') (sqlEditor as any).slowlogFiles = [];
-if (typeof sqlEditor.slowlogProcessStatus === 'undefined') (sqlEditor as any).slowlogProcessStatus = null;
-
-async function handleScanFiles({ logDir, pattern }) {
-  showGlobalLoading()
-  if (slowlogDrawerRef.value) slowlogDrawerRef.value.setScanning(true)
-  const files = await fakeScanApi(logDir, pattern)
-  sqlEditor.slowlogFiles = files
-  if (slowlogDrawerRef.value) slowlogDrawerRef.value.setScanResult(files)
-  hideGlobalLoading()
-  if (files.length) {
-    window.$message?.success(`共发现 ${files.length} 个日志文件`)
-  } else {
-    window.$message?.warning('未发现匹配文件')
-  }
-}
-async function handleProcessFiles({ logDir, pattern, files }) {
-  showGlobalLoading()
-  if (slowlogDrawerRef.value) slowlogDrawerRef.value.setProcessing(true)
-  await fakeProcessApi(files)
-  if (slowlogDrawerRef.value) slowlogDrawerRef.value.setProcessing(false)
-  hideGlobalLoading()
-  window.$message?.success('慢日志解析完成')
-}
-// ...existing code...
 
 // Naive UI 全局 API 类型声明（防止 TS 报错）
 declare global {

@@ -16,6 +16,7 @@ pub struct WebOptions {
 pub async fn start_web_service(
     opts: &WebOptions,
     command_registry: CommandRegistry,
+    shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
-    backend::server::start_server(opts.host.clone(), opts.port, command_registry).await
+    backend::server::start_server_with_shutdown(opts.host.clone(), opts.port, command_registry, shutdown_rx).await
 }

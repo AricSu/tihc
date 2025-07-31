@@ -6,6 +6,16 @@ pub struct ConnectionStore {
 }
 
 impl ConnectionStore {
+    /// 更新指定 id 的连接信息，返回是否成功
+    pub fn update(&self, id: u64, conn: DatabaseConnection) -> bool {
+        let mut conns = self.connections.lock().unwrap();
+        if let Some(existing) = conns.iter_mut().find(|c| c.id == id) {
+            *existing = conn;
+            true
+        } else {
+            false
+        }
+    }
     pub fn new() -> Self {
         Self {
             connections: Arc::new(Mutex::new(Vec::new())),

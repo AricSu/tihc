@@ -1,12 +1,52 @@
 //! Plugin trait implementation and registration for SQL Editor.
-use crate::application::handler::{Command, ExecuteSqlCommand, Op, TestConnectionCommand};
-use crate::infrastructure::{connection_store::ConnectionStore, table_store::TableStore};
+use crate::application::handler::{Command, Op};
+use crate::infrastructure::connection_store::ConnectionStore;
 use core::plugin_api::traits::Plugin;
 use std::sync::Arc;
 // 假设已存在 DatabaseStore 实现
-use crate::infrastructure::database_store::{DatabaseStore, DbPool};
+use crate::infrastructure::database_store::{DatabaseStore};
 
-pub struct SqlEditorPlugin;
+pub enum DbPoolType {
+    MySql(Arc<sqlx::MySqlPool>),
+    Dummy,
+    // ...更多类型
+}
+
+pub struct SqlEditorPlugin {
+    db_pools: Vec<DbPoolType>,
+    // 可扩展：缓存、文件句柄等
+}
+
+impl SqlEditorPlugin {
+    pub fn new() -> Self {
+        Self {
+            db_pools: Vec::new(),
+        }
+    }
+    /// 启动后台任务，订阅 shutdown 信号
+    pub fn start_background_task(shutdown_rx: tokio::sync::broadcast::Receiver<()>) {
+        tokio::spawn(async move {
+            let mut shutdown_rx = shutdown_rx;
+            loop {
+                tokio::select! {
+                    _ = shutdown_rx.recv() => {
+                        tracing::info!("[SqlEditorPlugin] Background task received shutdown signal, exiting.");
+                        break;
+                    }
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
+                        // ...实际后台任务逻辑...
+                    }
+                }
+            }
+            tracing::info!("[SqlEditorPlugin] Background task cleanup done.");
+        });
+    }
+    /// 动态添加数据库连接池
+    pub fn add_db_pool(&mut self, pool: DbPoolType) {
+        self.db_pools.push(pool);
+    }
+    // 可扩展：缓存、文件句柄等资源初始化方法
+}
 
 impl Plugin for SqlEditorPlugin {
     fn name(&self) -> &str {
@@ -14,8 +54,18 @@ impl Plugin for SqlEditorPlugin {
     }
     fn register(&mut self, ctx: &mut core::plugin_api::traits::PluginContext) {
         let conn_store = Arc::new(ConnectionStore::new());
-        let table_store = Arc::new(TableStore::new());
+        let table_store = Arc::new(crate::infrastructure::table_store::TableStore::new());
+        self.add_db_pool(DbPoolType::Dummy);
+        // Use DatabaseStore::new with a dummy pool (e.g., None or a dummy type)
+        let dummy_db_store = Arc::new(DatabaseStore::new(crate::infrastructure::database_store::DbPool::Dummy));
         if let Some(reg) = ctx.command_registry.as_mut() {
+            reg.register(
+                "editor-connections-get",
+                Box::new(Command {
+                    store: Arc::clone(&conn_store),
+                    op: Op::GetConnection,
+                }),
+            );
             // Connection commands
             reg.register(
                 "editor-connections-list",
@@ -45,6 +95,13 @@ impl Plugin for SqlEditorPlugin {
                     op: Op::TestConnection,
                 }),
             );
+            reg.register(
+                "editor-connections-update",
+                Box::new(Command {
+                    store: Arc::clone(&conn_store),
+                    op: Op::UpdateConnection,
+                }),
+            );
             // Table commands
             reg.register(
                 "editor-tables-list",
@@ -67,24 +124,7 @@ impl Plugin for SqlEditorPlugin {
                     op: Op::DeleteTable,
                 }),
             );
-            reg.register(
-                "editor-tables-add-column",
-                Box::new(Command {
-                    store: Arc::clone(&table_store),
-                    op: Op::AddColumn,
-                }),
-            );
-            reg.register(
-                "editor-tables-delete-column",
-                Box::new(Command {
-                    store: Arc::clone(&table_store),
-                    op: Op::DeleteColumn,
-                }),
-            );
-            // Database/schema commands
-            let dummy_db_store = Arc::new(DatabaseStore {
-                pool: DbPool::Dummy,
-            });
+
             // 所有数据库相关命令均用 Dummy 占位类型注册，实际分发由 handler.rs 动态完成
             reg.register(
                 "editor-databases-list",
@@ -121,8 +161,10 @@ impl Plugin for SqlEditorPlugin {
                     op: Op::UpdateDatabase,
                 }),
             );
-            // SQL execute
-            reg.register("editor-sql-execute", Box::new(ExecuteSqlCommand {}));
+        }
+        // 后台任务由平台统一调度，传入 shutdown_rx
+        if let Some(shutdown_rx) = ctx.shutdown_rx.take() {
+            SqlEditorPlugin::start_background_task(shutdown_rx);
         }
     }
 }

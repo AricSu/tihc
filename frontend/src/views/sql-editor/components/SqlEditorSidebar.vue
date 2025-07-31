@@ -1,27 +1,99 @@
 
 <script setup lang="ts">
-import { ref, PropType, computed } from 'vue'
+import { h, ref, onMounted } from 'vue'
+import { NIcon } from 'naive-ui'
+import { KeyOutline, ListOutline, RefreshOutline, BookOutline } from '@vicons/ionicons5'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'
-import { RefreshOutline, BookOutline, ListOutline } from '@vicons/ionicons5'
+import { fetchDatabaseSchema } from '../../../api/database'
+
+const nodeProps = ({ option }) => {
+  return {
+    icon: option.icon,
+    suffix: option.suffix ? h('span', { style: 'color: #888; marginLeft: ' + '8px' }, option.suffix) : undefined,
+    label: option.isPrimary ? h('span', [option.label, h(NIcon, { style: 'color: #f90; marginLeft: ' + '4px' }, { default: () => h(KeyOutline) })]) : option.label
+  }
+}
 
 const props = defineProps({
-  showSidebar: Boolean,
-  slowQuerySchema: {
-    type: Array as PropType<Array<{ column_name: string; data_type: string; comment?: string }>>,
-    default: () => []
-  },
-  loadingSchema: {
-    type: Boolean,
-    default: false
-  }
+  showSidebar: Boolean
 })
-const emit = defineEmits(['update:showSidebar', 'refresh-schema'])
+const emit = defineEmits(['update:showSidebar'])
 const showDetailModal = ref(false)
 const tableColumns = [
   { title: '字段名', key: 'column_name', width: 200 },
   { title: '数据类型', key: 'data_type', width: 120 },
   { title: '备注', key: 'comment', width: 400 }
 ]
+
+const slowQuerySchema = ref<Array<{ column_name: string; data_type: string; comment?: string }>>([])
+const schemaTree = ref([])
+const loadingSchema = ref(false)
+const schemaError = ref('')
+
+const fetchSchema = async () => {
+  loadingSchema.value = true
+  schemaError.value = ''
+  try {
+    const schema = await fetchDatabaseSchema()
+    slowQuerySchema.value = schema
+    schemaTree.value = buildSchemaTree(schema)
+  } catch (err: any) {
+    schemaError.value = err?.message || 'Schema load failed'
+    slowQuerySchema.value = []
+    schemaTree.value = []
+  } finally {
+    loadingSchema.value = false
+  }
+}
+
+function buildSchemaTree(schema) {
+  // 仅支持单表，后续可扩展多表
+  return [
+    {
+      label: '表',
+      key: 'tables',
+      children: [
+        {
+          label: 'cluster_slow_query',
+          key: 'table-cluster_slow_query',
+          icon: () => h(NIcon, null, { default: () => h(ListOutline) }),
+          children: [
+            {
+              label: '列',
+              key: 'columns',
+              children: schema.map(col => ({
+                label: col.column_name,
+                key: 'col-' + col.column_name,
+                icon: () => h(NIcon, null, { default: () => h(KeyOutline) }),
+                suffix: col.data_type,
+                isPrimary: col.column_name === 'id' // 可根据实际主键字段调整
+              }))
+            },
+            {
+              label: '索引',
+              key: 'indexes',
+              children: [
+                {
+                  label: 'PRIMARY',
+                  key: 'idx-primary',
+                  icon: () => h(NIcon, null, { default: () => h(KeyOutline) })
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+onMounted(() => {
+  fetchSchema()
+})
+
+const handleRefresh = () => {
+  fetchSchema()
+}
 </script>
 
 <template>
@@ -43,7 +115,7 @@ const tableColumns = [
             <n-icon size="18"><ListOutline /></n-icon>
             TiHC Schema
           </n-text>
-          <n-button @click="emit('refresh-schema')" size="tiny" text circle>
+          <n-button @click="handleRefresh" size="tiny" text circle>
             <template #icon>
               <n-icon><RefreshOutline /></n-icon>
             </template>
@@ -52,7 +124,7 @@ const tableColumns = [
         <n-divider style="margin: 8px 0;" />
         <n-space align="center" justify="space-between">
           <n-button 
-            v-if="props.slowQuerySchema.length > 0" 
+            v-if="slowQuerySchema.length > 0" 
             size="small" 
             type="primary" 
             @click="showDetailModal = true"
@@ -64,27 +136,21 @@ const tableColumns = [
           </n-button>
         </n-space>
         <n-space vertical size="small" style="margin-top: 8px;">
-          <template v-if="props.loadingSchema">
+          <template v-if="loadingSchema">
             <n-space align="center">
               <n-spin size="small" />
               <n-text depth="3">Loading schema...</n-text>
             </n-space>
           </template>
-          <template v-else-if="props.slowQuerySchema.length > 0">
-            <n-grid :cols="2" x-gap="8" y-gap="4">
-              <n-gi v-for="column in props.slowQuerySchema" :key="column.column_name">
-                <n-tag size="small" type="info">{{ column.column_name }}({{ column.data_type }})</n-tag>
-              </n-gi>
-            </n-grid>
-            <n-space align="center" justify="space-between">
-              <n-text depth="3">共 {{ props.slowQuerySchema.length }} 个字段</n-text>
-              <n-button text type="primary" size="small" @click="showDetailModal = true">
-                <template #icon>
-                  <n-icon><BookOutline /></n-icon>
-                </template>
-                查看详细说明
-              </n-button>
-            </n-space>
+          <template v-else-if="schemaError">
+            <n-alert type="error" :show-icon="true">{{ schemaError }}</n-alert>
+          </template>
+          <template v-else-if="schemaTree.length > 0">
+            <n-tree
+              :data="schemaTree"
+              block-line
+              :node-props="nodeProps"
+            />
           </template>
           <n-empty v-else description="Connect to database to load table structure" size="small" />
         </n-space>
@@ -113,7 +179,7 @@ const tableColumns = [
             </n-button>
             <n-data-table
               :columns="tableColumns"
-              :data="props.slowQuerySchema"
+              :data="slowQuerySchema"
               :pagination="{ pageSize: 15 }"
               :max-height="400"
               :scroll-x="800"

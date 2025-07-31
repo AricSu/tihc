@@ -1,5 +1,7 @@
 /// CommandHandler trait: 所有命令处理器需实现此 trait。
 /// 实现 Send + Sync 以支持多线程和插件微内核场景。
+/// CommandHandler trait: 所有命令处理器需实现此 trait。
+/// 实现 Send + Sync 以支持多线程和插件微内核场景。
 pub trait CommandHandler: Send + Sync {
     /// 处理命令参数，返回 JSON 数据
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value>;

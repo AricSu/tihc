@@ -1,2 +1,0 @@
-2025-07-29T01:02:49.598406Z  INFO main ThreadId(01) tihc: cli/src/main.rs:135: [demo] config.some_option=Some("example_value")
-2025-07-29T01:02:49.598905Z  INFO main ThreadId(01) backend::server: backend/src/server/mod.rs:14: [TiHC] Web server started host="127.0.0.1" port=5000

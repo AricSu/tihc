@@ -34,6 +34,8 @@ pub trait Plugin {
 pub struct PluginContext {
     pub service_registry: Arc<std::sync::Mutex<crate::platform::service_registry::ServiceRegistry>>,
     pub command_registry: Option<&'static mut crate::platform::command_registry::CommandRegistry>,
+    /// Receiver for shutdown broadcast signal, used for graceful plugin/task exit
+    pub shutdown_rx: Option<tokio::sync::broadcast::Receiver<()>>,
 }
 
 impl PluginContext {

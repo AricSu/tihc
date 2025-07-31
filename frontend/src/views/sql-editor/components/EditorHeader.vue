@@ -4,11 +4,11 @@
       <h2>SQL Editor</h2>
       <n-divider vertical />
       <n-select
-        v-model:value="selectedConnectionProxy"
-        :options="connectionOptions"
+        :value="selectedConnectionId"
+        :options="connectionOptions.map(conn => ({ label: conn.name, value: conn.id }))"
         placeholder="Select Connection"
         style="width: 200px;"
-        @update:value="$emit('switch-connection', $event)"
+        @update:value="handleSwitchConnection"
       />
       <n-button @click="$emit('open-new-connection-modal')" size="small" type="primary" secondary>
         <template #icon>
@@ -50,20 +50,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-const props = defineProps({
-  selectedConnection: {
-    type: [String, Number, Object],
-    default: ''
-  },
-  connectionOptions: {
-    type: Array,
-    default: () => []
-  },
-  connectionStatus: {
-    type: String,
-    default: 'disconnected'
-  }
-})
+interface ConnectionOption {
+  id: string | number
+  name: string
+  [key: string]: any
+}
+
+const props = defineProps<{
+  selectedConnection: string | number | ConnectionOption | null
+  connectionOptions: ConnectionOption[]
+  connectionStatus: string
+}>()
 const emit = defineEmits([
   'update:selectedConnection',
   'switch-connection',
@@ -73,10 +70,17 @@ const emit = defineEmits([
   'show-settings'
 ])
 
-const selectedConnectionProxy = computed({
-  get: () => props.selectedConnection,
-  set: (val) => emit('update:selectedConnection', val)
+const selectedConnectionId = computed(() => {
+  return typeof props.selectedConnection === 'object' && props.selectedConnection !== null
+    ? props.selectedConnection.id
+    : props.selectedConnection
 })
+
+function handleSwitchConnection(id) {
+  const conn = props.connectionOptions.find(c => c.id === id)
+  emit('switch-connection', conn || id)
+  emit('update:selectedConnection', id)
+}
 </script>
 
 <style scoped>

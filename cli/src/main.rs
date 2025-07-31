@@ -5,6 +5,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use core::infrastructure::{config, logging};
 use core::platform::command_registry::CommandRegistry;
 mod commands;
+use plugin_slowlog::SlowLogPlugin;
+use plugin_sql_editor::SqlEditorPlugin;
+use tokio::signal;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -80,8 +83,6 @@ fn register_all_plugins(
     kernel: &mut core::platform::Microkernel,
     command_registry: &mut CommandRegistry,
 ) {
-    use plugin_slowlog::SlowLogPlugin;
-    use plugin_sql_editor::SqlEditorPlugin;
     let mut ctx = core::plugin_api::traits::PluginContext {
         service_registry: kernel.service_registry.clone(),
         command_registry: Some(unsafe {
@@ -89,21 +90,22 @@ fn register_all_plugins(
                 command_registry,
             )
         }),
+        shutdown_rx: None, // Add this field; replace with actual receiver if needed
     };
     kernel
         .plugin_manager
-        .register_plugin(Box::new(SlowLogPlugin), &mut ctx);
+        .register_plugin(Box::new(SlowLogPlugin::new()), &mut ctx);
     kernel
         .plugin_manager
-        .register_plugin(Box::new(SqlEditorPlugin), &mut ctx);
+        .register_plugin(Box::new(SqlEditorPlugin::new()), &mut ctx);
 }
 
 /// Main entry point for TiDB Intelligent Health Check (tihc) CLI/Web.
 ///
 /// - CLI: tihc [OPTIONS] <SUBCOMMAND>
 /// - Web: tihc server --host 127.0.0.1 --port 5000
-// ...existing code...
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
     let config_path = &cli.config_file;
     // === 配置加载与日志初始化（合并 CLI/config，CLI 优先） ===
@@ -144,6 +146,9 @@ fn main() -> Result<()> {
         let app_config = kernel.core_services.config_service.get();
         info!(target: "tihc", "[demo] config.some_option={:?}", app_config.some_option);
     }
+    // 优雅关闭信号监听，主流程等待 Ctrl+C 后主动退出
+    let core_services = kernel.core_services.clone();
+    let mut shutdown_rx = core_services.subscribe_shutdown();
     match &cli.command {
         Some(Commands::Tools(tools_cmd)) => {
             let (cmd, args) = match tools_cmd {
@@ -155,12 +160,20 @@ fn main() -> Result<()> {
                 }
             };
             command_registry.execute(cmd, &args)?;
+            // 等待 Ctrl+C
+            tokio::select! {
+                _ = signal::ctrl_c() => {
+                    tracing::info!(target: "tihc", "[main] Received Ctrl+C, broadcasting shutdown signal...");
+                    core_services.broadcast_shutdown();
+                }
+                _ = shutdown_rx.recv() => {
+                    tracing::info!(target: "tihc", "[main] Received shutdown signal, exiting...");
+                }
+            }
         }
         Some(Commands::Server(web_opts)) => {
-            // Start the web server for dashboard integration
-            let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-            // 注入 command_registry 到 web 服务
-            rt.block_on(commands::web::start_web_service(web_opts, command_registry))?;
+            // web 服务需支持 shutdown_rx，收到信号后主动退出
+            commands::web::start_web_service(web_opts, command_registry, core_services.subscribe_shutdown()).await?;
         }
         None => {
             Cli::command().print_help()?;

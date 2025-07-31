@@ -18,6 +18,8 @@ pub struct DatabaseConnection {
     pub username: String,
     pub password: Option<String>,
     pub database: Option<String>,
+    pub use_tls: bool,
+    pub ca_cert_path: Option<String>,
     pub created_at: String,
 }
 
