@@ -1,8 +1,8 @@
 use crate::application::slowlog_service::SlowLogService;
 use crate::domain::ImportStatus;
 use crate::domain::SlowLogScanResult;
-use core::platform::command_registry::CommandHandler;
-use core::platform::service_registry::ServiceRegistry;
+use microkernel::platform::command_registry::CommandHandler;
+use microkernel::platform::service_registry::ServiceRegistry;
 use serde_json;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -39,8 +39,7 @@ impl CommandHandler for SlowLogScanHandler {
                 ca_cert_path: None,
             }
         };
-        let service =
-            crate::application::slowlog_service::SlowLogServiceImpl::new(128, conn);
+        let service = crate::application::slowlog_service::SlowLogServiceImpl::new(128, conn);
         let files = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(service.scan_files(&log_dir, &pattern))
         })?;
@@ -82,8 +81,7 @@ impl CommandHandler for SlowLogParseAndImportHandler {
                 ca_cert_path: None,
             }
         };
-        let service =
-            crate::application::slowlog_service::SlowLogServiceImpl::new(128, conn);
+        let service = crate::application::slowlog_service::SlowLogServiceImpl::new(128, conn);
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(service.parse_and_import(&log_dir, &pattern))
         })?;

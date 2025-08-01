@@ -1,7 +1,7 @@
 //! Implements the 'web' command logic for tihc CLI.
 
 use clap::Args;
-use core::platform::command_registry::CommandRegistry;
+use microkernel::platform::command_registry::CommandRegistry;
 
 #[derive(Args, Debug, Default)]
 pub struct WebOptions {
@@ -18,5 +18,11 @@ pub async fn start_web_service(
     command_registry: CommandRegistry,
     shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
-    backend::server::start_server_with_shutdown(opts.host.clone(), opts.port, command_registry, shutdown_rx).await
+    backend::server::start_server_with_shutdown(
+        opts.host.clone(),
+        opts.port,
+        command_registry,
+        shutdown_rx,
+    )
+    .await
 }

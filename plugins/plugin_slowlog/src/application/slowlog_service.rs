@@ -1,7 +1,7 @@
+use crate::infrastructure::mysql_writer::{get_mysql_pool, init_db_and_table};
 use anyhow::{Context, Result};
 use std::io::BufRead;
 use std::{fs, io};
-use crate::infrastructure::mysql_writer::{get_mysql_pool,init_db_and_table};
 
 pub(crate) trait SlowLogService: Send + Sync {
     fn parse_and_import<'a>(
@@ -48,10 +48,7 @@ impl SlowLogServiceImpl {
     }
     pub(crate) fn new(batch_size: usize, conn: Connection) -> Self {
         let batch_size = batch_size.clamp(32, 256);
-        Self {
-            batch_size,
-            conn,
-        }
+        Self { batch_size, conn }
     }
 
     pub(crate) fn get_batch_log_from_reader(
@@ -137,7 +134,10 @@ impl SlowLogService for SlowLogServiceImpl {
                             if rows.is_empty() {
                                 tracing::warn!(target: "slowlog_api", "[parse_and_import] Batch {} in file {} parsed 0 rows", batch_idx, file_path);
                             }
-                            if let Err(e) = crate::infrastructure::mysql_writer::write_slowlog_rows(rows, &pool).await {
+                            if let Err(e) =
+                                crate::infrastructure::mysql_writer::write_slowlog_rows(rows, &pool)
+                                    .await
+                            {
                                 tracing::error!(target: "slowlog_api", "[parse_and_import] Failed to write rows to MySQL: {:?}", e);
                             } else {
                                 tracing::info!(target: "slowlog_api", "[parse_and_import] Successfully wrote {} rows to MySQL (batch {} in file {})", rows.len(), batch_idx, file_path);

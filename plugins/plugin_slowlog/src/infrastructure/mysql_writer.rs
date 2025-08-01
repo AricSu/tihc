@@ -1,7 +1,7 @@
 use crate::domain::connection::Connection;
+pub use crate::domain::table::SlowQueryRow;
 use anyhow::Result;
 use sqlx::MySqlPool;
-pub use crate::domain::table::SlowQueryRow;
 use sqlx::QueryBuilder;
 
 /// 根据 Connection 创建 MySQL 连接池
@@ -9,7 +9,7 @@ pub async fn get_mysql_pool(conn: &Connection) -> Result<MySqlPool> {
     let db_url = format!(
         "mysql://{}:{}@{}:{}/{}",
         conn.username,
-        conn.password.as_deref().unwrap_or("") ,
+        conn.password.as_deref().unwrap_or(""),
         conn.host,
         conn.port,
         conn.database.as_deref().unwrap_or("tihc")
@@ -27,7 +27,7 @@ pub async fn init_db_and_table(pool: &MySqlPool) -> anyhow::Result<()> {
     sqlx::query("USE tihc;").execute(pool).await?;
     // 创建表
     sqlx::query(
-            r#"CREATE TABLE IF NOT EXISTS tihc.SLOW_QUERY (
+        r#"CREATE TABLE IF NOT EXISTS tihc.SLOW_QUERY (
                 `ID` bigint unsigned NOT NULL AUTO_RANDOM PRIMARY KEY,
                 `Time` timestamp(6) NOT NULL,
                 `Txn_start_ts` bigint unsigned DEFAULT NULL,
@@ -117,18 +117,17 @@ pub async fn init_db_and_table(pool: &MySqlPool) -> anyhow::Result<()> {
     Ok(())
 }
 
-
 /// 批量写入 slowlog rows 到 MySQL（安全参数绑定，无需 tz）
 pub async fn write_slowlog_rows(rows: &[SlowQueryRow], pool: &MySqlPool) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
     }
     let mut tx = pool.begin().await?;
-        for chunk in rows.chunks(100) {
-            let mut builder = QueryBuilder::new(format!("INSERT INTO {}.SLOW_QUERY (", "tihc"));
+    for chunk in rows.chunks(100) {
+        let mut builder = QueryBuilder::new(format!("INSERT INTO {}.SLOW_QUERY (", "tihc"));
 
-            // Add all fields
-            builder.push("time, txn_start_ts, user, host, conn_id, session_alias, exec_retry_count, \
+        // Add all fields
+        builder.push("time, txn_start_ts, user, host, conn_id, session_alias, exec_retry_count, \
                 exec_retry_time, query_time, parse_time, compile_time, rewrite_time, preproc_subqueries, \
                 preproc_subqueries_time, optimize_time, wait_ts, prewrite_time, wait_prewrite_binlog_time, \
                 commit_time, get_commit_ts_time, commit_backoff_time, backoff_types, resolve_lock_time, \
@@ -144,184 +143,184 @@ pub async fn write_slowlog_rows(rows: &[SlowQueryRow], pool: &MySqlPool) -> Resu
                 request_unit_write, time_queued_by_rc, tidb_cpu_time, tikv_cpu_time, plan, plan_digest, \
                 binary_plan, prev_stmt, query)");
 
-            builder.push(" VALUES (");
+        builder.push(" VALUES (");
 
-            let mut first = true;
-            for row in chunk {
-                if !first {
-                    builder.push("), (");
-                }
-                first = false;
-
-                // let adjusted_time = parse_time(&row.time, tz);
-
-                builder
-                    .push_bind(&row.time)
-                    .push(",")
-                    .push_bind(row.txn_start_ts)
-                    .push(",")
-                    .push_bind(&row.user)
-                    .push(",")
-                    .push_bind(&row.host)
-                    .push(",")
-                    .push_bind(row.conn_id)
-                    .push(",")
-                    .push_bind(&row.session_alias)
-                    .push(",")
-                    .push_bind(row.exec_retry_count)
-                    .push(",")
-                    .push_bind(row.exec_retry_time)
-                    .push(",")
-                    .push_bind(row.query_time)
-                    .push(",")
-                    .push_bind(row.parse_time)
-                    .push(",")
-                    .push_bind(row.compile_time)
-                    .push(",")
-                    .push_bind(row.rewrite_time)
-                    .push(",")
-                    .push_bind(row.preproc_subqueries)
-                    .push(",")
-                    .push_bind(row.preproc_subqueries_time)
-                    .push(",")
-                    .push_bind(row.optimize_time)
-                    .push(",")
-                    .push_bind(row.wait_ts)
-                    .push(",")
-                    .push_bind(row.prewrite_time)
-                    .push(",")
-                    .push_bind(row.wait_prewrite_binlog_time)
-                    .push(",")
-                    .push_bind(row.commit_time)
-                    .push(",")
-                    .push_bind(row.get_commit_ts_time)
-                    .push(",")
-                    .push_bind(row.commit_backoff_time)
-                    .push(",")
-                    .push_bind(&row.backoff_types)
-                    .push(",")
-                    .push_bind(row.resolve_lock_time)
-                    .push(",")
-                    .push_bind(row.local_latch_wait_time)
-                    .push(",")
-                    .push_bind(row.write_keys)
-                    .push(",")
-                    .push_bind(row.write_size)
-                    .push(",")
-                    .push_bind(row.prewrite_region)
-                    .push(",")
-                    .push_bind(row.txn_retry)
-                    .push(",")
-                    .push_bind(row.cop_time)
-                    .push(",")
-                    .push_bind(row.process_time)
-                    .push(",")
-                    .push_bind(row.wait_time)
-                    .push(",")
-                    .push_bind(row.backoff_time)
-                    .push(",")
-                    .push_bind(row.lock_keys_time)
-                    .push(",")
-                    .push_bind(row.request_count)
-                    .push(",")
-                    .push_bind(row.total_keys)
-                    .push(",")
-                    .push_bind(row.process_keys)
-                    .push(",")
-                    .push_bind(row.rocksdb_delete_skipped_count)
-                    .push(",")
-                    .push_bind(row.rocksdb_key_skipped_count)
-                    .push(",")
-                    .push_bind(row.rocksdb_block_cache_hit_count)
-                    .push(",")
-                    .push_bind(row.rocksdb_block_read_count)
-                    .push(",")
-                    .push_bind(row.rocksdb_block_read_byte)
-                    .push(",")
-                    .push_bind(&row.db)
-                    .push(",")
-                    .push_bind(&row.index_names)
-                    .push(",")
-                    .push_bind(row.is_internal)
-                    .push(",")
-                    .push_bind(&row.digest)
-                    .push(",")
-                    .push_bind(&row.stats)
-                    .push(",")
-                    .push_bind(row.cop_proc_avg)
-                    .push(",")
-                    .push_bind(row.cop_proc_p90)
-                    .push(",")
-                    .push_bind(row.cop_proc_max)
-                    .push(",")
-                    .push_bind(&row.cop_proc_addr)
-                    .push(",")
-                    .push_bind(row.cop_wait_avg)
-                    .push(",")
-                    .push_bind(row.cop_wait_p90)
-                    .push(",")
-                    .push_bind(row.cop_wait_max)
-                    .push(",")
-                    .push_bind(&row.cop_wait_addr)
-                    .push(",")
-                    .push_bind(row.mem_max)
-                    .push(",")
-                    .push_bind(row.disk_max)
-                    .push(",")
-                    .push_bind(row.kv_total)
-                    .push(",")
-                    .push_bind(row.pd_total)
-                    .push(",")
-                    .push_bind(row.backoff_total)
-                    .push(",")
-                    .push_bind(row.write_sql_response_total)
-                    .push(",")
-                    .push_bind(row.result_rows)
-                    .push(",")
-                    .push_bind(&row.warnings)
-                    .push(",")
-                    .push_bind(&row.backoff_detail)
-                    .push(",")
-                    .push_bind(row.prepared)
-                    .push(",")
-                    .push_bind(row.succ)
-                    .push(",")
-                    .push_bind(row.is_explicit_txn)
-                    .push(",")
-                    .push_bind(row.is_write_cache_table)
-                    .push(",")
-                    .push_bind(row.plan_from_cache)
-                    .push(",")
-                    .push_bind(row.plan_from_binding)
-                    .push(",")
-                    .push_bind(row.has_more_results)
-                    .push(",")
-                    .push_bind(&row.resource_group)
-                    .push(",")
-                    .push_bind(row.request_unit_read)
-                    .push(",")
-                    .push_bind(row.request_unit_write)
-                    .push(",")
-                    .push_bind(row.time_queued_by_rc)
-                    .push(",")
-                    .push_bind(row.tidb_cpu_time)
-                    .push(",")
-                    .push_bind(row.tikv_cpu_time)
-                    .push(",")
-                    .push_bind(&row.plan)
-                    .push(",")
-                    .push_bind(&row.plan_digest)
-                    .push(",")
-                    .push_bind(&row.binary_plan)
-                    .push(",")
-                    .push_bind(&row.prev_stmt)
-                    .push(",")
-                    .push_bind(&row.query);
+        let mut first = true;
+        for row in chunk {
+            if !first {
+                builder.push("), (");
             }
-            builder.push(")");
-            builder.build().execute(&mut *tx).await?;
-        }
+            first = false;
 
-        tx.commit().await?;
+            // let adjusted_time = parse_time(&row.time, tz);
+
+            builder
+                .push_bind(&row.time)
+                .push(",")
+                .push_bind(row.txn_start_ts)
+                .push(",")
+                .push_bind(&row.user)
+                .push(",")
+                .push_bind(&row.host)
+                .push(",")
+                .push_bind(row.conn_id)
+                .push(",")
+                .push_bind(&row.session_alias)
+                .push(",")
+                .push_bind(row.exec_retry_count)
+                .push(",")
+                .push_bind(row.exec_retry_time)
+                .push(",")
+                .push_bind(row.query_time)
+                .push(",")
+                .push_bind(row.parse_time)
+                .push(",")
+                .push_bind(row.compile_time)
+                .push(",")
+                .push_bind(row.rewrite_time)
+                .push(",")
+                .push_bind(row.preproc_subqueries)
+                .push(",")
+                .push_bind(row.preproc_subqueries_time)
+                .push(",")
+                .push_bind(row.optimize_time)
+                .push(",")
+                .push_bind(row.wait_ts)
+                .push(",")
+                .push_bind(row.prewrite_time)
+                .push(",")
+                .push_bind(row.wait_prewrite_binlog_time)
+                .push(",")
+                .push_bind(row.commit_time)
+                .push(",")
+                .push_bind(row.get_commit_ts_time)
+                .push(",")
+                .push_bind(row.commit_backoff_time)
+                .push(",")
+                .push_bind(&row.backoff_types)
+                .push(",")
+                .push_bind(row.resolve_lock_time)
+                .push(",")
+                .push_bind(row.local_latch_wait_time)
+                .push(",")
+                .push_bind(row.write_keys)
+                .push(",")
+                .push_bind(row.write_size)
+                .push(",")
+                .push_bind(row.prewrite_region)
+                .push(",")
+                .push_bind(row.txn_retry)
+                .push(",")
+                .push_bind(row.cop_time)
+                .push(",")
+                .push_bind(row.process_time)
+                .push(",")
+                .push_bind(row.wait_time)
+                .push(",")
+                .push_bind(row.backoff_time)
+                .push(",")
+                .push_bind(row.lock_keys_time)
+                .push(",")
+                .push_bind(row.request_count)
+                .push(",")
+                .push_bind(row.total_keys)
+                .push(",")
+                .push_bind(row.process_keys)
+                .push(",")
+                .push_bind(row.rocksdb_delete_skipped_count)
+                .push(",")
+                .push_bind(row.rocksdb_key_skipped_count)
+                .push(",")
+                .push_bind(row.rocksdb_block_cache_hit_count)
+                .push(",")
+                .push_bind(row.rocksdb_block_read_count)
+                .push(",")
+                .push_bind(row.rocksdb_block_read_byte)
+                .push(",")
+                .push_bind(&row.db)
+                .push(",")
+                .push_bind(&row.index_names)
+                .push(",")
+                .push_bind(row.is_internal)
+                .push(",")
+                .push_bind(&row.digest)
+                .push(",")
+                .push_bind(&row.stats)
+                .push(",")
+                .push_bind(row.cop_proc_avg)
+                .push(",")
+                .push_bind(row.cop_proc_p90)
+                .push(",")
+                .push_bind(row.cop_proc_max)
+                .push(",")
+                .push_bind(&row.cop_proc_addr)
+                .push(",")
+                .push_bind(row.cop_wait_avg)
+                .push(",")
+                .push_bind(row.cop_wait_p90)
+                .push(",")
+                .push_bind(row.cop_wait_max)
+                .push(",")
+                .push_bind(&row.cop_wait_addr)
+                .push(",")
+                .push_bind(row.mem_max)
+                .push(",")
+                .push_bind(row.disk_max)
+                .push(",")
+                .push_bind(row.kv_total)
+                .push(",")
+                .push_bind(row.pd_total)
+                .push(",")
+                .push_bind(row.backoff_total)
+                .push(",")
+                .push_bind(row.write_sql_response_total)
+                .push(",")
+                .push_bind(row.result_rows)
+                .push(",")
+                .push_bind(&row.warnings)
+                .push(",")
+                .push_bind(&row.backoff_detail)
+                .push(",")
+                .push_bind(row.prepared)
+                .push(",")
+                .push_bind(row.succ)
+                .push(",")
+                .push_bind(row.is_explicit_txn)
+                .push(",")
+                .push_bind(row.is_write_cache_table)
+                .push(",")
+                .push_bind(row.plan_from_cache)
+                .push(",")
+                .push_bind(row.plan_from_binding)
+                .push(",")
+                .push_bind(row.has_more_results)
+                .push(",")
+                .push_bind(&row.resource_group)
+                .push(",")
+                .push_bind(row.request_unit_read)
+                .push(",")
+                .push_bind(row.request_unit_write)
+                .push(",")
+                .push_bind(row.time_queued_by_rc)
+                .push(",")
+                .push_bind(row.tidb_cpu_time)
+                .push(",")
+                .push_bind(row.tikv_cpu_time)
+                .push(",")
+                .push_bind(&row.plan)
+                .push(",")
+                .push_bind(&row.plan_digest)
+                .push(",")
+                .push_bind(&row.binary_plan)
+                .push(",")
+                .push_bind(&row.prev_stmt)
+                .push(",")
+                .push_bind(&row.query);
+        }
+        builder.push(")");
+        builder.build().execute(&mut *tx).await?;
+    }
+
+    tx.commit().await?;
     Ok(())
 }

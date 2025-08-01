@@ -1,10 +1,10 @@
-### **《TiDB Intelligent Health Check (tihc) — Core 设计文档》**
+### **《TiDB Intelligent Health Check (tihc) — microkernel 设计文档》**
 
 ---
 
 ## 1️⃣ 项目目标
 
-`tihc` 的 **Core** 模块是整个系统的核心，负责管理插件生命周期、服务注册与发现、事件处理、以及基础服务的提供。`Core` 模块采用 **微内核架构**，核心目标是将复杂的业务逻辑与插件的实现解耦，并提供一个可扩展、灵活的平台来支持 TiDB 集群巡检、性能分析、告警推送等功能。
+`tihc` 的 **microkernel** 模块是整个系统的核心，负责管理插件生命周期、服务注册与发现、事件处理、以及基础服务的提供。`microkernel` 模块采用 **微内核架构**，核心目标是将复杂的业务逻辑与插件的实现解耦，并提供一个可扩展、灵活的平台来支持 TiDB 集群巡检、性能分析、告警推送等功能。
 
 ---
 
@@ -36,7 +36,7 @@ pub struct Microkernel {
 
 impl Microkernel {
     pub fn new() -> Self {
-        // Initialize core services and structures
+        // Initialize microkernel services and structures
         Microkernel {
             service_registry: ServiceRegistry::new(),
             event_bus: EventBus::new(),
@@ -141,7 +141,7 @@ impl EventBus {
 核心服务模块提供了多个基础功能，支持插件与核心系统的交互。包括配置管理、日志追踪、数据库连接等。
 
 ```rust
-/// Core services provided by the system, such as logging, database connection, and configuration management.
+/// microkernel services provided by the system, such as logging, database connection, and configuration management.
 pub struct CoreServices {
     pub config_service: ConfigService,
     pub logging_service: LoggingService,
@@ -251,4 +251,4 @@ impl LoggingService {
 
 ## 8️⃣ 总结
 
-Core 模块在 tihc 系统中扮演着至关重要的角色，负责管理插件生命周期、事件驱动通信、服务注册与发现等核心功能。通过微内核架构的设计，系统具有极高的灵活性和可扩展性，能够在未来轻松添加新功能或优化现有功能。
+microkernel 模块在 tihc 系统中扮演着至关重要的角色，负责管理插件生命周期、事件驱动通信、服务注册与发现等核心功能。通过微内核架构的设计，系统具有极高的灵活性和可扩展性，能够在未来轻松添加新功能或优化现有功能。

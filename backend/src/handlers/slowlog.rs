@@ -1,6 +1,6 @@
 use axum::{Extension, Json, extract::Path};
-use core::platform::ServiceRegistry;
-use core::platform::command_registry::CommandRegistry;
+use microkernel::platform::ServiceRegistry;
+use microkernel::platform::command_registry::CommandRegistry;
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -13,11 +13,17 @@ pub async fn handle_scan_files(
     // 兼容前端传递 { params: { logDir, pattern } } 和顶层 logDir/pattern
     let (dir, pattern) = if let Some(params) = payload.get("params") {
         let dir = params.get("logDir").and_then(|v| v.as_str()).unwrap_or("");
-        let pattern = params.get("pattern").and_then(|v| v.as_str()).unwrap_or("*.log");
+        let pattern = params
+            .get("pattern")
+            .and_then(|v| v.as_str())
+            .unwrap_or("*.log");
         (dir, pattern)
     } else {
         let dir = payload.get("logDir").and_then(|v| v.as_str()).unwrap_or("");
-        let pattern = payload.get("pattern").and_then(|v| v.as_str()).unwrap_or("*.log");
+        let pattern = payload
+            .get("pattern")
+            .and_then(|v| v.as_str())
+            .unwrap_or("*.log");
         (dir, pattern)
     };
     tracing::info!(target: "slowlog_api", "[handle_scan_files] dir: {}, pattern: {}", dir, pattern);
@@ -63,7 +69,10 @@ pub async fn handle_process_slowlog(
 ) -> Json<Value> {
     tracing::info!(target: "slowlog_api", "[handle_process_slowlog] payload: {:?}", payload);
     // 1. 解析 connectionId 和 files
-    let connection_id = payload.get("connectionId").and_then(|v| v.as_u64()).unwrap_or(0);
+    let connection_id = payload
+        .get("connectionId")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
     // 2. 通过 sql editor 命令分发获取 connection 信息
     tracing::info!(target: "slowlog_api", "[handle_process_slowlog] try get connection info for id: {}", connection_id);
@@ -73,7 +82,7 @@ pub async fn handle_process_slowlog(
             Ok(res) => {
                 tracing::info!(target: "slowlog_api", "[handle_process_slowlog] got connection info: {:?}", res);
                 res
-            },
+            }
             Err(e) => {
                 tracing::error!(target: "slowlog_api", "[handle_process_slowlog] connection not found: {}", e);
                 return Json(serde_json::json!({"error": format!("connection not found: {}", e)}));
@@ -85,12 +94,23 @@ pub async fn handle_process_slowlog(
     };
     // 强制替换 database 字段为 "tihc"
     if let Some(obj) = connection_info.as_object_mut() {
-        obj.insert("database".to_string(), serde_json::Value::String("tihc".to_string()));
+        obj.insert(
+            "database".to_string(),
+            serde_json::Value::String("tihc".to_string()),
+        );
     }
 
     // 3. 按插件 handler 期望顺序分发参数：log_dir, pattern, conn_json
-    let log_dir = payload.get("logDir").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let pattern = payload.get("pattern").and_then(|v| v.as_str()).unwrap_or("*.log").to_string();
+    let log_dir = payload
+        .get("logDir")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let pattern = payload
+        .get("pattern")
+        .and_then(|v| v.as_str())
+        .unwrap_or("*.log")
+        .to_string();
     let conn_json = serde_json::to_string(&connection_info).unwrap_or_default();
     let args = vec![log_dir, pattern, conn_json];
     tracing::info!(target: "slowlog_api", "[handle_process_slowlog] dispatch slowlog-import to plugin, args: {:?}", args);
@@ -99,7 +119,7 @@ pub async fn handle_process_slowlog(
             Ok(res) => {
                 tracing::info!(target: "slowlog_api", "[handle_process_slowlog] plugin result: {:?}", res);
                 Json(serde_json::json!({"status": "success", "result": res}))
-            },
+            }
             Err(e) => {
                 tracing::error!(target: "slowlog_api", "[handle_process_slowlog] plugin error: {}", e);
                 Json(serde_json::json!({"error": e.to_string()}))

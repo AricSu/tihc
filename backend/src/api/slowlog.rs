@@ -1,7 +1,5 @@
 //! Slowlog API router.
-use crate::handlers::slowlog::{
-    handle_get_progress, handle_process_slowlog, handle_scan_files,
-};
+use crate::handlers::slowlog::{handle_get_progress, handle_process_slowlog, handle_scan_files};
 use axum::{
     Router,
     routing::{get, post},

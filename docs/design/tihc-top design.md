@@ -464,6 +464,15 @@ cargo doc	编译 API 文档 (target/doc)
 cargo clippy	提示注释格式错误与未使用文档
 
 
+## 错误处理
+| 层级          | 作用                     | 错误类型                | 推荐方式                          |
+| ----------- | ---------------------- | ------------------- | ----------------------------- |
+| domain      | 表达业务规则失败               | 自定义 Error 枚举        | `thiserror::Error`            |
+| application | 聚合多个子模块错误              | 使用 `anyhow::Result` | 自动转发 domain/infrastructure 错误 |
+| interface   | 映射为统一 API 响应或 CLI code | 统一封装为 JSON / Exit   | 提供格式化错误消息+追踪信息                |
+| platform    | Plugin 级错误封装与日志记录      | PluginError 枚举      | 核心日志 + 分级诊断                   |
+
+
 ## 包管理
 fronted ： 使用 yran 管理
 backend ： 使用 cargo 管理

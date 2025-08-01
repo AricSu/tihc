@@ -3,8 +3,8 @@ use axum::{
     extract::{Json, Path},
     routing::{delete, get, post},
 };
-use core::platform::ServiceRegistry;
-use core::platform::command_registry::CommandRegistry;
+use microkernel::platform::ServiceRegistry;
+use microkernel::platform::command_registry::CommandRegistry;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
@@ -212,7 +212,10 @@ pub fn routes(registry: Arc<ServiceRegistry>) -> Router {
         )
         .route("/api/connections/test", post(test_connection))
         // 数据库管理
-        .route("/api/databases/list", get(list_databases).post(create_database))
+        .route(
+            "/api/databases/list",
+            get(list_databases).post(create_database),
+        )
         .route("/api/databases/{database_id}", delete(delete_database))
         .layer(Extension(registry))
 }

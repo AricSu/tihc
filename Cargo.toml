@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "cli",
-    "core",
+    "microkernel",
     "common",
     "backend",
     "plugins/plugin_lossy_ddl",

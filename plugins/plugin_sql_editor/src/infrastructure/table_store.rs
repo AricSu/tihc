@@ -1,42 +1,49 @@
+
 use crate::domain::database::{Column, Table};
 use std::sync::{Arc, Mutex};
 
-/// TableStore 负责所有表的内存管理与并发安全
+/// Manages all in-memory tables with thread safety.
 pub struct TableStore {
+    /// Shared, thread-safe vector of tables.
     pub tables: Arc<Mutex<Vec<Table>>>,
 }
 
 impl TableStore {
-    /// 创建新的 TableStore
+    /// Creates a new, empty TableStore.
     pub fn new() -> Self {
         Self {
             tables: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    /// 添加表
+    /// Adds a table to the store.
     pub fn add(&self, table: Table) {
-        self.tables.lock().unwrap().push(table);
+        self.tables
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
+            .unwrap()
+            .push(table);
     }
 
-    /// 列出所有表
+    /// Returns a clone of all tables.
     pub fn list(&self) -> Vec<Table> {
-        self.tables.lock().unwrap().clone()
+        self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap().clone()
     }
 
-    /// 按表名查找表
+    /// Finds a table by name.
     pub fn get(&self, table_name: &str) -> Option<Table> {
         self.tables
             .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
             .unwrap()
             .iter()
             .find(|t| t.name == table_name)
             .cloned()
     }
 
-    /// 更新表（全量覆盖）
+    /// Updates a table by name. Returns true if updated.
     pub fn update(&self, table_name: &str, table: Table) -> bool {
-        let mut tables = self.tables.lock().unwrap();
+        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
         if let Some(t) = tables.iter_mut().find(|t| t.name == table_name) {
             *t = table;
             return true;
@@ -44,32 +51,28 @@ impl TableStore {
         false
     }
 
-    /// 删除表
+    /// Deletes a table by name. Returns true if deleted.
     pub fn delete(&self, table_name: &str) -> bool {
-        let mut tables = self.tables.lock().unwrap();
+        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
         let len_before = tables.len();
         tables.retain(|t| t.name != table_name);
         len_before != tables.len()
     }
 
-    /// 添加列到指定表
+    /// Adds a column to the specified table. Returns true if added.
     pub fn add_column(&self, table_name: &str, column: Column) -> bool {
-        let mut tables = self.tables.lock().unwrap();
-        if let Some(table) = tables.iter_mut().find(|t| t.name == table_name) {
-            table.columns.push(column);
-            return true;
-        }
-        false
+        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
+        let Some(table) = tables.iter_mut().find(|t| t.name == table_name) else { return false; };
+        table.columns.push(column);
+        true
     }
 
-    /// 删除指定表的列
+    /// Deletes a column from the specified table. Returns true if deleted.
     pub fn delete_column(&self, table_name: &str, column_name: &str) -> bool {
-        let mut tables = self.tables.lock().unwrap();
-        if let Some(table) = tables.iter_mut().find(|t| t.name == table_name) {
-            let len_before = table.columns.len();
-            table.columns.retain(|c| c.name != column_name);
-            return len_before != table.columns.len();
-        }
-        false
+        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
+        let Some(table) = tables.iter_mut().find(|t| t.name == table_name) else { return false; };
+        let len_before = table.columns.len();
+        table.columns.retain(|c| c.name != column_name);
+        len_before != table.columns.len()
     }
 }

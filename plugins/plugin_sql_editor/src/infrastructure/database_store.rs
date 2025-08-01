@@ -1,15 +1,62 @@
 use crate::domain::database::DatabaseConnection;
+use crate::domain::error::SqlEditorError;
+use crate::domain::sql::{SqlMessage, SqlQueryResult};
 
 impl DatabaseStore {
+    /// Executes a SQL query and collects columns, types, rows, and messages.
+    pub async fn execute_sql(&self, sql: &str) -> Result<SqlQueryResult, SqlEditorError> {
+        use sqlx::{Column, Row};
+        let mut result = SqlQueryResult::default();
+        match &self.pool {
+            DbPool::MySql(mysql) => {
+                let mut stream = sqlx::query(sql).fetch(mysql);
+                while let Some(row) = futures_util::StreamExt::next(&mut stream)
+                    .await
+                    .transpose()
+                    .map_err(|e| SqlEditorError::Database(e.to_string()))?
+                {
+                    if result.columns.is_empty() {
+                        result.columns =
+                            row.columns().iter().map(|c| c.name().to_string()).collect();
+                        result.column_types = row
+                            .columns()
+                            .iter()
+                            .map(|c| c.type_info().to_string())
+                            .collect();
+                    }
+                    let mut row_vec = Vec::new();
+                    for idx in 0..row.len() {
+                        let v: serde_json::Value =
+                            row.try_get(idx).unwrap_or(serde_json::Value::Null);
+                        row_vec.push(v);
+                    }
+                    result.rows.push(row_vec);
+                }
+                let warn_rows = sqlx::query("SHOW WARNINGS")
+                    .fetch_all(mysql)
+                    .await
+                    .unwrap_or_default();
+                for warn in warn_rows {
+                    let level: String = warn.try_get("Level").unwrap_or_default();
+                    let content: String = warn.try_get("Message").unwrap_or_default();
+                    if !level.is_empty() || !content.is_empty() {
+                        result.messages.push(SqlMessage { level, content });
+                    }
+                }
+                Ok(result)
+            }
+            _ => Err(SqlEditorError::Other("unsupported pool type".to_string())),
+        }
+    }
     /// 根据 connection 信息动态创建 MySQL 连接池
     pub fn with_mysql(conn: &DatabaseConnection) -> Self {
         let url = format!(
             "mysql://{}:{}@{}:{}/{}",
             conn.username,
-            conn.password.as_deref().unwrap_or(""),
+            conn.password.as_deref().unwrap_or_default(),
             conn.host,
             conn.port,
-            conn.database.as_deref().unwrap_or("")
+            conn.database.as_deref().unwrap_or_default()
         );
         let pool = MySqlPool::connect_lazy(&url).expect("Failed to create MySQL pool");
         DatabaseStore {
@@ -22,10 +69,10 @@ impl DatabaseStore {
         let url = format!(
             "postgres://{}:{}@{}:{}/{}",
             conn.username,
-            conn.password.as_deref().unwrap_or(""),
+            conn.password.as_deref().unwrap_or_default(),
             conn.host,
             conn.port,
-            conn.database.as_deref().unwrap_or("")
+            conn.database.as_deref().unwrap_or_default()
         );
         let pool = PgPool::connect_lazy(&url).expect("Failed to create Postgres pool");
         DatabaseStore {

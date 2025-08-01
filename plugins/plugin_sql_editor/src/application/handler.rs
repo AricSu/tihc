@@ -1,11 +1,14 @@
-use crate::domain::database::{DatabaseConnection, Table};
-use crate::domain::{ConnectionListResult, StatusResult};
+use crate::application::service::SqlEditorService;
+use crate::domain::ConnectionListResult;
+use crate::domain::database::Database;
+use crate::domain::database::DatabaseConnection;
 use crate::infrastructure::database_store::DatabaseStore;
 use crate::infrastructure::{connection_store::ConnectionStore, table_store::TableStore};
-use core::platform::command_registry::CommandHandler;
+use crate::domain::error::SqlEditorError;
+use microkernel::platform::command_registry::CommandHandler;
+use sqlx::Connection;
+use tokio::runtime::Handle;
 
-// ...existing code...
-// 通用命令操作枚举
 pub enum Op {
     AddConnection,
     ListConnection,
@@ -24,9 +27,9 @@ pub enum Op {
     DeleteDatabase,
     GetDatabase,
     UpdateDatabase,
+    ExecuteSql,
 }
 
-// 泛型命令处理器
 pub struct Command<T> {
     pub store: std::sync::Arc<T>,
     pub op: Op,
@@ -34,96 +37,83 @@ pub struct Command<T> {
 
 impl CommandHandler for Command<DatabaseStore> {
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-        use tokio::runtime::Runtime;
-        let rt = Runtime::new().unwrap();
         match self.op {
+            Op::ExecuteSql => {
+                let (connection_id, sql) = parse_args!(args, u64, String);
+                let res = SqlEditorService::execute_sql(connection_id, &sql)?;
+                Ok(serde_json::to_value(json_resp!(success, res))?)
+            }
             Op::AddDatabase => {
-                use sqlx::Connection;
-                use sqlx::MySqlConnection;
-                use tracing::info;
-                let db: crate::domain::database::Database = serde_json::from_str(&args[0])?;
-                let conn: crate::domain::database::DatabaseConnection =
-                    serde_json::from_str(&args[1])?;
-                let engine = conn.engine.as_str();
-                let host = conn.host.as_str();
-                let port = conn.port;
-                let username = conn.username.as_str();
-                let password = conn.password.as_deref().unwrap_or("");
-                let database = conn.database.as_deref().unwrap_or("");
-                let use_tls = conn.use_tls;
-                match engine {
-                    "mysql" => {
-                        let mut url = format!(
-                            "mysql://{}:{}@{}:{}/{}",
-                            username, password, host, port, database
-                        );
-                        if use_tls {
-                            url = format!("{}?ssl-mode=REQUIRED", url);
-                        }
-                        info!(target: "sql_editor", "[AddDatabase] mysql url={}", url);
-                        let test_result = tokio::runtime::Handle::current().block_on(async {
-                            match MySqlConnection::connect(&url).await {
-                                Ok(_) => {
-                                    info!(target: "sql_editor", "[AddDatabase] mysql connect success");
-                                    true
-                                }
-                                Err(e) => {
-                                    info!(target: "sql_editor", "[AddDatabase] mysql connect failed: {}", e);
-                                    false
-                                }
-                            }
-                        });
-                        if test_result {
-                            rt.block_on(DatabaseStore::with_mysql(&conn).add(&db))?;
-                            Ok(serde_json::json!({"status": "success"}))
-                        } else {
-                            Ok(serde_json::json!({"status": "failed", "message": "数据库连接失败"}))
-                        }
-                    }
-                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                let (db, conn) = parse_args!(args, Database, DatabaseConnection);
+                if conn.engine != "mysql" && conn.engine != "tidb" {
+                    return Ok(serde_json::to_value(json_resp!(UnsupportedEngine))?);
                 }
+                let url = if conn.use_tls {
+                    format!(
+                        "mysql://{}:{}@{}:{}/{}?ssl-mode=REQUIRED",
+                        conn.username,
+                        conn.password.as_deref().unwrap_or(""),
+                        conn.host,
+                        conn.port,
+                        conn.database.as_deref().unwrap_or("")
+                    )
+                } else {
+                    format!(
+                        "mysql://{}:{}@{}:{}/{}",
+                        conn.username,
+                        conn.password.as_deref().unwrap_or(""),
+                        conn.host,
+                        conn.port,
+                        conn.database.as_deref().unwrap_or("")
+                    )
+                };
+                let ok = Handle::current()
+                    .block_on(async { sqlx::MySqlConnection::connect(&url).await.is_ok() });
+                if !ok {
+                    return Ok(serde_json::to_value(json_resp!(Failed, "数据库连接失败"))?);
+                }
+                Handle::current()
+                    .block_on(DatabaseStore::with_mysql(&conn).add(&db))?;
+                Ok(serde_json::to_value(json_resp!(Success))?)
             }
             Op::ListDatabase => {
-                let conn: crate::domain::database::DatabaseConnection =
-                    serde_json::from_str(&args[0])?;
-                match conn.engine.as_str() {
-                    "mysql" => {
-                        let list = rt.block_on(DatabaseStore::with_mysql(&conn).list())?;
-                        Ok(serde_json::to_value(list)?)
-                    }
-                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                let conn = parse_args!(args, DatabaseConnection);
+                if conn.engine != "mysql" && conn.engine != "tidb" {
+                    return Ok(serde_json::to_value(json_resp!(UnsupportedEngine))?);
                 }
+                let list = Handle::current()
+                    .block_on(DatabaseStore::with_mysql(&conn).list())?;
+                Ok(serde_json::to_value(json_resp!(success, list))?)
             }
             Op::GetDatabase => {
-                let name = &args[0];
-                let conn: crate::domain::database::DatabaseConnection =
-                    serde_json::from_str(&args[1])?;
-                match conn.engine.as_str() {
-                    "mysql" => {
-                        let result = rt.block_on(DatabaseStore::with_mysql(&conn).get(name))?;
-                        match result {
-                            Some(db) => Ok(serde_json::to_value(db)?),
-                            None => Ok(serde_json::json!({"status": "not_found"})),
-                        }
-                    }
-                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                let (name, conn) = parse_args!(args, &str, DatabaseConnection);
+                if conn.engine != "mysql" && conn.engine != "tidb" {
+                    return Ok(serde_json::to_value(json_resp!(UnsupportedEngine))?);
                 }
+                let db = Handle::current()
+                    .block_on(DatabaseStore::with_mysql(&conn).get(name))?;
+                Ok(serde_json::to_value(match db {
+                    Some(db) => json_resp!(success, db),
+                    None => json_resp!(NotFound, db),
+                })?)
             }
             Op::UpdateDatabase => {
-                let name = &args[0];
-                let update: crate::domain::database::Database = serde_json::from_str(&args[1])?;
-                let conn: crate::domain::database::DatabaseConnection =
-                    serde_json::from_str(&args[2])?;
-                match conn.engine.as_str() {
-                    "mysql" => {
-                        let success =
-                            rt.block_on(DatabaseStore::with_mysql(&conn).update(name, &update))?;
-                        Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
-                    }
-                    _ => Ok(serde_json::json!({"status": "unsupported_engine"})),
+                let (name, update, conn) = parse_args!(args, &str, Database, DatabaseConnection);
+                if conn.engine != "mysql" && conn.engine != "tidb" {
+                    return Ok(serde_json::to_value(json_resp!(UnsupportedEngine))?);
                 }
+                let ok = Handle::current()
+                    .block_on(DatabaseStore::with_mysql(&conn).update(name, &update))?;
+                Ok(serde_json::to_value(if ok {
+                    json_resp!(Success)
+                } else {
+                    json_resp!(NotFound)
+                })?)
             }
-            _ => Ok(serde_json::json!({"status": "not_supported"})),
+            _ => Ok(serde_json::to_value(json_resp!(
+                Failed,
+                "Operation not supported"
+            ))?),
         }
     }
 }
@@ -132,98 +122,45 @@ impl CommandHandler for Command<ConnectionStore> {
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         match self.op {
             Op::AddConnection => {
-                let mut req: DatabaseConnection = serde_json::from_str(&args[0])?;
+                let mut req = parse_args!(args, DatabaseConnection);
                 req.id = chrono::Utc::now().timestamp_millis() as u64;
                 req.created_at = chrono::Utc::now().to_rfc3339();
-                self.store.add(req);
-                Ok(serde_json::json!({"status": "success"}))
+                self.store.add(req)?;
+                return Ok(serde_json::to_value(json_resp!(Success))?);
             }
             Op::ListConnection => {
-                let list = self.store.list();
-                Ok(serde_json::to_value(ConnectionListResult { data: list })?)
+                let data = self.store.list()?;
+                return Ok(serde_json::to_value(json_resp!(success, ConnectionListResult { data }))?);
             }
             Op::DeleteConnection => {
-                let id: u64 = args[0].parse()?;
-                let success = self.store.delete(id);
-                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
-            }
-            Op::TestConnection => {
-                use sqlx::Connection;
-                use sqlx::mysql::MySqlConnection;
-                use tracing::info;
-                let conn: DatabaseConnection = serde_json::from_str(&args[0])?;
-                let engine = conn.engine.as_str();
-                let host = conn.host.as_str();
-                let port = conn.port;
-                let username = conn.username.as_str();
-                let password = conn.password.as_deref().unwrap_or("");
-                let database = conn.database.as_deref().unwrap_or("");
-                let use_tls = conn.use_tls;
-                let ca_cert_path = conn.ca_cert_path.as_deref();
-                info!(target: "sql_editor", "[TestConnection] engine={}, host={}, port={}, user={}, db={}, use_tls={}, ca_cert_path={:?}", engine, host, port, username, database, use_tls, ca_cert_path);
-                let result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        match engine {
-                            "mysql" | "tidb" => {
-                                let mut url = format!(
-                                    "mysql://{}:{}@{}:{}/{}",
-                                    username, password, host, port, database
-                                );
-                                if use_tls {
-                                    url = format!("{}?ssl-mode=REQUIRED", url);
-                                }
-                                info!(target: "sql_editor", "[TestConnection] mysql/tidb url={}", url);
-                                match MySqlConnection::connect(&url).await {
-                                    Ok(_) => {
-                                        info!(target: "sql_editor", "[TestConnection] mysql/tidb success");
-                                        StatusResult {
-                                            status: "success".to_string(),
-                                            message: None,
-                                        }
-                                    }
-                                    Err(e) => {
-                                        info!(target: "sql_editor", "[TestConnection] mysql/tidb failed: {}", e);
-                                        StatusResult {
-                                            status: "failed".to_string(),
-                                            message: Some(format!("{}", e)),
-                                        }
-                                    }
-                                }
-                            }
-                            _ => {
-                                info!(target: "sql_editor", "[TestConnection] unsupported engine: {}", engine);
-                                StatusResult {
-                                    status: "failed".to_string(),
-                                    message: Some("Unsupported engine".to_string()),
-                                }
-                            }
-                        }
-                    })
-                });
-                info!(target: "sql_editor", "[TestConnection] result={:?}", result);
-                Ok(serde_json::to_value(result)?)
+                let id = parse_args!(args, u64);
+                let deleted = self.store.delete(id)?;
+                return Ok(serde_json::to_value(if deleted {
+                    json_resp!(Success)
+                } else {
+                    json_resp!(NotFound)
+                })?);
             }
             Op::UpdateConnection => {
-                // args[0]: conn_id, args[1]: json
-                let id: u64 = args[0].parse()?;
-                let req: DatabaseConnection = serde_json::from_str(&args[1])?;
-                let success = self.store.update(id, req);
-                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
+                let (id, update) = parse_args!(args, u64, DatabaseConnection);
+                let updated = self.store.update(id, update)?;
+                return Ok(serde_json::to_value(if updated {
+                    json_resp!(Success)
+                } else {
+                    json_resp!(NotFound)
+                })?);
             }
             Op::GetConnection => {
-                // 只允许一个 connectionId 参数
-                if args.len() != 1 {
-                    return Err(anyhow::anyhow!("Exactly one connectionId required"));
-                }
-                let id = args[0].parse::<u64>().map_err(|_| anyhow::anyhow!("Invalid connectionId"))?;
-                let conns = self.store.connections.lock().unwrap();
-                if let Some(conn) = conns.iter().find(|c| c.id == id) {
-                    Ok(serde_json::to_value(conn)?)
-                } else {
-                    Err(anyhow::anyhow!("Connection not found"))
-                }
+                let id = parse_args!(args, u64);
+                let conn = self.store.get(id)?.ok_or_else(|| SqlEditorError::Other("Connection not found".to_string()))?;
+                return Ok(serde_json::to_value(json_resp!(success, conn))?);
             }
-            _ => Ok(serde_json::json!({"status": "not_supported"})),
+            _ => {
+                return Ok(serde_json::to_value(json_resp!(
+                    Failed,
+                    "Operation not supported"
+                ))?);
+            }
         }
     }
 }
@@ -231,36 +168,23 @@ impl CommandHandler for Command<ConnectionStore> {
 impl CommandHandler for Command<TableStore> {
     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         match self.op {
-            Op::ListTable => {
-                let list = self.store.list();
-                Ok(serde_json::json!({"status": "success", "data": list}))
-            }
+            Op::ListTable => Ok(serde_json::to_value(json_resp!(
+                success,
+                self.store.list()
+            ))?),
             Op::AddTable => {
-                let table: Table = serde_json::from_str(&args[0])?;
-                self.store.add(table);
-                Ok(serde_json::json!({"status": "success"}))
+                self.store.add(serde_json::from_str(&args[0])?);
+                Ok(serde_json::to_value(json_resp!(Success))?)
             }
-            Op::DeleteTable => {
-                let table_name = &args[0];
-                let success = self.store.delete(table_name);
-                Ok(serde_json::json!({"status": if success {"success"} else {"not_found"}}))
-            }
-            _ => Ok(serde_json::json!({"status": "not_supported"})),
+            Op::DeleteTable => Ok(serde_json::to_value(if self.store.delete(&args[0]) {
+                json_resp!(Success)
+            } else {
+                json_resp!(NotFound)
+            })?),
+            _ => Ok(serde_json::to_value(json_resp!(
+                Failed,
+                "Operation not supported"
+            ))?),
         }
     }
 }
-
-// // SQL 执行命令
-// pub struct ExecuteSqlCommand {}
-// impl CommandHandler for ExecuteSqlCommand {
-//     fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
-//         let sql = &args[0];
-//         if sql.trim().to_lowercase().starts_with("select") {
-//             Ok(
-//                 serde_json::json!({"status": "success", "data": [{"id": 1, "name": "Alice", "email": "alice@example.com"}]}),
-//             )
-//         } else {
-//             Err(anyhow::anyhow!("Unsupported SQL statement"))
-//         }
-//     }
-// }

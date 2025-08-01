@@ -7,7 +7,7 @@ pub mod healthz;
 pub mod slowlog;
 use crate::middleware;
 use axum::{Extension, Router};
-use core::platform::ServiceRegistry;
+use microkernel::platform::ServiceRegistry;
 use std::sync::Arc;
 
 /// Returns the main API router with all routes and essential middleware.

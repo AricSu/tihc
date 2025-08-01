@@ -2,8 +2,8 @@ use crate::commands::slowlog::SlowlogOptions;
 use crate::commands::web::WebOptions;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
-use core::infrastructure::{config, logging};
-use core::platform::command_registry::CommandRegistry;
+use microkernel::infrastructure::{config, logging};
+use microkernel::platform::command_registry::CommandRegistry;
 mod commands;
 use plugin_slowlog::SlowLogPlugin;
 use plugin_sql_editor::SqlEditorPlugin;
@@ -80,10 +80,10 @@ pub enum ToolsCommands {
 }
 
 fn register_all_plugins(
-    kernel: &mut core::platform::Microkernel,
+    kernel: &mut microkernel::platform::Microkernel,
     command_registry: &mut CommandRegistry,
 ) {
-    let mut ctx = core::plugin_api::traits::PluginContext {
+    let mut ctx = microkernel::plugin_api::traits::PluginContext {
         service_registry: kernel.service_registry.clone(),
         command_registry: Some(unsafe {
             std::mem::transmute::<&mut CommandRegistry, &'static mut CommandRegistry>(
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
         merged.enable_log_rotation,
     )?;
 
-    let mut kernel = core::platform::Microkernel::new(app_config.clone());
+    let mut kernel = microkernel::platform::Microkernel::new(app_config.clone());
     let mut command_registry = CommandRegistry::new();
     register_all_plugins(&mut kernel, &mut command_registry);
     // === 演示 handler 层访问全局配置（只打印一次即可） ===
@@ -173,7 +173,12 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Server(web_opts)) => {
             // web 服务需支持 shutdown_rx，收到信号后主动退出
-            commands::web::start_web_service(web_opts, command_registry, core_services.subscribe_shutdown()).await?;
+            commands::web::start_web_service(
+                web_opts,
+                command_registry,
+                core_services.subscribe_shutdown(),
+            )
+            .await?;
         }
         None => {
             Cli::command().print_help()?;

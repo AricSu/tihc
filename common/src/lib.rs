@@ -1,14 +1,12 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod error;
+pub use error::CommonError;
+#[macro_use]
+pub mod parse_args_macro;
+pub mod json_response;
+pub use json_response::JsonResponse;
+pub mod option_anyhow_ext;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+// 未来可在此统一导出更多通用 trait、工具、宏等
+// pub mod result_ext;
+// pub mod string_utils;
+// pub mod time_utils;

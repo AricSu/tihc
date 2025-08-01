@@ -1,10 +1,10 @@
 //! Plugin trait implementation and registration for SQL Editor.
 use crate::application::handler::{Command, Op};
 use crate::infrastructure::connection_store::ConnectionStore;
-use core::plugin_api::traits::Plugin;
+use microkernel::plugin_api::traits::Plugin;
 use std::sync::Arc;
 // 假设已存在 DatabaseStore 实现
-use crate::infrastructure::database_store::{DatabaseStore};
+use crate::infrastructure::database_store::DatabaseStore;
 
 pub enum DbPoolType {
     MySql(Arc<sqlx::MySqlPool>),
@@ -48,17 +48,28 @@ impl SqlEditorPlugin {
     // 可扩展：缓存、文件句柄等资源初始化方法
 }
 
+/// Implements the Plugin trait for SqlEditorPlugin.
+/// Registers all SQL Editor commands and services with the plugin context.
 impl Plugin for SqlEditorPlugin {
+    /// Returns the plugin name for registration and discovery.
     fn name(&self) -> &str {
         "sql_editor"
     }
-    fn register(&mut self, ctx: &mut core::plugin_api::traits::PluginContext) {
+    /// Registers all command handlers and services for the SQL Editor plugin.
+    ///
+    /// This includes connection, table, and database commands, as well as background tasks.
+    fn register(&mut self, ctx: &mut microkernel::plugin_api::traits::PluginContext) {
+        // Register in-memory connection store for connection-related commands.
         let conn_store = Arc::new(ConnectionStore::new());
+        // Register in-memory table store for table-related commands.
         let table_store = Arc::new(crate::infrastructure::table_store::TableStore::new());
+        // Register a dummy database pool for database-related commands.
         self.add_db_pool(DbPoolType::Dummy);
-        // Use DatabaseStore::new with a dummy pool (e.g., None or a dummy type)
-        let dummy_db_store = Arc::new(DatabaseStore::new(crate::infrastructure::database_store::DbPool::Dummy));
+        let dummy_db_store = Arc::new(DatabaseStore::new(
+            crate::infrastructure::database_store::DbPool::Dummy,
+        ));
         if let Some(reg) = ctx.command_registry.as_mut() {
+            // Register connection-related commands.
             reg.register(
                 "editor-connections-get",
                 Box::new(Command {
@@ -66,7 +77,6 @@ impl Plugin for SqlEditorPlugin {
                     op: Op::GetConnection,
                 }),
             );
-            // Connection commands
             reg.register(
                 "editor-connections-list",
                 Box::new(Command {
@@ -102,7 +112,7 @@ impl Plugin for SqlEditorPlugin {
                     op: Op::UpdateConnection,
                 }),
             );
-            // Table commands
+            // Register table-related commands.
             reg.register(
                 "editor-tables-list",
                 Box::new(Command {
@@ -125,7 +135,14 @@ impl Plugin for SqlEditorPlugin {
                 }),
             );
 
-            // 所有数据库相关命令均用 Dummy 占位类型注册，实际分发由 handler.rs 动态完成
+            // Register database-related commands with dummy store; actual dispatch is handled in handler.rs.
+            reg.register(
+                "editor-sql-execute",
+                Box::new(Command {
+                    store: Arc::clone(&dummy_db_store),
+                    op: Op::ExecuteSql,
+                }),
+            );
             reg.register(
                 "editor-databases-list",
                 Box::new(Command {
@@ -162,7 +179,7 @@ impl Plugin for SqlEditorPlugin {
                 }),
             );
         }
-        // 后台任务由平台统一调度，传入 shutdown_rx
+        // Start background task if shutdown signal is provided by the platform.
         if let Some(shutdown_rx) = ctx.shutdown_rx.take() {
             SqlEditorPlugin::start_background_task(shutdown_rx);
         }

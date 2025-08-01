@@ -1,9 +1,9 @@
 /// 启动 web 服务，支持外部传入 shutdown_rx，实现统一优雅关闭
 pub async fn start_server_with_shutdown(
-host: String,
-port: u16,
-command_registry: CommandRegistry,
-mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
+    host: String,
+    port: u16,
+    command_registry: CommandRegistry,
+    mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
     let mut service_registry = ServiceRegistry::new();
     service_registry.register(Box::new(command_registry));
@@ -11,7 +11,10 @@ mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 
     let addr = SocketAddr::new(host.parse()?, port);
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    info!(host, port, "[TiHC] Web server started (with external shutdown)");
+    info!(
+        host,
+        port, "[TiHC] Web server started (with external shutdown)"
+    );
 
     axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(async move {
@@ -21,12 +24,12 @@ mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
         .await?;
     Ok(())
 }
-use core::platform::ServiceRegistry;
+use microkernel::platform::ServiceRegistry;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::info;
 
-use core::platform::command_registry::CommandRegistry;
+use microkernel::platform::command_registry::CommandRegistry;
 
 pub async fn start_server(
     host: String,
@@ -61,6 +64,8 @@ pub async fn start_server(
 
 /// 等待 Ctrl+C 并广播 shutdown 信号
 pub async fn shutdown_signal(shutdown_service: &tokio::sync::broadcast::Sender<()>) {
-    tokio::signal::ctrl_c().await.expect("failed to listen for ctrl_c");
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to listen for ctrl_c");
     let _ = shutdown_service.send(());
 }

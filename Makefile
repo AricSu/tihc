@@ -2,7 +2,7 @@
 CARGO = cargo
 PNPM = yarn
 FRONTEND_DIR = frontend
-WORKSPACE_MEMBERS = cli core web common plugins
+WORKSPACE_MEMBERS = cli microkernel web common plugins
 BIN_DIR = bin
 LOG_PATH = tihc.log
 
