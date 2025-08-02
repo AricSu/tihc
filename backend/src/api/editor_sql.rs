@@ -55,7 +55,7 @@ async fn execute_sql(
         cmd_reg.execute(
             "editor-sql-execute",
             &[connection_id.to_string(), sql.to_string()],
-        )
+        ).await
     } else {
         Err(anyhow::anyhow!("command registry not found"))
     };

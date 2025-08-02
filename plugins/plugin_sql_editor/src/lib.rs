@@ -6,4 +6,3 @@ pub mod domain;
 pub mod infrastructure;
 pub mod plugin;
 pub use plugin::SqlEditorPlugin;
-

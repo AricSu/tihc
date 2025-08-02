@@ -159,7 +159,7 @@ async fn main() -> Result<()> {
                     ("slowlog-scan", args)
                 }
             };
-            command_registry.execute(cmd, &args)?;
+            command_registry.execute(cmd, &args).await?;
             // 等待 Ctrl+C
             tokio::select! {
                 _ = signal::ctrl_c() => {

@@ -6,8 +6,8 @@ macro_rules! try_lock {
 }
 
 use common::CommonError;
-use thiserror::Error;
 use std::sync::PoisonError;
+use thiserror::Error;
 
 /// 扩展 Mutex，提供 lock_safe()，自动处理 PoisonError
 use std::sync::{Mutex, MutexGuard};
@@ -44,7 +44,6 @@ pub enum StoreError {
     #[error("Other infra error: {0}")]
     Other(String),
 }
-
 
 /// Convert PoisonError to CommonError::LockError (orphan rule safe)
 pub fn poison_to_common<T>(e: PoisonError<T>) -> CommonError {

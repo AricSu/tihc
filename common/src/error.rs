@@ -1,7 +1,5 @@
 use thiserror::Error;
 
-
-
 /// 通用基础设施错误类型，支持 DDD/微内核分层自动聚合
 #[derive(Debug, Error)]
 pub enum CommonError {

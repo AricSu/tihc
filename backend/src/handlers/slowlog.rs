@@ -30,7 +30,7 @@ pub async fn handle_scan_files(
     if let Some(cmd_reg) = registry.resolve::<Box<CommandRegistry>>() {
         let args = vec![dir.to_string(), pattern.to_string()];
         tracing::info!(target: "slowlog_api", "[handle_scan_files] exec args: {:?}", args);
-        match cmd_reg.execute("slowlog-scan", &args) {
+        match cmd_reg.execute("slowlog-scan", &args).await {
             Ok(res) => {
                 tracing::info!(target: "slowlog_api", "[handle_scan_files] exec result: {:?}", res);
                 Json(serde_json::json!({"status": "ok", "result": res}))
@@ -78,7 +78,7 @@ pub async fn handle_process_slowlog(
     tracing::info!(target: "slowlog_api", "[handle_process_slowlog] try get connection info for id: {}", connection_id);
     let conn_args = vec![connection_id.to_string()];
     let mut connection_info = if let Some(cmd_reg) = registry.resolve::<Box<CommandRegistry>>() {
-        match cmd_reg.execute("editor-connections-get", &conn_args) {
+        match cmd_reg.execute("editor-connections-get", &conn_args).await {
             Ok(res) => {
                 tracing::info!(target: "slowlog_api", "[handle_process_slowlog] got connection info: {:?}", res);
                 res
@@ -115,7 +115,7 @@ pub async fn handle_process_slowlog(
     let args = vec![log_dir, pattern, conn_json];
     tracing::info!(target: "slowlog_api", "[handle_process_slowlog] dispatch slowlog-import to plugin, args: {:?}", args);
     if let Some(cmd_reg) = registry.resolve::<Box<CommandRegistry>>() {
-        match cmd_reg.execute("slowlog-import", &args) {
+        match cmd_reg.execute("slowlog-import", &args).await {
             Ok(res) => {
                 tracing::info!(target: "slowlog_api", "[handle_process_slowlog] plugin result: {:?}", res);
                 Json(serde_json::json!({"status": "success", "result": res}))

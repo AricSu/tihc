@@ -2,7 +2,6 @@
 
 use crate::plugin_api::traits::Plugin;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// The PluginManager handles the loading and lifecycle of plugins.
 /// It ensures that plugins are registered correctly and can be invoked by other parts of the system.

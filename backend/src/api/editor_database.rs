@@ -6,8 +6,9 @@ use axum::{
 use microkernel::platform::ServiceRegistry;
 use microkernel::platform::command_registry::CommandRegistry;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use common::json_resp;
 use std::sync::Arc;
+use serde_json::json;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct DBConnectionRequest {
@@ -24,14 +25,14 @@ pub struct DBConnectionRequest {
     pub created_at: String,
 }
 
-fn exec_cmd(registry: &Arc<ServiceRegistry>, cmd: &str, args: Vec<String>) -> serde_json::Value {
+async fn exec_cmd(registry: &Arc<ServiceRegistry>, cmd: &str, args: Vec<String>) -> serde_json::Value {
     if let Some(cmd_reg) = registry.resolve::<Box<CommandRegistry>>() {
-        match cmd_reg.execute(cmd, &args) {
-            Ok(result) => json!(result),
-            Err(e) => json!({"error": e.to_string()}),
+        match cmd_reg.execute(cmd, &args).await {
+            Ok(result) => serde_json::to_value(json_resp!(success, result)).unwrap(),
+            Err(e) => serde_json::to_value(json_resp!(Failed, e.to_string())).unwrap(),
         }
     } else {
-        json!({"error": "command registry not found"})
+        serde_json::to_value(json_resp!(NotFound, Some("command registry not found"))).unwrap()
     }
 }
 
@@ -44,7 +45,7 @@ pub async fn update_connection(
         &registry,
         "editor-connections-update",
         vec![conn_id.to_string(), serde_json::to_string(&req).unwrap()],
-    ))
+    ).await)
 }
 
 pub async fn get_connection(
@@ -55,13 +56,13 @@ pub async fn get_connection(
         &registry,
         "editor-connections-get",
         vec![conn_id.to_string()],
-    ))
+    ).await)
 }
 
 pub async fn list_connections(
     Extension(registry): Extension<Arc<ServiceRegistry>>,
 ) -> Json<serde_json::Value> {
-    Json(exec_cmd(&registry, "editor-connections-list", vec![]))
+    Json(exec_cmd(&registry, "editor-connections-list", vec![]).await)
 }
 
 pub async fn create_connection(
@@ -73,7 +74,7 @@ pub async fn create_connection(
         &registry,
         "editor-connections-create",
         vec![serde_json::to_string(&req).unwrap()],
-    ))
+    ).await)
 }
 
 pub async fn delete_connection(
@@ -84,13 +85,13 @@ pub async fn delete_connection(
         &registry,
         "editor-connections-delete",
         vec![conn_id.to_string()],
-    ))
+    ).await)
 }
 // 表相关 API
 pub async fn list_tables(
     Extension(registry): Extension<Arc<ServiceRegistry>>,
 ) -> Json<serde_json::Value> {
-    Json(exec_cmd(&registry, "editor-tables-list", vec![]))
+    Json(exec_cmd(&registry, "editor-tables-list", vec![]).await)
 }
 
 pub async fn add_table(
@@ -101,7 +102,7 @@ pub async fn add_table(
         &registry,
         "editor-tables-add",
         vec![req.to_string()],
-    ))
+    ).await)
 }
 
 pub async fn delete_table(
@@ -112,7 +113,7 @@ pub async fn delete_table(
         &registry,
         "editor-tables-delete",
         vec![table_name],
-    ))
+    ).await)
 }
 
 pub async fn add_column(
@@ -125,7 +126,7 @@ pub async fn add_column(
         &registry,
         "editor-tables-add-column",
         vec![table_name, req.to_string()],
-    ))
+    ).await)
 }
 
 pub async fn delete_column(
@@ -136,7 +137,7 @@ pub async fn delete_column(
         &registry,
         "editor-tables-delete-column",
         vec![table_name, column_name],
-    ))
+    ).await)
 }
 
 pub async fn test_connection(
@@ -144,7 +145,7 @@ pub async fn test_connection(
     Json(req): Json<DBConnectionRequest>,
 ) -> Json<serde_json::Value> {
     let args = vec![serde_json::to_string(&req).unwrap()];
-    Json(exec_cmd(&registry, "editor-connections-test", args))
+    Json(exec_cmd(&registry, "editor-connections-test", args).await)
 }
 
 // 数据库管理 API

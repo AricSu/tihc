@@ -17,7 +17,6 @@
 //! - Plugin communication via service registry and trait interfaces.
 //! - All modules are independently testable and support self-contained builds.
 
-pub mod application;
 pub mod domain;
 pub mod infrastructure;
 pub mod interface;

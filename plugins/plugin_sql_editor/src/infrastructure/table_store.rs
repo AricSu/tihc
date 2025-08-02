@@ -1,4 +1,3 @@
-
 use crate::domain::database::{Column, Table};
 use std::sync::{Arc, Mutex};
 
@@ -27,7 +26,11 @@ impl TableStore {
 
     /// Returns a clone of all tables.
     pub fn list(&self) -> Vec<Table> {
-        self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap().clone()
+        self.tables
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
+            .unwrap()
+            .clone()
     }
 
     /// Finds a table by name.
@@ -43,7 +46,11 @@ impl TableStore {
 
     /// Updates a table by name. Returns true if updated.
     pub fn update(&self, table_name: &str, table: Table) -> bool {
-        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
+        let mut tables = self
+            .tables
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
+            .unwrap();
         if let Some(t) = tables.iter_mut().find(|t| t.name == table_name) {
             *t = table;
             return true;
@@ -53,7 +60,11 @@ impl TableStore {
 
     /// Deletes a table by name. Returns true if deleted.
     pub fn delete(&self, table_name: &str) -> bool {
-        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
+        let mut tables = self
+            .tables
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
+            .unwrap();
         let len_before = tables.len();
         tables.retain(|t| t.name != table_name);
         len_before != tables.len()
@@ -61,16 +72,28 @@ impl TableStore {
 
     /// Adds a column to the specified table. Returns true if added.
     pub fn add_column(&self, table_name: &str, column: Column) -> bool {
-        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
-        let Some(table) = tables.iter_mut().find(|t| t.name == table_name) else { return false; };
+        let mut tables = self
+            .tables
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
+            .unwrap();
+        let Some(table) = tables.iter_mut().find(|t| t.name == table_name) else {
+            return false;
+        };
         table.columns.push(column);
         true
     }
 
     /// Deletes a column from the specified table. Returns true if deleted.
     pub fn delete_column(&self, table_name: &str, column_name: &str) -> bool {
-        let mut tables = self.tables.lock().map_err(|_| anyhow::anyhow!("Failed to lock tables.")).unwrap();
-        let Some(table) = tables.iter_mut().find(|t| t.name == table_name) else { return false; };
+        let mut tables = self
+            .tables
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock tables."))
+            .unwrap();
+        let Some(table) = tables.iter_mut().find(|t| t.name == table_name) else {
+            return false;
+        };
         let len_before = table.columns.len();
         table.columns.retain(|c| c.name != column_name);
         len_before != table.columns.len()

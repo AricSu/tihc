@@ -4,7 +4,7 @@ impl SlowLogFields {
     // Basic components for constructing prefixes
     pub(crate) const ROW_PREFIX: &'static str = "# ";
     pub(crate) const SPACE_MARK: &'static str = ": ";
-    pub(crate) const TIME: &'static str = "Time";
+    // pub(crate) const TIME: &'static str = "Time";
 
     // Constructed prefix (equivalent to SlowLogStartPrefixStr)
     pub const START_PREFIX: &'static str = "# Time: ";

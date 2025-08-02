@@ -1,9 +1,7 @@
-use crate::infrastructure::error::*;
 use crate::domain::database::DatabaseConnection;
+use crate::infrastructure::error::*;
 use std::sync::{Arc, Mutex};
 // use super::error::{StoreError, MutexExt};
-
-
 
 pub struct ConnectionStore {
     pub connections: Arc<Mutex<Vec<DatabaseConnection>>>,
