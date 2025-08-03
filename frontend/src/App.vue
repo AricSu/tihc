@@ -27,6 +27,7 @@ import { LayoutSetting } from '@/components'
 import { useAppStore, useTabStore } from '@/store'
 import { layoutSettingVisible } from './settings'
 
+
 const layouts = new Map()
 function getLayout(name) {
   if (layouts.get(name))

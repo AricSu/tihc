@@ -1,8 +1,10 @@
 use crate::domain::database::Database;
 use crate::domain::error::SqlEditorError;
-use crate::domain::sql::{SqlMessage, SqlQueryResult};
+use crate::domain::sql::{SqlMessage, SqlResult};
 use sqlx::MySqlPool;
 use std::sync::Arc;
+use sqlx::{Column, Row};
+use base64::Engine;
 
 // --- SQL Constants ---
 const MYSQL_SELECT_ONE: &str = "SELECT SCHEMA_NAME ,DEFAULT_COLLATION_NAME, DEFAULT_CHARACTER_SET_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
@@ -19,7 +21,7 @@ pub trait DatabaseBackend: Send + Sync {
     async fn get(&self, db_name: &str) -> Result<Option<Database>, SqlEditorError>;
     async fn update(&self, db_name: &str, db: &Database) -> Result<bool, SqlEditorError>;
     async fn delete(&self, db_name: &str) -> Result<bool, SqlEditorError>;
-    async fn execute_sql(&self, sql: &str) -> Result<SqlQueryResult, SqlEditorError>;
+    async fn execute_sql(&self, sql: &str) -> Result<SqlResult, SqlEditorError>;
 }
 
 pub struct DummyBackend;
@@ -51,7 +53,7 @@ impl DatabaseBackend for DummyBackend {
             "DummyBackend not implemented".to_string(),
         ))
     }
-    async fn execute_sql(&self, _sql: &str) -> Result<SqlQueryResult, SqlEditorError> {
+    async fn execute_sql(&self, _sql: &str) -> Result<SqlResult, SqlEditorError> {
         Err(SqlEditorError::Database(
             "DummyBackend not implemented".to_string(),
         ))
@@ -119,30 +121,62 @@ impl DatabaseBackend for MySqlBackend {
         Ok(result.rows_affected() > 0)
     }
 
-    async fn execute_sql(&self, sql: &str) -> Result<SqlQueryResult, SqlEditorError> {
-        use sqlx::{Column, Row};
-        let mut result = SqlQueryResult::default();
+    async fn execute_sql(&self, sql: &str) -> Result<SqlResult, SqlEditorError> {
+        tracing::info!(target: "sql_editor_backend", "execute_sql: SQL = {}", sql);
+        let mut result = SqlResult::default();
         let mut stream = sqlx::query(sql).fetch(self.pool.as_ref());
+        let mut row_count = 0;
         while let Some(row) = futures_util::StreamExt::next(&mut stream)
             .await
             .transpose()
             .map_err(|e| SqlEditorError::Database(e.to_string()))?
         {
-            if result.columns.is_empty() {
-                result.columns = row.columns().iter().map(|c| c.name().to_string()).collect();
-                result.column_types = row
+            if result.column_names.is_empty() {
+                result.column_names = row.columns().iter().map(|c| c.name().to_string()).collect();
+                result.column_type_names = row
                     .columns()
                     .iter()
                     .map(|c| c.type_info().to_string())
                     .collect();
+                tracing::info!(target: "sql_editor_backend", "execute_sql: columns = {:?}", result.column_names);
             }
             let mut row_vec = Vec::new();
             for idx in 0..row.len() {
-                let v: serde_json::Value = row.try_get(idx).unwrap_or(serde_json::Value::Null);
-                row_vec.push(v);
+                let value = if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(idx) {
+                    serde_json::Value::String(v.to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<u64>, _>(idx) {
+                    serde_json::Value::String(v.to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<f64>, _>(idx) {
+                    serde_json::Value::String(v.to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(idx) {
+                    serde_json::Value::String(v.to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<String>, _>(idx) {
+                    serde_json::Value::String(v)
+                } else if let Ok(Some(v)) = row.try_get::<Option<Vec<u8>>, _>(idx) {
+                    if v.is_empty() {
+                        serde_json::Value::String("".to_string())
+                    } else {
+                        serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(v))
+                    }
+                } else if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
+                    serde_json::Value::String(v.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
+                    serde_json::Value::String(v.format("%Y-%m-%d").to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
+                    serde_json::Value::String(v.format("%H:%M:%S").to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(idx) {
+                    v
+                } else {
+                    serde_json::Value::Null
+                };
+                row_vec.push(value);
             }
+            tracing::info!(target: "sql_editor_backend", "execute_sql: row {} = {:?}", row_count, row_vec);
             result.rows.push(row_vec);
+            row_count += 1;
         }
+        tracing::info!(target: "sql_editor_backend", "execute_sql: total rows = {}", row_count);
+        tracing::info!(target: "sql_editor_backend", "execute_sql: result.rows = {:?}", result.rows);
         let warn_rows = sqlx::query("SHOW WARNINGS")
             .fetch_all(self.pool.as_ref())
             .await
@@ -151,7 +185,9 @@ impl DatabaseBackend for MySqlBackend {
             let level: String = warn.try_get("Level").unwrap_or_default();
             let content: String = warn.try_get("Message").unwrap_or_default();
             if !level.is_empty() || !content.is_empty() {
-                result.messages.push(SqlMessage { level, content });
+                if let Some(messages) = result.messages.as_mut() {
+                    messages.push(SqlMessage { level, content });
+                }
             }
         }
         Ok(result)

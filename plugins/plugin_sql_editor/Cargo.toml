@@ -17,3 +17,4 @@ futures-util = "0.3.31"
 thiserror = { version = "2.0.12", features = ["std"] }
 tracing-subscriber = "0.3.19"
 async-trait = "0.1.88"
+base64 = "0.22.1"

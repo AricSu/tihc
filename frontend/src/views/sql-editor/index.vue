@@ -137,6 +137,39 @@ const isExecuting = computed(() => sqlEditor.isExecuting)
 const lineCount = computed(() => sqlEditor.sqlContent.split('\n').length)
 const slowlogDrawerRef = ref()
 
+// SQL 执行功能
+import { executeSql } from '@/api/sql'
+sqlEditor.executeQuery = async function () {
+  const sql = sqlEditor.sqlContent
+  const connection_id = sqlEditor.currentConnection?.id
+  if (!sql || !connection_id) {
+    window.$message?.error('SQL 或连接未选择')
+    return
+  }
+  sqlEditor.isExecuting = true
+  try {
+    const res = await executeSql({ connection_id, sql })
+    const data = res.data
+    sqlEditor.queryResults.push({
+      id: Date.now().toString(),
+      type: data.error ? 'error' : 'success',
+      executionTime: data.latency_ms,
+      columns: data.column_names,
+      data: data.rows,
+      details: data.error,
+      message: data.messages,
+      columnTypes: data.column_type_names,
+      statement: data.statement,
+      rowsCount: data.rows_count,
+    })
+    sqlEditor.activeResultTab = sqlEditor.queryResults[sqlEditor.queryResults.length - 1].id
+  } catch (e) {
+    window.$message?.error('SQL 执行失败')
+  } finally {
+    sqlEditor.isExecuting = false
+  }
+}
+
 // 当前连接状态从 connections 列表查找
 const currentConnectionStatus = computed(() => {
   const conn = sqlEditor.connections.find(c => c.id === sqlEditor.currentConnection?.id)

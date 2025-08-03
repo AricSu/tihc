@@ -25,9 +25,9 @@
               </div>
               <div class="result-actions">
                 <n-button-group size="small">
-                  <n-button @click="$emit('export-data', result, 'csv')">Export CSV</n-button>
-                  <n-button @click="$emit('export-data', result, 'json')">Export JSON</n-button>
-                  <n-button @click="$emit('copy-result', result)">Copy</n-button>
+                  <n-button @click="handleExport(result, 'csv')">Export CSV</n-button>
+                  <n-button @click="handleExport(result, 'json')">Export JSON</n-button>
+                  <n-button @click="handleCopy(result)">Copy</n-button>
                   <n-button @click="$emit('delete-result', result.id)" type="error" ghost>
                     <template #icon><n-icon>🗑️</n-icon></template>
                     Delete
@@ -36,9 +36,9 @@
               </div>
             </div>
             <n-data-table
-              v-if="result.data && result.data.length > 0"
-              :columns="result.columns"
-              :data="result.data"
+              v-if="getData(result).length > 0"
+              :columns="getColumns(result)"
+              :data="getData(result)"
               :pagination="{ pageSize: 50, showSizePicker: true, pageSizes: [20, 50, 100, 200, 500], showQuickJumper: true, prefix: ({ itemCount }) => `Total ${itemCount} rows` }"
               :scroll-x="Math.max(1200, (result.columns?.length ?? 0) * 150)"
               size="small"
@@ -81,23 +81,17 @@
 </template>
 
 <script setup lang="ts">
-interface QueryResult {
-  id: string
-  type: 'success' | 'error' | 'non-query'
-  executionTime: number
-  data?: any[]
-  columns?: any[]
-  details?: string
-  message?: string
-}
+import { QueryResult } from '@/api/sql';
 
 const props = defineProps<{
   queryResults: QueryResult[],
   activeResultTab: string,
   isMac: boolean
 }>()
+
 const emit = defineEmits(['close-tab', 'export-data', 'copy-result', 'delete-result', 'update:activeResultTab'])
-function formatTabLabel(result: any, index: number) {
+
+function formatTabLabel(result, index) {
   const queryNum = `Q${index + 1}`
   const time = `${result.executionTime}ms`
   let statusIcon = ''
@@ -111,6 +105,75 @@ function formatTabLabel(result: any, index: number) {
     statusIcon = 'ℹ Info'
   }
   return `${queryNum} • ${statusIcon} • ${time}`
+}
+
+function getColumns(result) {
+  if (!result || !result.columns || result.columns.length === 0) return []
+  // columns: [{ title, key, type }]
+  return result.columns.map((col, idx) => ({
+    title: col,
+    key: col,
+    align: 'left',
+    ellipsis: true,
+    // 可扩展类型
+    type: result.columnTypes ? result.columnTypes[idx] : undefined
+  }))
+}
+
+function getData(result) {
+  if (!result || !result.data || result.data.length === 0 || !result.columns) return []
+  // 调试输出，辅助定位数据结构问题
+  console.log('getData result.data:', result.data)
+  console.log('getData result.columns:', result.columns)
+  return result.data.map((row, idx) => {
+    const obj = { _rowIndex: idx }
+    result.columns.forEach((col, i) => {
+      obj[col] = row[i]
+    })
+    return obj
+  })
+}
+
+function handleExport(result, type) {
+  const columns = getColumns(result)
+  const data = getData(result)
+  if (!data.length) {
+    window.$message?.warning('无数据可导出')
+    return
+  }
+  if (type === 'csv') {
+    const header = columns.map(c => c.title).join(',')
+    const rows = data.map(row => columns.map(c => JSON.stringify(row[c.key] ?? '')).join(','))
+    const csv = [header, ...rows].join('\n')
+    copyToClipboard(csv)
+    window.$message?.success('CSV 已复制到剪贴板')
+  } else if (type === 'json') {
+    copyToClipboard(JSON.stringify(data, null, 2))
+    window.$message?.success('JSON 已复制到剪贴板')
+  }
+}
+
+function handleCopy(result) {
+  const data = getData(result)
+  if (!data.length) {
+    window.$message?.warning('无数据可复制')
+    return
+  }
+  copyToClipboard(JSON.stringify(data, null, 2))
+  window.$message?.success('结果已复制到剪贴板')
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text)
+  } else {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+  }
 }
 </script>
 

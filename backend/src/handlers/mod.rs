@@ -1,4 +1,5 @@
 pub mod slowlog;
+pub mod editor_sql;
 
 /// TODO: Remove this stub when real implementation is ready
 use axum::Json;

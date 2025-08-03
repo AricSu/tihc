@@ -66,6 +66,7 @@ impl Plugin for SqlEditorPlugin {
         // Register a dummy database pool for database-related commands.
         self.add_db_pool(DbPoolType::Dummy);
         let dummy_db_store = Arc::new(DatabaseStore::new_dummy(Arc::clone(&conn_store)));
+
         if let Some(reg) = ctx.command_registry.as_mut() {
             // Register connection-related commands.
             reg.register(
@@ -148,7 +149,7 @@ impl Plugin for SqlEditorPlugin {
                 }),
             );
 
-            // Register database-related commands with dummy store; actual dispatch is handled in handler.rs.
+            // Register database-related commands，SQL 执行直接用 SqlExecutor
             reg.register(
                 "editor-sql-execute",
                 Box::new(Command {

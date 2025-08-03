@@ -1,7 +1,6 @@
 use crate::domain::database::DatabaseConnection;
 use crate::domain::database::DatabasePool;
 use crate::domain::error::SqlEditorError;
-use crate::infrastructure::dml_executor;
 use crate::infrastructure::error::MutexExt;
 use crate::infrastructure::error::StoreError;
 use async_trait::async_trait;
@@ -20,11 +19,6 @@ pub trait ConnectionOps: Send + Sync {
     ) -> Result<bool, SqlEditorError>;
     async fn get_connection(&self, id: u64) -> Result<Option<DatabaseConnection>, SqlEditorError>;
     async fn test_connection(&self, conn: &DatabaseConnection) -> Result<bool, SqlEditorError>;
-    async fn execute_sql(
-        &self,
-        connection_id: u64,
-        sql: &str,
-    ) -> Result<serde_json::Value, SqlEditorError>;
 }
 
 /// 连接存储，负责管理所有数据库连接，线程安全
@@ -140,17 +134,5 @@ impl ConnectionOps for ConnectionStore {
     async fn test_connection(&self, conn: &DatabaseConnection) -> Result<bool, SqlEditorError> {
         // 实际可实现连接测试逻辑
         Ok(conn.engine == "mysql" || conn.engine == "tidb")
-    }
-    async fn execute_sql(
-        &self,
-        connection_id: u64,
-        sql: &str,
-    ) -> Result<serde_json::Value, SqlEditorError> {
-        let conn = self.get(connection_id).map_err(SqlEditorError::Infra)?;
-        let conn = match conn {
-            Some(c) => c,
-            None => return Err(SqlEditorError::Other("Connection not found".to_string())),
-        };
-        dml_executor::SqlExecutor::execute_sql(&conn, sql).await
     }
 }

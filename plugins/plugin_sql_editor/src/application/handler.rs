@@ -1,12 +1,12 @@
 use crate::domain::database::{Database, DatabaseConnection};
 use crate::domain::error::SqlEditorError;
 use crate::infrastructure::connection_store::{ConnectionOps, ConnectionStore};
-use crate::infrastructure::dml_executor;
 use crate::infrastructure::table_store::TableStore;
 use crate::infrastructure::table_store::TableStoreOps;
 use microkernel::platform::command_registry::CommandHandler;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub enum Op {
     AddConnection,
     ListConnection,
@@ -84,16 +84,8 @@ impl CommandHandler for Command<ConnectionStore> {
                     }
                 }
             }
-            Op::ExecuteSql => {
-                tracing::debug!("handler: ExecuteSql entered");
-                let (connection_id, sql) = parse_args!(args, u64, String);
-                let conn = self.store.get_connection(connection_id).await?
-                    .ok_or_else(|| SqlEditorError::Other("Connection not found".to_string()))?;
-                let res = dml_executor::SqlExecutor::execute_sql(&conn, &sql).await?;
-                Ok(serde_json::to_value(res)?)
-            }
             _ => {
-                tracing::debug!("handler: ConnectionStore _ (unsupported) entered");
+                tracing::error!(target: "handler", "ConnectionStore unsupported op: {:?}", self.op);
                 Ok(serde_json::to_value("unsupported")?)
             }
         }
@@ -106,9 +98,19 @@ impl CommandHandler for Command<crate::infrastructure::database_store::DatabaseS
     async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         match self.op {
             Op::AddDatabase => {
-                let db = parse_args!(args, Database);
-                self.store.backend.add(&db).await?;
-                Ok(serde_json::to_value("ok")?)
+                // 支持 parse_args!(args, u64, String) 或 parse_args!(args, Database)
+                if args.len() == 2 {
+                    let (_connection_id, db_json) = parse_args!(args, u64, String);
+                    let db: Database = serde_json::from_str(&db_json)?;
+                    self.store.backend.add(&db).await?;
+                    Ok(serde_json::to_value("ok")?)
+                } else if args.len() == 1 {
+                    let db = parse_args!(args, Database);
+                    self.store.backend.add(&db).await?;
+                    Ok(serde_json::to_value("ok")?)
+                } else {
+                    Err(SqlEditorError::Other("Invalid arguments for AddDatabase".to_string()).into())
+                }
             }
             Op::DeleteDatabase => {
                 let db_name = parse_args!(args, &str);
@@ -137,7 +139,33 @@ impl CommandHandler for Command<crate::infrastructure::database_store::DatabaseS
                 let data = backend.list(pool.unwrap()).await?;
                 Ok(serde_json::to_value(data)?)
             }
-            _ => Ok(serde_json::to_value("unsupported")?),
+            Op::ExecuteSql => {
+                tracing::debug!("handler: ExecuteSql entered");
+                let connection_id = args.get(0)
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .ok_or_else(|| SqlEditorError::Other("Invalid connection_id for ExecuteSql".to_string()))?;
+                let sql = args.get(1)
+                    .cloned()
+                    .ok_or_else(|| SqlEditorError::Other("Missing sql for ExecuteSql".to_string()))?;
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                }
+                // 动态分发 backend
+                let backend: Arc<dyn crate::infrastructure::database_store::DatabaseBackend> = match &pool {
+                    Some(crate::domain::database::DatabasePool::MySql(mysql_pool)) => {
+                        Arc::new(crate::infrastructure::database_store::MySqlBackend { pool: Arc::clone(mysql_pool) })
+                    }
+                    // 可扩展更多类型
+                    _ => Arc::new(crate::infrastructure::database_store::DummyBackend)
+                };
+                let res = backend.execute_sql(&sql).await?;
+                Ok(serde_json::to_value(res)?)
+            }
+            _ => {
+                tracing::error!(target: "handler", "DatabaseStore unsupported op: {:?}", self.op);
+                Ok(serde_json::to_value("unsupported")?)
+            },
         }
     }
 }
@@ -219,7 +247,7 @@ impl CommandHandler for Command<TableStore> {
                 Ok(serde_json::to_value(deleted)?)
             }
             _ => {
-                tracing::debug!("handler: TableStore _ (unsupported) entered");
+                tracing::error!(target: "handler", "TableStore unsupported op: {:?}", self.op);
                 Ok(serde_json::to_value("unsupported")?)
             }
         }
