@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, h, resolveComponent } from 'vue'
 import { NIcon, NTree, NPopover } from 'naive-ui'
-import { BookOutline, RefreshOutline, ListOutline } from '@vicons/ionicons5'
+import { BookOutline, RefreshOutline, ListOutline, ServerOutline, GridOutline, FolderOutline, DocumentTextOutline, KeyOutline } from '@vicons/ionicons5'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'
 import { fetchDatabaseList } from '../../../api/database'
-import { fetchTableList } from '../../../api/table'
+import { fetchTableList, fetchColumnList, fetchIndexList } from '../../../api/table'
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 
 const props = defineProps({ showSidebar: Boolean })
@@ -15,93 +15,140 @@ const loadingSchema = ref(false)
 const schemaError = ref('')
 const sqlEditor = useSqlEditorStore()
 
+const getColumnIcon = (col) => {
+  // 主键列用KeyOutline，普通列用DocumentTextOutline
+  if (col.column_key === 'PRI') {
+    return h(NIcon, { size: 18, color: '#e6a23c', style: { marginRight: '4px' } }, () => h(KeyOutline))
+  }
+  return h(NIcon, { size: 18, color: '#409eff', style: { marginRight: '4px' } }, () => h(DocumentTextOutline))
+}
+const getIndexIcon = () => h('span', { style: 'color: #f56c6c; marginRight: 4px;' }, [
+  h(NIcon, { size: 18, color: '#f56c6c', style: { marginRight: '4px' } }, () => h(KeyOutline))
+])
+const getTableIcon = () => h('span', { style: 'color: #67c23a; marginRight: 4px;' }, [
+  h(NIcon, { size: 18, color: '#67c23a', style: { marginRight: '4px' } }, () => h(GridOutline))
+])
+const getFolderIcon = () => h('span', { style: 'color: #909399; marginRight: 4px;' }, [
+  h(NIcon, { size: 18, color: '#909399', style: { marginRight: '4px' } }, () => h(FolderOutline))
+])
+
 const renderLabel = ({ option: node }) => {
   try {
-    console.log('[Tree] renderLabel: node', node)
-    if (!node?.key) {
-      console.warn('[Tree] renderLabel: node.key missing', node)
-      return ''
+    // 分组节点（列/索引文件夹）
+    if (/columns$/.test(node.key) || /indexes$/.test(node.key)) {
+      return h('span', [
+        getFolderIcon(),
+        h('span', { style: 'font-weight: 600; color: #606266; marginLeft: ' + '4px' }, node.label)
+      ])
     }
-    // 严格区分 schema 和 table 节点
+    // 表节点
+    if (/^db-[^\-]+-table-[^\-]+$/.test(node.key)) {
+      return h('span', [
+        h(NPopover, {
+          trigger: 'hover',
+          placement: 'right-start',
+          style: 'min-width: 320px;'
+        }, {
+          default: () => h('div', {
+            style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+          }, [
+            h('div', [h('b', '表名: '), node.label]),
+            node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
+            node.create_time && h('div', [h('b', '创建时间: '), node.create_time]),
+            node.table_comment && h('div', [h('b', '注释: '), node.table_comment])
+          ].filter(Boolean)),
+          trigger: () => getTableIcon()
+        }),
+        h('span', { style: 'font-weight: 500; color: #333; marginLeft: ' + '4px' }, node.label)
+      ])
+    }
+    // 列节点
+    if (/^db-[^\-]+-table-[^\-]+-column-/.test(node.key)) {
+      // 只展示类型，其他信息全部悬浮显示
+      const infoArr = []
+      if (node.column_type) infoArr.push(node.column_type)
+      return h(NPopover, {
+        trigger: 'hover',
+        placement: 'right-start',
+        style: 'min-width: 320px;'
+      }, {
+        default: () => h('div', {
+          style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+        }, [
+          h('div', [h('b', '字段名: '), node.label]),
+          node.data_type && h('div', [h('b', '类型: '), node.data_type]),
+          node.column_type && h('div', [h('b', '类型定义: '), node.column_type]),
+          node.column_key && h('div', [h('b', '主键: '), node.column_key]),
+          node.column_default !== undefined && h('div', [h('b', '默认值: '), node.column_default ?? '']),
+          node.is_nullable !== undefined && h('div', [h('b', '可空: '), node.is_nullable === 'YES' || node.is_nullable === true ? '✔️' : '❌']),
+          node.character_set_name && h('div', [h('b', '字符集: '), node.character_set_name]),
+          node.collation_name && h('div', [h('b', '排序规则: '), node.collation_name]),
+          node.character_octet_length !== undefined && h('div', [h('b', '长度: '), node.character_octet_length]),
+          node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
+          node.table_name && h('div', [h('b', '表名: '), node.table_name])
+        ].filter(Boolean)),
+        trigger: () => h('span', [
+          getColumnIcon(node),
+          h('span', { style: { fontWeight: 400, color: '#333', fontSize: '13px' } }, [
+            node.label,
+            infoArr.length > 0 ? h('span', { style: { marginLeft: '6px', color: '#999', fontSize: '11px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' } }, infoArr[0]) : null
+          ])
+        ])
+      })
+    }
+    // 索引节点
+    if (/^db-[^\-]+-table-[^\-]+-index-/.test(node.key)) {
+      const infoArr = []
+      if (node.non_unique !== undefined) infoArr.push(node.non_unique === 0 ? '唯一' : '非唯一')
+      if (node.column_name) infoArr.push('字段: ' + node.column_name)
+      if (node.index_type) infoArr.push('类型: ' + node.index_type)
+      return h(NPopover, {
+        trigger: 'hover',
+        placement: 'right-start',
+        style: 'min-width: 320px;'
+      }, {
+        default: () => h('div', {
+          style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+        }, [
+          h('div', [h('b', '索引名: '), node.key_name ?? node.label]),
+          node.column_name && h('div', [h('b', '字段: '), node.column_name]),
+          node.index_type && h('div', [h('b', '类型: '), node.index_type]),
+          node.non_unique !== undefined && h('div', [h('b', '是否唯一: '), node.non_unique === 0 ? '是' : '否']),
+          node.index_comment && h('div', [h('b', '注释: '), node.index_comment]),
+          node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
+          node.table_name && h('div', [h('b', '表名: '), node.table_name])
+        ].filter(Boolean)),
+        trigger: () => h('span', [
+          getIndexIcon(),
+          h('span', { style: 'font-weight: 400; color: #333;' }, [
+            node.label,
+            infoArr.length > 0 ? h('span', { style: { marginLeft: '8px', color: '#999', fontSize: '12px' } }, infoArr.join(' | ')) : null
+          ])
+        ])
+      })
+    }
+    // schema节点
     if (/^db-[^\-]+$/.test(node.key)) {
-      // schema节点 Popover 展示
-      console.log('[Tree] renderLabel: schema node', node)
-      const schemaContent = h('div', {
-        style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
-      }, [
-        h('div', [h('b', 'Schema 名称: '), node.label]),
-        node.default_character_set_name && h('div', [h('b', '字符集: '), node.default_character_set_name]),
-        node.default_collation_name && h('div', [h('b', '排序规则: '), node.default_collation_name])
-      ].filter(Boolean))
-      try {
-        console.log('[Tree] renderLabel: rendering schema popover', node.label)
-        return h('span', [
-          h('span', { style: 'color: #333;' }, node.label),
-          h(NPopover, {
-            trigger: 'hover',
-            placement: 'right-start',
-            style: 'min-width: 320px;'
-          }, {
-            default: () => schemaContent,
-            trigger: () => h('span', {
-              style: 'display: inline-flex; alignItems: center; marginLeft: 6px; cursor: "pointer";'
-            }, [
-              h('svg', {
-                width: '16', height: '16', viewBox: '0 0 16 16', fill: 'none', xmlns: 'http://www.w3.org/2000/svg',
-                style: 'color: #409eff; verticalAlign: middle;'
-              }, [
-                h('circle', { cx: '8', cy: '8', r: '8', fill: '#409eff', opacity: '0.15' }),
-                h('text', { x: '8', y: '12', textAnchor: 'middle', fontSize: '12', fill: '#409eff' }, 'i')
-              ])
-            ])
-          })
-        ])
-      } catch (err) {
-        console.error('[Tree] renderLabel: schema popover render error', err, node)
-        return node.label
-      }
-    } else if (/^db-[^\-]+-table-/.test(node.key)) {
-      // 表节点 Popover 展示
-      console.log('[Tree] renderLabel: table node', node)
-      const tableContent = h('div', {
-        style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
-      }, [
-        h('div', [h('b', '表名: '), node.label]),
-        node.table_comment && h('div', [h('b', '注释: '), node.table_comment]),
-        node.create_time && h('div', [h('b', '创建时间: '), node.create_time]),
-        node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema])
-      ].filter(Boolean))
-      try {
-        console.log('[Tree] renderLabel: rendering table popover', node.label)
-        return h('span', [
-          h('span', { style: 'color: #333;' }, node.label),
-          h(NPopover, {
-            trigger: 'hover',
-            placement: 'right-start',
-            style: 'min-width: 320px;'
-          }, {
-            default: () => tableContent,
-            trigger: () => h('span', {
-              style: 'display: inline-flex; alignItems: center; marginLeft: 6px; cursor: "pointer";'
-            }, [
-              h('svg', {
-                width: '16', height: '16', viewBox: '0 0 16 16', fill: 'none', xmlns: 'http://www.w3.org/2000/svg',
-                style: 'color: #409eff; verticalAlign: middle;'
-              }, [
-                h('circle', { cx: '8', cy: '8', r: '8', fill: '#409eff', opacity: '0.15' }),
-                h('text', { x: '8', y: '12', textAnchor: 'middle', fontSize: '12', fill: '#409eff' }, 'i')
-              ])
-            ])
-          })
-        ])
-      } catch (err) {
-        console.error('[Tree] renderLabel: table popover render error', err, node)
-        return node.label
-      }
-    } else {
-      // 其他节点类型直接显示 label
-      return node.label
+      return h('span', [
+        h(NPopover, {
+          trigger: 'hover',
+          placement: 'right-start',
+          style: 'min-width: 320px;'
+        }, {
+          default: () => h('div', {
+            style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+          }, [
+            h('div', [h('b', 'Schema: '), node.label]),
+            node.default_character_set_name && h('div', [h('b', '字符集: '), node.default_character_set_name]),
+            node.default_collation_name && h('div', [h('b', '排序规则: '), node.default_collation_name])
+          ].filter(Boolean)),
+          trigger: () => h(NIcon, { size: 18, color: '#909399', style: { marginRight: '4px' } }, () => h(ServerOutline))
+        }),
+        h('span', { style: 'color: #333; marginLeft: ' + '4px' }, node.label)
+      ])
     }
+    // 其他节点
+    return node.label
   } catch (err) {
     console.error('[Tree] renderLabel: unexpected error', err, node)
     return node?.label || ''
@@ -142,22 +189,77 @@ watch(() => sqlEditor.currentConnection?.id, (newId, oldId) => {
 const handleRefresh = fetchSchema
 
 const handleLoad = async (node) => {
-  if (node.key?.startsWith('db-') && (!node.children || node.children.length === 0)) {
+  // 懒加载表节点（schema下的table）
+  if (/^db-[^\-]+$/.test(node.key) && (!node.children || node.children.length === 0)) {
+    console.log('[Tree] handleLoad: schema node, key=', node.key, node)
     const connectionId = sqlEditor.currentConnection?.id
-    if (!connectionId) return
+    if (!connectionId) {
+      console.warn('[Tree] handleLoad: no connectionId, abort')
+      return
+    }
     try {
+      console.log('[Tree] handleLoad: fetchTableList', connectionId, node.label)
       const tableList = await fetchTableList(connectionId, node.label)
+      console.log('[Tree] handleLoad: tableList result', tableList)
       node.children = tableList.map(tbl => ({
         key: node.key + '-table-' + tbl.table_name,
         label: tbl.table_name,
-        isLeaf: true,
+        isLeaf: false,
         table_schema: tbl.table_schema,
         create_time: tbl.create_time ? new Date(tbl.create_time).toLocaleString() : '',
-        table_comment: tbl.table_comment
+        table_comment: tbl.table_comment,
+        children: undefined // 关键：初始化为 undefined，确保懒加载
       }))
+      console.log('[Tree] handleLoad: table children set', node.children)
+      treeData.value = [...treeData.value]
+      console.log('[Tree] handleLoad: treeData updated', treeData.value)
+    } catch (err) {
+      console.error('[Tree] handleLoad: fetchTableList error', err)
+    }
+  }
+  // 懒加载列和索引节点（table下的column和index）
+  else if (/^db-[^\-]+-table-[^\-]+$/.test(node.key) && (!node.children || node.children.length === 0)) {
+    // 分组展示“列”和“索引”
+    const connectionId = sqlEditor.currentConnection?.id
+    if (!connectionId) {
+      console.warn('[Tree] handleLoad: no connectionId, abort')
+      return
+    }
+    const [schema, table] = (() => {
+      const m = node.key.match(/^db-([^\-]+)-table-([^\-]+)$/)
+      return m ? [m[1], m[2]] : ['', '']
+    })()
+    console.log('[Tree] handleLoad: fetchColumnList & fetchIndexList', connectionId, schema, table)
+    try {
+      const columnList = typeof fetchColumnList === 'function' ? await fetchColumnList(connectionId, schema, table) : []
+      const indexList = typeof fetchIndexList === 'function' ? await fetchIndexList(connectionId, schema, table) : []
+      node.children = [
+        {
+          key: node.key + '-columns',
+          label: '列',
+          isLeaf: false,
+          children: columnList.map(col => ({
+            key: node.key + '-column-' + col.column_name,
+            label: col.column_name,
+            isLeaf: true,
+            ...col
+          }))
+        },
+        {
+          key: node.key + '-indexes',
+          label: '索引',
+          isLeaf: false,
+          children: indexList.map(idx => ({
+            key: node.key + '-index-' + idx.key_name,
+            label: idx.key_name,
+            isLeaf: true,
+            ...idx
+          }))
+        }
+      ]
       treeData.value = [...treeData.value]
     } catch (err) {
-      // 可选：错误处理
+      console.error('[Tree] handleLoad: fetchColumnList/fetchIndexList error', err)
     }
   }
 }

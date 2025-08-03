@@ -132,6 +132,21 @@ impl Plugin for SqlEditorPlugin {
                     op: Op::DeleteTable,
                 }),
             );
+            // Register columns and indexes related commands.
+            reg.register(
+                "editor-columns-list",
+                Box::new(Command {
+                    store: Arc::clone(&table_store),
+                    op: Op::ListColumn,
+                }),
+            );
+            reg.register(
+                "editor-indexes-list",
+                Box::new(Command {
+                    store: Arc::clone(&table_store),
+                    op: Op::ListIndex,
+                }),
+            );
 
             // Register database-related commands with dummy store; actual dispatch is handled in handler.rs.
             reg.register(

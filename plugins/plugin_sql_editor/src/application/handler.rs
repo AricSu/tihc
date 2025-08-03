@@ -20,6 +20,7 @@ pub enum Op {
     AddColumn,
     ListColumn,
     DeleteColumn,
+    ListIndex,
     AddDatabase,
     ListDatabase,
     DeleteDatabase,
@@ -160,6 +161,38 @@ impl CommandHandler for Command<TableStore> {
                 let tables = self.store.list(pool.unwrap(), schema_name).await?;
                 Ok(serde_json::to_value(tables)?)
             }
+            Op::ListColumn => {
+                tracing::debug!("handler: ListColumn entered");
+                // args: [connection_id, schema_name, table_name]
+                if args.len() < 3 {
+                    return Err(SqlEditorError::Other("Missing arguments for ListColumn".to_string()).into());
+                }
+                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let schema_name = &args[1];
+                let table_name = &args[2];
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                }
+                let columns = self.store.list_columns(pool.unwrap(), schema_name, table_name).await?;
+                Ok(serde_json::to_value(columns)?)
+            }
+            Op::ListIndex => {
+                tracing::debug!("handler: ListIndex entered");
+                // args: [connection_id, schema_name, table_name]
+                if args.len() < 3 {
+                    return Err(SqlEditorError::Other("Missing arguments for ListIndex".to_string()).into());
+                }
+                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let schema_name = &args[1];
+                let table_name = &args[2];
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                }
+                let indexes = self.store.list_indexes(pool.unwrap(), schema_name, table_name).await?;
+                Ok(serde_json::to_value(indexes)?)
+            }
             Op::AddTable => {
                 tracing::debug!("handler: AddTable entered");
                 // args: [connection_id, table_json]
@@ -171,7 +204,7 @@ impl CommandHandler for Command<TableStore> {
                 if pool.is_none() {
                     return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
                 }
-                let table: crate::domain::database::Table = serde_json::from_str(&args[1])?;
+                let table: crate::domain::database::TableInfo = serde_json::from_str(&args[1])?;
                 self.store.add(table, pool.unwrap()).await?;
                 Ok(serde_json::to_value(true)?)
             }

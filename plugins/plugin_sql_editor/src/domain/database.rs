@@ -40,20 +40,32 @@ pub enum DatabasePool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Table {
+pub struct TableInfo {
     pub table_schema: Option<String>,
     pub table_name: Option<String>,
     pub create_time: Option<chrono::NaiveDateTime>,
     pub table_comment: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Column {
-    pub name: String,
-    pub column_type: String,
-    pub nullable: bool,
-    pub default: Option<String>,
-    pub comment: Option<String>,
-    pub is_primary: bool,
-    pub is_unique: bool,
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ColumnInfo {
+    pub column_name: String,
+    pub column_default: Option<String>,
+    pub is_nullable: Option<String>,
+    pub data_type: Option<String>,
+    pub character_octet_length: Option<i64>,
+    pub character_set_name: Option<String>,
+    pub collation_name: Option<String>,
+    pub column_type: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct IndexInfo {
+    pub table_schema: String,
+    pub table_name: String,
+    pub non_unique: Option<i64>,
+    pub key_name: String,
+    pub column_name: String,
+    pub index_comment: Option<String>,
 }

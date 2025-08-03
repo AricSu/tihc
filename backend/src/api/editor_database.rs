@@ -134,6 +134,47 @@ pub async fn delete_table(
     Json(exec_cmd(&registry, "editor-tables-delete", vec![table_name]).await)
 }
 
+pub async fn list_columns(
+    Extension(registry): Extension<Arc<ServiceRegistry>>,
+    Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let schema = params.get("schema").cloned().unwrap_or_default();
+    let table = params.get("table").cloned().unwrap_or_default();
+    let connection_id = params.get("connection_id").cloned().unwrap_or_default();
+    let mut args = vec![];
+    if !connection_id.is_empty() {
+        args.push(connection_id);
+    }
+    if !schema.is_empty() {
+        args.push(schema);
+    }
+    if !table.is_empty() {
+        args.push(table);
+    }
+    Json(exec_cmd(&registry, "editor-columns-list", args).await)
+}
+
+// 索引相关 API
+pub async fn list_indexes(
+    Extension(registry): Extension<Arc<ServiceRegistry>>,
+    Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let schema = params.get("schema").cloned().unwrap_or_default();
+    let table = params.get("table").cloned().unwrap_or_default();
+    let connection_id = params.get("connection_id").cloned().unwrap_or_default();
+    let mut args = vec![];
+    if !connection_id.is_empty() {
+        args.push(connection_id);
+    }
+    if !schema.is_empty() {
+        args.push(schema);
+    }
+    if !table.is_empty() {
+        args.push(table);
+    }
+    Json(exec_cmd(&registry, "editor-indexes-list", args).await)
+}
+
 pub async fn add_column(
     Extension(registry): Extension<Arc<ServiceRegistry>>,
     Path(table_name): Path<String>,
@@ -203,5 +244,8 @@ pub fn routes(registry: Arc<ServiceRegistry>) -> Router {
         // 数据库管理
         .route("/api/databases/list", get(list_databases))
         .route("/api/tables/list", get(list_tables))
+        // 列与索引管理
+        .route("/api/columns/list", get(list_columns))
+        .route("/api/indexes/list", get(list_indexes))
         .layer(Extension(registry))
 }

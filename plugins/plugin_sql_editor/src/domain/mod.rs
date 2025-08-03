@@ -11,7 +11,7 @@ pub struct ConnectionListResult {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TableListResult {
-    pub data: Vec<crate::domain::database::Table>,
+    pub data: Vec<crate::domain::database::TableInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
