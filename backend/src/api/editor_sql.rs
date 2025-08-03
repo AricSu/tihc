@@ -52,10 +52,12 @@ async fn execute_sql(
     }
     let start = std::time::Instant::now();
     let result = if let Some(cmd_reg) = registry.resolve::<Box<CommandRegistry>>() {
-        cmd_reg.execute(
-            "editor-sql-execute",
-            &[connection_id.to_string(), sql.to_string()],
-        ).await
+        cmd_reg
+            .execute(
+                "editor-sql-execute",
+                &[connection_id.to_string(), sql.to_string()],
+            )
+            .await
     } else {
         Err(anyhow::anyhow!("command registry not found"))
     };

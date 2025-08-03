@@ -1,13 +1,18 @@
+use serde::{Deserialize, Serialize};
+use sqlx::{MySqlPool, PgPool, SqlitePool};
+use std::sync::Arc;
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct Database {
-    pub name: String,
-    pub description: Option<String>,
-    pub created_at: Option<String>,
+    #[sqlx(rename = "SCHEMA_NAME")]
+    pub schema_name: String,
+    #[sqlx(rename = "DEFAULT_COLLATION_NAME")]
+    pub default_collation_name: String,
+    #[sqlx(rename = "DEFAULT_CHARACTER_SET_NAME")]
+    pub default_character_set_name: String,
 }
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DatabaseConnection {
     pub id: u64,
     pub name: String,
@@ -21,15 +26,25 @@ pub struct DatabaseConnection {
     pub use_tls: bool,
     pub ca_cert_path: Option<String>,
     pub created_at: String,
+    #[serde(skip)]
+    pub pool: Option<DatabasePool>,
+}
+
+// 支持多种数据库类型的连接池
+#[derive(Debug, Clone)]
+pub enum DatabasePool {
+    MySql(Arc<MySqlPool>),
+    Postgres(Arc<PgPool>),
+    Sqlite(Arc<SqlitePool>),
+    // 其它类型可扩展
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
-    pub name: String,
-    pub columns: Vec<Column>,
-    pub comment: Option<String>,
-    pub primary_key: Option<Vec<String>>,
-    pub unique_keys: Option<Vec<Vec<String>>>,
+    pub table_schema: Option<String>,
+    pub table_name: Option<String>,
+    pub create_time: Option<chrono::NaiveDateTime>,
+    pub table_comment: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

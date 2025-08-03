@@ -1,314 +1,185 @@
-// --- Imports ---
-use crate::domain::database::{Database, DatabaseConnection};
+use crate::domain::database::Database;
 use crate::domain::error::SqlEditorError;
 use crate::domain::sql::{SqlMessage, SqlQueryResult};
-use sqlx::{MySqlPool, PgPool, Connection};
-use tracing::{debug, warn};
+use sqlx::MySqlPool;
+use std::sync::Arc;
 
 // --- SQL Constants ---
+const MYSQL_SELECT_ONE: &str = "SELECT SCHEMA_NAME ,DEFAULT_COLLATION_NAME, DEFAULT_CHARACTER_SET_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
+const MYSQL_SELECT_ALL: &str = "SELECT SCHEMA_NAME ,DEFAULT_COLLATION_NAME, DEFAULT_CHARACTER_SET_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='tihc'";
 const MYSQL_INSERT: &str = "INSERT INTO databases (name, description, created_at) VALUES (?, ?, ?)";
-const POSTGRES_INSERT: &str =
-    "INSERT INTO databases (name, description, created_at) VALUES ($1, $2, $3)";
-const MYSQL_SELECT_ALL: &str = "SELECT name, description, created_at FROM databases";
-const POSTGRES_SELECT_ALL: &str = "SELECT name, description, created_at FROM databases";
-const MYSQL_SELECT_ONE: &str = "SELECT name, description, created_at FROM databases WHERE name = ?";
-const POSTGRES_SELECT_ONE: &str =
-    "SELECT name, description, created_at FROM databases WHERE name = $1";
 const MYSQL_UPDATE: &str = "UPDATE databases SET description = ?, created_at = ? WHERE name = ?";
-const POSTGRES_UPDATE: &str =
-    "UPDATE databases SET description = $1, created_at = $2 WHERE name = $3";
 const MYSQL_DELETE: &str = "DELETE FROM databases WHERE name = ?";
-const POSTGRES_DELETE: &str = "DELETE FROM databases WHERE name = $1";
 
-// --- Helper ---
-fn dummy_err() -> sqlx::Error {
-    sqlx::Error::Protocol("Dummy pool: operation not supported".into())
+// --- 多数据库类型 trait ---
+#[async_trait::async_trait]
+pub trait DatabaseBackend: Send + Sync {
+    async fn add(&self, db: &Database) -> Result<(), SqlEditorError>;
+    async fn list(&self, pool: crate::domain::database::DatabasePool) -> Result<Vec<Database>, SqlEditorError>;
+    async fn get(&self, db_name: &str) -> Result<Option<Database>, SqlEditorError>;
+    async fn update(&self, db_name: &str, db: &Database) -> Result<bool, SqlEditorError>;
+    async fn delete(&self, db_name: &str) -> Result<bool, SqlEditorError>;
+    async fn execute_sql(&self, sql: &str) -> Result<SqlQueryResult, SqlEditorError>;
 }
 
-// --- Pool Enum ---
-#[derive(Clone)]
-pub enum DbPool {
-    MySql(MySqlPool),
-    Postgres(PgPool),
-    Dummy,
+pub struct DummyBackend;
+
+#[async_trait::async_trait]
+impl DatabaseBackend for DummyBackend {
+    async fn add(&self, _db: &Database) -> Result<(), SqlEditorError> {
+        Err(SqlEditorError::Database(
+            "DummyBackend not implemented".to_string(),
+        ))
+    }
+    async fn list(&self, _pool: crate::domain::database::DatabasePool) -> Result<Vec<Database>, SqlEditorError> {
+        Err(SqlEditorError::Database(
+            "DummyBackend not implemented".to_string(),
+        ))
+    }
+    async fn get(&self, _db_name: &str) -> Result<Option<Database>, SqlEditorError> {
+        Err(SqlEditorError::Database(
+            "DummyBackend not implemented".to_string(),
+        ))
+    }
+    async fn update(&self, _db_name: &str, _db: &Database) -> Result<bool, SqlEditorError> {
+        Err(SqlEditorError::Database(
+            "DummyBackend not implemented".to_string(),
+        ))
+    }
+    async fn delete(&self, _db_name: &str) -> Result<bool, SqlEditorError> {
+        Err(SqlEditorError::Database(
+            "DummyBackend not implemented".to_string(),
+        ))
+    }
+    async fn execute_sql(&self, _sql: &str) -> Result<SqlQueryResult, SqlEditorError> {
+        Err(SqlEditorError::Database(
+            "DummyBackend not implemented".to_string(),
+        ))
+    }
 }
 
-// --- Store Struct ---
-pub struct DatabaseStore {
-    pub pool: DbPool,
+// --- MySQL 实现 ---
+pub struct MySqlBackend {
+    pub pool: Arc<MySqlPool>,
 }
 
-// --- Constructors ---
-impl DatabaseStore {
-    /// 构造 MySQL 数据库存储
-    pub fn with_mysql(conn: &DatabaseConnection) -> Self {
-        debug!(
-            "with_mysql: host={}, port={}, db={}",
-            conn.host,
-            conn.port,
-            conn.database.as_deref().unwrap_or_default()
-        );
-        let url = format!(
-            "mysql://{}:{}@{}:{}/{}",
-            conn.username,
-            conn.password.as_deref().unwrap_or_default(),
-            conn.host,
-            conn.port,
-            conn.database.as_deref().unwrap_or_default()
-        );
-        let pool = MySqlPool::connect_lazy(&url).expect("Failed to create MySQL pool");
-        Self {
-            pool: DbPool::MySql(pool),
-        }
+#[async_trait::async_trait]
+impl DatabaseBackend for MySqlBackend {
+    async fn add(&self, db: &Database) -> Result<(), SqlEditorError> {
+        sqlx::query(MYSQL_INSERT)
+            .bind(&db.schema_name)
+            .bind(&db.default_collation_name)
+            .bind(&db.default_character_set_name)
+            .execute(self.pool.as_ref())
+            .await
+            .map_err(|e| SqlEditorError::Database(e.to_string()))?;
+        Ok(())
     }
 
-    /// 构造 Postgres 数据库存储
-    pub fn with_postgres(conn: &DatabaseConnection) -> Self {
-        debug!(
-            "with_postgres: host={}, port={}, db={}",
-            conn.host,
-            conn.port,
-            conn.database.as_deref().unwrap_or_default()
-        );
-        let url = format!(
-            "postgres://{}:{}@{}:{}/{}",
-            conn.username,
-            conn.password.as_deref().unwrap_or_default(),
-            conn.host,
-            conn.port,
-            conn.database.as_deref().unwrap_or_default()
-        );
-        let pool = PgPool::connect_lazy(&url).expect("Failed to create Postgres pool");
-        Self {
-            pool: DbPool::Postgres(pool),
-        }
-    }
-
-    /// 构造 Dummy 数据库存储
-    pub fn dummy() -> Self {
-        warn!("DatabaseStore::dummy() called, pool=Dummy");
-        Self {
-            pool: DbPool::Dummy,
-        }
-    }
-
-    /// 构造通用
-    pub fn new(pool: DbPool) -> Self {
-        Self { pool }
-    }
-
-    // --- 连接测试 ---
-    /// 测试数据库连接是否可用（不创建连接池，只做一次性连接验证）
-    pub async fn test_connection(&self, conn: &DatabaseConnection) -> Result<bool, sqlx::Error> {
-        debug!("test_connection: type={:?}, host={}, port={}, db={}", self.pool_type(), conn.host, conn.port, conn.database.as_deref().unwrap_or_default());
-        match self.pool_type() {
-            "MySql" => {
-                let url = format!(
-                    "mysql://{}:{}@{}:{}/{}",
-                    conn.username,
-                    conn.password.as_deref().unwrap_or_default(),
-                    conn.host,
-                    conn.port,
-                    conn.database.as_deref().unwrap_or_default()
-                );
-                match sqlx::MySqlConnection::connect(&url).await {
-                    Ok(_) => Ok(true),
-                    Err(_) => Ok(false),
-                }
-            }
-            "Postgres" => {
-                let url = format!(
-                    "postgres://{}:{}@{}:{}/{}",
-                    conn.username,
-                    conn.password.as_deref().unwrap_or_default(),
-                    conn.host,
-                    conn.port,
-                    conn.database.as_deref().unwrap_or_default()
-                );
-                match sqlx::PgConnection::connect(&url).await {
-                    Ok(_) => Ok(true),
-                    Err(_) => Ok(false),
-                }
-            }
-            _ => Err(dummy_err()),
-        }
-    }
-
-    // --- 业务方法 ---
-    /// 添加数据库/schema
-    pub async fn add(&self, db: &Database) -> Result<(), sqlx::Error> {
-        debug!("add: pool={:?}, db={}", self.pool_type(), db.name);
-        match &self.pool {
-            DbPool::MySql(mysql) => {
-                sqlx::query(MYSQL_INSERT)
-                    .bind(&db.name)
-                    .bind(&db.description)
-                    .bind(&db.created_at)
-                    .execute(mysql)
-                    .await?;
-                Ok(())
-            }
-            DbPool::Postgres(pg) => {
-                sqlx::query(POSTGRES_INSERT)
-                    .bind(&db.name)
-                    .bind(&db.description)
-                    .bind(&db.created_at)
-                    .execute(pg)
-                    .await?;
-                Ok(())
-            }
-            DbPool::Dummy => Err(dummy_err()),
-        }
-    }
-
-    /// 列出所有数据库/schema
-    pub async fn list(&self) -> Result<Vec<Database>, sqlx::Error> {
-        debug!("list: pool={:?}", self.pool_type());
-        match &self.pool {
-            DbPool::MySql(mysql) => {
+    async fn list(&self, pool: crate::domain::database::DatabasePool) -> Result<Vec<Database>, SqlEditorError> {
+        // 只处理 MySql 类型，后续可扩展
+        match pool {
+            crate::domain::database::DatabasePool::MySql(mysql_pool) => {
                 let rows = sqlx::query_as::<_, Database>(MYSQL_SELECT_ALL)
-                    .fetch_all(mysql)
-                    .await?;
+                    .fetch_all(mysql_pool.as_ref())
+                    .await
+                    .map_err(|e| SqlEditorError::Database(e.to_string()))?;
                 Ok(rows)
             }
-            DbPool::Postgres(pg) => {
-                let rows = sqlx::query_as::<_, Database>(POSTGRES_SELECT_ALL)
-                    .fetch_all(pg)
-                    .await?;
-                Ok(rows)
-            }
-            DbPool::Dummy => Err(dummy_err()),
+            _ => Err(SqlEditorError::Database("Unsupported pool type for MySqlBackend".to_string())),
         }
     }
 
-    /// 按名查找数据库/schema
-    pub async fn get(&self, db_name: &str) -> Result<Option<Database>, sqlx::Error> {
-        debug!("get: pool={:?}, db_name={}", self.pool_type(), db_name);
-        match &self.pool {
-            DbPool::MySql(mysql) => {
-                let row = sqlx::query_as::<_, Database>(MYSQL_SELECT_ONE)
-                    .bind(db_name)
-                    .fetch_optional(mysql)
-                    .await?;
-                Ok(row)
-            }
-            DbPool::Postgres(pg) => {
-                let row = sqlx::query_as::<_, Database>(POSTGRES_SELECT_ONE)
-                    .bind(db_name)
-                    .fetch_optional(pg)
-                    .await?;
-                Ok(row)
-            }
-            DbPool::Dummy => Err(dummy_err()),
-        }
+    async fn get(&self, db_name: &str) -> Result<Option<Database>, SqlEditorError> {
+        let row = sqlx::query_as::<_, Database>(MYSQL_SELECT_ONE)
+            .bind(db_name)
+            .fetch_optional(self.pool.as_ref())
+            .await
+            .map_err(|e| SqlEditorError::Database(e.to_string()))?;
+        Ok(row)
     }
 
-    /// 更新数据库/schema（全量覆盖）
-    pub async fn update(&self, db_name: &str, db: &Database) -> Result<bool, sqlx::Error> {
-        debug!("update: pool={:?}, db_name={}", self.pool_type(), db_name);
-        match &self.pool {
-            DbPool::MySql(mysql) => {
-                let result = sqlx::query(MYSQL_UPDATE)
-                    .bind(&db.description)
-                    .bind(&db.created_at)
-                    .bind(db_name)
-                    .execute(mysql)
-                    .await?;
-                Ok(result.rows_affected() > 0)
-            }
-            DbPool::Postgres(pg) => {
-                let result = sqlx::query(POSTGRES_UPDATE)
-                    .bind(&db.description)
-                    .bind(&db.created_at)
-                    .bind(db_name)
-                    .execute(pg)
-                    .await?;
-                Ok(result.rows_affected() > 0)
-            }
-            DbPool::Dummy => Err(dummy_err()),
-        }
+    async fn update(&self, db_name: &str, db: &Database) -> Result<bool, SqlEditorError> {
+        let result = sqlx::query(MYSQL_UPDATE)
+            .bind(&db.default_collation_name)
+            .bind(&db.default_character_set_name)
+            .bind(db_name)
+            .execute(self.pool.as_ref())
+            .await
+            .map_err(|e| SqlEditorError::Database(e.to_string()))?;
+        Ok(result.rows_affected() > 0)
     }
 
-    /// 删除数据库/schema
-    pub async fn delete(&self, db_name: &str) -> Result<bool, sqlx::Error> {
-        debug!("delete: pool={:?}, db_name={}", self.pool_type(), db_name);
-        match &self.pool {
-            DbPool::MySql(mysql) => {
-                let result = sqlx::query(MYSQL_DELETE)
-                    .bind(db_name)
-                    .execute(mysql)
-                    .await?;
-                Ok(result.rows_affected() > 0)
-            }
-            DbPool::Postgres(pg) => {
-                let result = sqlx::query(POSTGRES_DELETE)
-                    .bind(db_name)
-                    .execute(pg)
-                    .await?;
-                Ok(result.rows_affected() > 0)
-            }
-            DbPool::Dummy => Err(dummy_err()),
-        }
+    async fn delete(&self, db_name: &str) -> Result<bool, SqlEditorError> {
+        let result = sqlx::query(MYSQL_DELETE)
+            .bind(db_name)
+            .execute(self.pool.as_ref())
+            .await
+            .map_err(|e| SqlEditorError::Database(e.to_string()))?;
+        Ok(result.rows_affected() > 0)
     }
 
-    // --- SQL 执行 ---
-    /// Executes a SQL query and collects columns, types, rows, and messages.
-    pub async fn execute_sql(&self, sql: &str) -> Result<SqlQueryResult, SqlEditorError> {
-        debug!("execute_sql: pool={:?}, sql={}", self.pool_type(), sql);
+    async fn execute_sql(&self, sql: &str) -> Result<SqlQueryResult, SqlEditorError> {
         use sqlx::{Column, Row};
         let mut result = SqlQueryResult::default();
-        match &self.pool {
-            DbPool::MySql(mysql) => {
-                let mut stream = sqlx::query(sql).fetch(mysql);
-                while let Some(row) = futures_util::StreamExt::next(&mut stream)
-                    .await
-                    .transpose()
-                    .map_err(|e| SqlEditorError::Database(e.to_string()))?
-                {
-                    if result.columns.is_empty() {
-                        result.columns =
-                            row.columns().iter().map(|c| c.name().to_string()).collect();
-                        result.column_types = row
-                            .columns()
-                            .iter()
-                            .map(|c| c.type_info().to_string())
-                            .collect();
-                    }
-                    let mut row_vec = Vec::new();
-                    for idx in 0..row.len() {
-                        let v: serde_json::Value =
-                            row.try_get(idx).unwrap_or(serde_json::Value::Null);
-                        row_vec.push(v);
-                    }
-                    result.rows.push(row_vec);
-                }
-                let warn_rows = sqlx::query("SHOW WARNINGS")
-                    .fetch_all(mysql)
-                    .await
-                    .unwrap_or_default();
-                for warn in warn_rows {
-                    let level: String = warn.try_get("Level").unwrap_or_default();
-                    let content: String = warn.try_get("Message").unwrap_or_default();
-                    if !level.is_empty() || !content.is_empty() {
-                        result.messages.push(SqlMessage { level, content });
-                    }
-                }
-                Ok(result)
+        let mut stream = sqlx::query(sql).fetch(self.pool.as_ref());
+        while let Some(row) = futures_util::StreamExt::next(&mut stream)
+            .await
+            .transpose()
+            .map_err(|e| SqlEditorError::Database(e.to_string()))?
+        {
+            if result.columns.is_empty() {
+                result.columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+                result.column_types = row
+                    .columns()
+                    .iter()
+                    .map(|c| c.type_info().to_string())
+                    .collect();
             }
-            _ => Err(SqlEditorError::Other("unsupported pool type".to_string())),
+            let mut row_vec = Vec::new();
+            for idx in 0..row.len() {
+                let v: serde_json::Value = row.try_get(idx).unwrap_or(serde_json::Value::Null);
+                row_vec.push(v);
+            }
+            result.rows.push(row_vec);
         }
+        let warn_rows = sqlx::query("SHOW WARNINGS")
+            .fetch_all(self.pool.as_ref())
+            .await
+            .unwrap_or_default();
+        for warn in warn_rows {
+            let level: String = warn.try_get("Level").unwrap_or_default();
+            let content: String = warn.try_get("Message").unwrap_or_default();
+            if !level.is_empty() || !content.is_empty() {
+                result.messages.push(SqlMessage { level, content });
+            }
+        }
+        Ok(result)
     }
 }
 
-// --- Pool type helper ---
+// --- DatabaseStore 动态分发 ---
+pub struct DatabaseStore {
+    pub backend: Arc<dyn DatabaseBackend>,
+    pub connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>,
+}
 
-// 放在文件最外层，避免嵌套 impl warning
 impl DatabaseStore {
-    fn pool_type(&self) -> &'static str {
-        match &self.pool {
-            DbPool::MySql(_) => "MySql",
-            DbPool::Postgres(_) => "Postgres",
-            DbPool::Dummy => "Dummy",
+    pub fn new_dummy(connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>) -> Self {
+        Self {
+            backend: Arc::new(DummyBackend),
+            connection_store,
         }
     }
+    pub fn new_mysql(pool: Arc<MySqlPool>, connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>) -> Self {
+        Self {
+            backend: Arc::new(MySqlBackend { pool }),
+            connection_store,
+        }
+    }
+    // 未来可扩展 new_postgres/new_sqlite 等
 }
+
+// --- 用法示例 ---
+// let store = DatabaseStore::new_mysql(mysql_pool);
+// store.backend.add(&db).await?;

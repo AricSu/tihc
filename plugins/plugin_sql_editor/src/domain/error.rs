@@ -11,5 +11,7 @@ pub enum SqlEditorError {
     #[error("Other error: {0}")]
     Other(String),
     #[error("Infra error: {0}")]
-    Infra(#[from] CommonError),
+    Infra(#[from] crate::infrastructure::error::StoreError),
+    #[error("Infra error: {0}")]
+    InfraCommon(#[from] CommonError),
 }

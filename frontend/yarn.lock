@@ -1513,6 +1513,11 @@
   resolved "https://registry.npmmirror.com/@vueuse/shared/-/shared-13.5.0.tgz#c36e3e0eafca9c3b92356ccef139db0df7d9905e"
   integrity sha512-K7GrQIxJ/ANtucxIXbQlUHdB0TPA8c+q5i+zbrjxuhJCnJ9GtBg75sBSnvmLSxHKPg2Yo8w62PWksl9kwH0Q8g==
 
+"@wsfe/vue-tree@^4.1.1":
+  version "4.1.1"
+  resolved "https://registry.yarnpkg.com/@wsfe/vue-tree/-/vue-tree-4.1.1.tgz#591fb0aec69ab79e2dde36ce9dd0fce449e62e06"
+  integrity sha512-loQeThj5aaJwYRAL5vE/yzv/4PJiaC8Z5JoicvnnFug0I9vBU75b17TyjVeqtliqKDKJzE7kR3odkLTB50wlhg==
+
 acorn-jsx@^5.3.2:
   version "5.3.2"
   resolved "https://registry.npmmirror.com/acorn-jsx/-/acorn-jsx-5.3.2.tgz#7ed5bb55908b3b2f1bc55c6af1653bada7f07937"

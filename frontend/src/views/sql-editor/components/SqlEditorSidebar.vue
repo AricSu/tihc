@@ -1,98 +1,165 @@
-
 <script setup lang="ts">
-import { h, ref, onMounted } from 'vue'
-import { NIcon } from 'naive-ui'
-import { KeyOutline, ListOutline, RefreshOutline, BookOutline } from '@vicons/ionicons5'
+import { ref, onMounted, watch, h, resolveComponent } from 'vue'
+import { NIcon, NTree, NPopover } from 'naive-ui'
+import { BookOutline, RefreshOutline, ListOutline } from '@vicons/ionicons5'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'
-import { fetchDatabaseSchema } from '../../../api/database'
+import { fetchDatabaseList } from '../../../api/database'
+import { fetchTableList } from '../../../api/table'
+import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 
-const nodeProps = ({ option }) => {
-  return {
-    icon: option.icon,
-    suffix: option.suffix ? h('span', { style: 'color: #888; marginLeft: ' + '8px' }, option.suffix) : undefined,
-    label: option.isPrimary ? h('span', [option.label, h(NIcon, { style: 'color: #f90; marginLeft: ' + '4px' }, { default: () => h(KeyOutline) })]) : option.label
-  }
-}
-
-const props = defineProps({
-  showSidebar: Boolean
-})
+const props = defineProps({ showSidebar: Boolean })
 const emit = defineEmits(['update:showSidebar'])
-const showDetailModal = ref(false)
-const tableColumns = [
-  { title: '字段名', key: 'column_name', width: 200 },
-  { title: '数据类型', key: 'data_type', width: 120 },
-  { title: '备注', key: 'comment', width: 400 }
-]
 
-const slowQuerySchema = ref<Array<{ column_name: string; data_type: string; comment?: string }>>([])
-const schemaTree = ref([])
+const treeData = ref([])
 const loadingSchema = ref(false)
 const schemaError = ref('')
+const sqlEditor = useSqlEditorStore()
+
+const renderLabel = ({ option: node }) => {
+  try {
+    console.log('[Tree] renderLabel: node', node)
+    if (!node?.key) {
+      console.warn('[Tree] renderLabel: node.key missing', node)
+      return ''
+    }
+    // 严格区分 schema 和 table 节点
+    if (/^db-[^\-]+$/.test(node.key)) {
+      // schema节点 Popover 展示
+      console.log('[Tree] renderLabel: schema node', node)
+      const schemaContent = h('div', {
+        style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+      }, [
+        h('div', [h('b', 'Schema 名称: '), node.label]),
+        node.default_character_set_name && h('div', [h('b', '字符集: '), node.default_character_set_name]),
+        node.default_collation_name && h('div', [h('b', '排序规则: '), node.default_collation_name])
+      ].filter(Boolean))
+      try {
+        console.log('[Tree] renderLabel: rendering schema popover', node.label)
+        return h('span', [
+          h('span', { style: 'color: #333;' }, node.label),
+          h(NPopover, {
+            trigger: 'hover',
+            placement: 'right-start',
+            style: 'min-width: 320px;'
+          }, {
+            default: () => schemaContent,
+            trigger: () => h('span', {
+              style: 'display: inline-flex; alignItems: center; marginLeft: 6px; cursor: "pointer";'
+            }, [
+              h('svg', {
+                width: '16', height: '16', viewBox: '0 0 16 16', fill: 'none', xmlns: 'http://www.w3.org/2000/svg',
+                style: 'color: #409eff; verticalAlign: middle;'
+              }, [
+                h('circle', { cx: '8', cy: '8', r: '8', fill: '#409eff', opacity: '0.15' }),
+                h('text', { x: '8', y: '12', textAnchor: 'middle', fontSize: '12', fill: '#409eff' }, 'i')
+              ])
+            ])
+          })
+        ])
+      } catch (err) {
+        console.error('[Tree] renderLabel: schema popover render error', err, node)
+        return node.label
+      }
+    } else if (/^db-[^\-]+-table-/.test(node.key)) {
+      // 表节点 Popover 展示
+      console.log('[Tree] renderLabel: table node', node)
+      const tableContent = h('div', {
+        style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+      }, [
+        h('div', [h('b', '表名: '), node.label]),
+        node.table_comment && h('div', [h('b', '注释: '), node.table_comment]),
+        node.create_time && h('div', [h('b', '创建时间: '), node.create_time]),
+        node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema])
+      ].filter(Boolean))
+      try {
+        console.log('[Tree] renderLabel: rendering table popover', node.label)
+        return h('span', [
+          h('span', { style: 'color: #333;' }, node.label),
+          h(NPopover, {
+            trigger: 'hover',
+            placement: 'right-start',
+            style: 'min-width: 320px;'
+          }, {
+            default: () => tableContent,
+            trigger: () => h('span', {
+              style: 'display: inline-flex; alignItems: center; marginLeft: 6px; cursor: "pointer";'
+            }, [
+              h('svg', {
+                width: '16', height: '16', viewBox: '0 0 16 16', fill: 'none', xmlns: 'http://www.w3.org/2000/svg',
+                style: 'color: #409eff; verticalAlign: middle;'
+              }, [
+                h('circle', { cx: '8', cy: '8', r: '8', fill: '#409eff', opacity: '0.15' }),
+                h('text', { x: '8', y: '12', textAnchor: 'middle', fontSize: '12', fill: '#409eff' }, 'i')
+              ])
+            ])
+          })
+        ])
+      } catch (err) {
+        console.error('[Tree] renderLabel: table popover render error', err, node)
+        return node.label
+      }
+    } else {
+      // 其他节点类型直接显示 label
+      return node.label
+    }
+  } catch (err) {
+    console.error('[Tree] renderLabel: unexpected error', err, node)
+    return node?.label || ''
+  }
+}
 
 const fetchSchema = async () => {
   loadingSchema.value = true
   schemaError.value = ''
-  try {
-    const schema = await fetchDatabaseSchema()
-    slowQuerySchema.value = schema
-    schemaTree.value = buildSchemaTree(schema)
-  } catch (err: any) {
-    schemaError.value = err?.message || 'Schema load failed'
-    slowQuerySchema.value = []
-    schemaTree.value = []
-  } finally {
+  const connectionId = sqlEditor.currentConnection?.id
+  if (!connectionId) {
+    schemaError.value = '请先选择连接'
+    treeData.value = []
     loadingSchema.value = false
+    return
   }
+  try {
+    const dbList = await fetchDatabaseList(connectionId)
+    treeData.value = dbList.map(db => ({
+      key: 'db-' + db.schema_name,
+      label: db.schema_name,
+      isLeaf: false,
+      children: undefined,
+      default_character_set_name: db.default_character_set_name,
+      default_collation_name: db.default_collation_name
+    }))
+  } catch (err) {
+    schemaError.value = err?.response?.data?.message || err?.message || 'Schema load failed'
+    treeData.value = []
+  }
+  loadingSchema.value = false
 }
 
-function buildSchemaTree(schema) {
-  // 仅支持单表，后续可扩展多表
-  return [
-    {
-      label: '表',
-      key: 'tables',
-      children: [
-        {
-          label: 'cluster_slow_query',
-          key: 'table-cluster_slow_query',
-          icon: () => h(NIcon, null, { default: () => h(ListOutline) }),
-          children: [
-            {
-              label: '列',
-              key: 'columns',
-              children: schema.map(col => ({
-                label: col.column_name,
-                key: 'col-' + col.column_name,
-                icon: () => h(NIcon, null, { default: () => h(KeyOutline) }),
-                suffix: col.data_type,
-                isPrimary: col.column_name === 'id' // 可根据实际主键字段调整
-              }))
-            },
-            {
-              label: '索引',
-              key: 'indexes',
-              children: [
-                {
-                  label: 'PRIMARY',
-                  key: 'idx-primary',
-                  icon: () => h(NIcon, null, { default: () => h(KeyOutline) })
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-onMounted(() => {
-  fetchSchema()
+onMounted(fetchSchema)
+watch(() => sqlEditor.currentConnection?.id, (newId, oldId) => {
+  if (newId && newId !== oldId) fetchSchema()
 })
+const handleRefresh = fetchSchema
 
-const handleRefresh = () => {
-  fetchSchema()
+const handleLoad = async (node) => {
+  if (node.key?.startsWith('db-') && (!node.children || node.children.length === 0)) {
+    const connectionId = sqlEditor.currentConnection?.id
+    if (!connectionId) return
+    try {
+      const tableList = await fetchTableList(connectionId, node.label)
+      node.children = tableList.map(tbl => ({
+        key: node.key + '-table-' + tbl.table_name,
+        label: tbl.table_name,
+        isLeaf: true,
+        table_schema: tbl.table_schema,
+        create_time: tbl.create_time ? new Date(tbl.create_time).toLocaleString() : '',
+        table_comment: tbl.table_comment
+      }))
+      treeData.value = [...treeData.value]
+    } catch (err) {
+      // 可选：错误处理
+    }
+  }
 }
 </script>
 
@@ -108,12 +175,11 @@ const handleRefresh = () => {
     @expand="emit('update:showSidebar', true)"
   >
     <n-space vertical size="large" style="height: 100%;">
-      <!-- Schema Section -->
       <n-card size="small" :bordered="false">
         <n-space align="center" justify="space-between">
           <n-text strong>
             <n-icon size="18"><ListOutline /></n-icon>
-            TiHC Schema
+            数据库列表
           </n-text>
           <n-button @click="handleRefresh" size="tiny" text circle>
             <template #icon>
@@ -122,74 +188,35 @@ const handleRefresh = () => {
           </n-button>
         </n-space>
         <n-divider style="margin: 8px 0;" />
-        <n-space align="center" justify="space-between">
-          <n-button 
-            v-if="slowQuerySchema.length > 0" 
-            size="small" 
-            type="primary" 
-            @click="showDetailModal = true"
-          >
-            <template #icon>
-              <n-icon><BookOutline /></n-icon>
-            </template>
-            详细说明
-          </n-button>
-        </n-space>
         <n-space vertical size="small" style="margin-top: 8px;">
           <template v-if="loadingSchema">
             <n-space align="center">
               <n-spin size="small" />
-              <n-text depth="3">Loading schema...</n-text>
+              <n-text depth="3">Loading...</n-text>
             </n-space>
           </template>
           <template v-else-if="schemaError">
             <n-alert type="error" :show-icon="true">{{ schemaError }}</n-alert>
           </template>
-          <template v-else-if="schemaTree.length > 0">
-            <n-tree
-              :data="schemaTree"
-              block-line
-              :node-props="nodeProps"
-            />
+          <template v-else-if="treeData.length > 0">
+            <div>
+              <NTree
+                :data="treeData"
+                block-line
+                :show-irrelevant-nodes="false"
+                :default-expand-all="false"
+                :expand-on-click="true"
+                :on-load="handleLoad"
+                :loading="loadingSchema"
+                :render-label="renderLabel"
+              />
+            </div>
           </template>
-          <n-empty v-else description="Connect to database to load table structure" size="small" />
+          <template v-else>
+            <n-empty description="暂无数据库信息" size="small" />
+          </template>
         </n-space>
-        <!-- Schema Detail Modal -->
-        <n-modal 
-          v-model:show="showDetailModal" 
-          preset="card" 
-          title="cluster_slow_query 表结构详细说明"
-          style="max-width: 1200px; max-height: 80vh;"
-        >
-          <n-space vertical size="large">
-            <n-text>
-              TiDB 慢查询表包含了数据库中执行时间较长的 SQL 语句信息，用于性能分析和优化。
-            </n-text>
-            <n-button 
-              tag="a" 
-              href="https://docs.pingcap.com/zh/tidb/stable/identify-slow-queries/#%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97" 
-              target="_blank" 
-              type="primary" 
-              size="small"
-            >
-              <template #icon>
-                <n-icon><BookOutline /></n-icon>
-              </template>
-              查看 TiDB 官方文档
-            </n-button>
-            <n-data-table
-              :columns="tableColumns"
-              :data="slowQuerySchema"
-              :pagination="{ pageSize: 15 }"
-              :max-height="400"
-              :scroll-x="800"
-              size="small"
-              striped
-            />
-          </n-space>
-        </n-modal>
       </n-card>
-      <!-- SQL Template Section -->
       <n-card size="small" :bordered="false">
         <n-text strong>
           <n-icon size="18"><ListOutline /></n-icon>
@@ -198,9 +225,6 @@ const handleRefresh = () => {
         <n-divider style="margin: 8px 0;" />
         <SqlTemplateSidebar :showSidebar="props.showSidebar" />
       </n-card>
-      <!-- 未来可扩展更多工具 -->
     </n-space>
   </n-layout-sider>
 </template>
-
-

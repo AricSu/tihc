@@ -62,12 +62,10 @@ impl Plugin for SqlEditorPlugin {
         // Register in-memory connection store for connection-related commands.
         let conn_store = Arc::new(ConnectionStore::new());
         // Register in-memory table store for table-related commands.
-        let table_store = Arc::new(crate::infrastructure::table_store::TableStore::new());
+        let table_store = Arc::new(crate::infrastructure::table_store::TableStore::new(Arc::clone(&conn_store)));
         // Register a dummy database pool for database-related commands.
         self.add_db_pool(DbPoolType::Dummy);
-        let dummy_db_store = Arc::new(DatabaseStore::new(
-            crate::infrastructure::database_store::DbPool::Dummy,
-        ));
+        let dummy_db_store = Arc::new(DatabaseStore::new_dummy(Arc::clone(&conn_store)));
         if let Some(reg) = ctx.command_registry.as_mut() {
             // Register connection-related commands.
             reg.register(

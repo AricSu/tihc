@@ -1,10 +1,11 @@
-use crate::application::service::SqlEditorService;
-use crate::domain::database::Database;
-use crate::domain::database::DatabaseConnection;
+use crate::domain::database::{Database, DatabaseConnection};
 use crate::domain::error::SqlEditorError;
-use crate::infrastructure::database_store::DatabaseStore;
-use crate::infrastructure::{connection_store::ConnectionStore, table_store::TableStore};
+use crate::infrastructure::connection_store::{ConnectionOps, ConnectionStore};
+use crate::infrastructure::dml_executor;
+use crate::infrastructure::table_store::TableStore;
+use crate::infrastructure::table_store::TableStoreOps;
 use microkernel::platform::command_registry::CommandHandler;
+use std::sync::Arc;
 
 pub enum Op {
     AddConnection,
@@ -32,22 +33,47 @@ pub struct Command<T> {
     pub op: Op,
 }
 
+/// 连接相关命令分发（ConnectionStore）
 #[async_trait::async_trait]
-impl CommandHandler for Command<DatabaseStore> {
+impl CommandHandler for Command<ConnectionStore> {
     async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         match self.op {
-            Op::ExecuteSql => {
-                tracing::debug!("handler: ExecuteSql entered");
-                let (connection_id, sql) = parse_args!(args, u64, String);
-                let res = SqlEditorService::execute_sql(connection_id, &sql)?;
-                Ok(serde_json::to_value(res)?)
+            Op::AddConnection => {
+                tracing::debug!("handler: AddConnection entered");
+                let conn = parse_args!(args, DatabaseConnection);
+                self.store.add_connection(conn).await?;
+                Ok(serde_json::to_value("ok")?)
+            }
+            Op::ListConnection => {
+                tracing::debug!("handler: ListConnection entered");
+                let data = self.store.list_connection().await?;
+                Ok(serde_json::to_value(data)?)
+            }
+            Op::DeleteConnection => {
+                tracing::debug!("handler: DeleteConnection entered");
+                let id = parse_args!(args, u64);
+                let deleted = self.store.delete_connection(id).await?;
+                Ok(serde_json::to_value(deleted)?)
+            }
+            Op::UpdateConnection => {
+                tracing::debug!("handler: UpdateConnection entered");
+                let (id, update) = parse_args!(args, u64, DatabaseConnection);
+                let updated = self.store.update_connection(id, update).await?;
+                Ok(serde_json::to_value(updated)?)
+            }
+            Op::GetConnection => {
+                tracing::debug!("handler: GetConnection entered");
+                let id = parse_args!(args, u64);
+                let conn = self
+                    .store
+                    .get_connection(id)
+                    .await?
+                    .ok_or_else(|| SqlEditorError::Other("Connection not found".to_string()))?;
+                Ok(serde_json::to_value(conn)?)
             }
             Op::TestConnection => {
                 tracing::debug!("handler: TestConnection entered");
                 let conn = parse_args!(args, DatabaseConnection);
-                if conn.engine != "mysql" && conn.engine != "tidb" {
-                    return Ok(serde_json::to_value("unsupported_engine")?);
-                }
                 let result = self.store.test_connection(&conn).await;
                 match result {
                     Ok(ok) => Ok(serde_json::to_value(ok)?),
@@ -57,109 +83,60 @@ impl CommandHandler for Command<DatabaseStore> {
                     }
                 }
             }
-            Op::AddConnection => {
-                tracing::debug!("handler: AddConnection entered");
-                let db = parse_args!(args, Database);
-                self.store.add(&db).await?;
-                return Ok(serde_json::to_value("ok")?);
-            }
-            Op::ListConnection => {
-                tracing::debug!("handler: ListConnection entered");
-                let data = self.store.list().await?;
-                return Ok(serde_json::to_value(data)?);
-            }
-            Op::DeleteConnection => {
-                tracing::debug!("handler: DeleteConnection entered");
-                let db_name = parse_args!(args, &str);
-                let deleted = self.store.delete(db_name).await?;
-                tracing::debug!("handler: ListDatabase branch entered");
-                return Ok(serde_json::to_value(deleted)?);
-            }
-            Op::UpdateConnection => {
-                tracing::debug!("handler: UpdateConnection entered");
-                let (db_name, db) = parse_args!(args, &str, Database);
-                let updated = self.store.update(db_name, &db).await?;
-                tracing::debug!("handler: GetDatabase branch entered");
-                return Ok(serde_json::to_value(updated)?);
-            }
-            Op::GetConnection => {
-                tracing::debug!("handler: GetConnection entered");
-                let db_name = parse_args!(args, &str);
-                let conn = self
-                    .store
-                    .get(db_name).await?
+            Op::ExecuteSql => {
+                tracing::debug!("handler: ExecuteSql entered");
+                let (connection_id, sql) = parse_args!(args, u64, String);
+                let conn = self.store.get_connection(connection_id).await?
                     .ok_or_else(|| SqlEditorError::Other("Connection not found".to_string()))?;
-                tracing::debug!("handler: UpdateDatabase branch entered");
-                return Ok(serde_json::to_value(conn)?);
+                let res = dml_executor::SqlExecutor::execute_sql(&conn, &sql).await?;
+                Ok(serde_json::to_value(res)?)
             }
             _ => {
                 tracing::debug!("handler: ConnectionStore _ (unsupported) entered");
-                return Ok(serde_json::to_value("unsupported")?);
+                Ok(serde_json::to_value("unsupported")?)
             }
         }
     }
 }
 
+/// 数据库相关命令分发（DatabaseStore）
 #[async_trait::async_trait]
-impl CommandHandler for Command<ConnectionStore> {
+impl CommandHandler for Command<crate::infrastructure::database_store::DatabaseStore> {
     async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         match self.op {
-            Op::TestConnection => {
-                tracing::debug!("handler: TestConnection entered");
-                let conn = parse_args!(args, DatabaseConnection);
-                if conn.engine != "mysql" && conn.engine != "tidb" {
-                    return Ok(serde_json::to_value("unsupported_engine")?);
+            Op::AddDatabase => {
+                let db = parse_args!(args, Database);
+                self.store.backend.add(&db).await?;
+                Ok(serde_json::to_value("ok")?)
+            }
+            Op::DeleteDatabase => {
+                let db_name = parse_args!(args, &str);
+                let deleted = self.store.backend.delete(db_name).await?;
+                Ok(serde_json::to_value(deleted)?)
+            }
+            Op::UpdateDatabase => {
+                let (db_name, db) = parse_args!(args, &str, Database);
+                let updated = self.store.backend.update(db_name, &db).await?;
+                Ok(serde_json::to_value(updated)?)
+            }
+            Op::ListDatabase => {
+                let connection_id = parse_args!(args, u64);
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
                 }
-                let result = DatabaseStore::with_mysql(&conn).test_connection(&conn).await;
-                match result {
-                    Ok(ok) => Ok(serde_json::to_value(ok)?),
-                    Err(e) => {
-                        tracing::error!("test_connection error: {:?}", e);
-                        Ok(serde_json::to_value(format!("连接测试异常: {}", e))?)
+                // 动态分发 backend
+                let backend: Arc<dyn crate::infrastructure::database_store::DatabaseBackend> = match &pool {
+                    Some(crate::domain::database::DatabasePool::MySql(mysql_pool)) => {
+                        Arc::new(crate::infrastructure::database_store::MySqlBackend { pool: Arc::clone(mysql_pool) })
                     }
-                }
+                    // 可扩展更多类型
+                    _ => Arc::new(crate::infrastructure::database_store::DummyBackend)
+                };
+                let data = backend.list(pool.unwrap()).await?;
+                Ok(serde_json::to_value(data)?)
             }
-            Op::AddConnection => {
-                tracing::debug!("handler: AddConnection entered");
-                let mut req = parse_args!(args, DatabaseConnection);
-                req.id = chrono::Utc::now().timestamp_millis() as u64;
-                req.created_at = chrono::Utc::now().to_rfc3339();
-                self.store.add(req)?;
-                return Ok(serde_json::to_value("ok")?);
-            }
-            Op::ListConnection => {
-                tracing::debug!("handler: ListConnection entered");
-                let data = self.store.list()?;
-                return Ok(serde_json::to_value(data)?);
-            }
-            Op::DeleteConnection => {
-                tracing::debug!("handler: DeleteConnection entered");
-                let id = parse_args!(args, u64);
-                let deleted = self.store.delete(id)?;
-                tracing::debug!("handler: ListDatabase branch entered");
-                return Ok(serde_json::to_value(deleted)?);
-            }
-            Op::UpdateConnection => {
-                tracing::debug!("handler: UpdateConnection entered");
-                let (id, update) = parse_args!(args, u64, DatabaseConnection);
-                let updated = self.store.update(id, update)?;
-                tracing::debug!("handler: GetDatabase branch entered");
-                return Ok(serde_json::to_value(updated)?);
-            }
-            Op::GetConnection => {
-                tracing::debug!("handler: GetConnection entered");
-                let id = parse_args!(args, u64);
-                let conn = self
-                    .store
-                    .get(id)?
-                    .ok_or_else(|| SqlEditorError::Other("Connection not found".to_string()))?;
-                tracing::debug!("handler: UpdateDatabase branch entered");
-                return Ok(serde_json::to_value(conn)?);
-            }
-            _ => {
-                tracing::debug!("handler: ConnectionStore _ (unsupported) entered");
-                return Ok(serde_json::to_value("unsupported")?);
-            }
+            _ => Ok(serde_json::to_value("unsupported")?),
         }
     }
 }
@@ -170,16 +147,43 @@ impl CommandHandler for Command<TableStore> {
         match self.op {
             Op::ListTable => {
                 tracing::debug!("handler: ListTable entered");
-                Ok(serde_json::to_value(self.store.list())?)
+                // args: [connection_id, schema_name]
+                if args.len() < 2 {
+                    return Err(SqlEditorError::Other("Missing arguments for ListTable".to_string()).into());
+                }
+                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let schema_name = &args[1];
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                }
+                let tables = self.store.list(pool.unwrap(), schema_name).await?;
+                Ok(serde_json::to_value(tables)?)
             }
             Op::AddTable => {
                 tracing::debug!("handler: AddTable entered");
-                self.store.add(serde_json::from_str(&args[0])?);
+                // args: [connection_id, table_json]
+                if args.len() < 2 {
+                    return Err(SqlEditorError::Other("Missing arguments for AddTable".to_string()).into());
+                }
+                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                }
+                let table: crate::domain::database::Table = serde_json::from_str(&args[1])?;
+                self.store.add(table, pool.unwrap()).await?;
                 Ok(serde_json::to_value(true)?)
             }
             Op::DeleteTable => {
                 tracing::debug!("handler: DeleteTable entered");
-                Ok(serde_json::to_value(self.store.delete(&args[0]))?)
+                let connection_id = parse_args!(args, u64);
+                let pool = self.store.connection_store.get_pool(connection_id);
+                if pool.is_none() {
+                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                }
+                let deleted = self.store.delete(&args[1], pool.unwrap()).await?;
+                Ok(serde_json::to_value(deleted)?)
             }
             _ => {
                 tracing::debug!("handler: TableStore _ (unsupported) entered");
