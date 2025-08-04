@@ -1,77 +1,69 @@
 <template>
   <div class="results-panel">
-    <n-tabs 
-      v-if="queryResults.length > 0" 
+    <n-tabs
+      v-if="queryResults.length > 0"
       :value="activeResultTab"
-      @update:value="$emit('update:activeResultTab', $event)"
       type="card"
       animated
       closable
-      @close="$emit('close-tab', $event)"
+      @update:value="$emit('update:activeResultTab', $event)"
+      @close="$emit('delete-result', $event)"
       class="results-tabs"
     >
-      <n-tab-pane 
-        v-for="(result, index) in queryResults" 
+      <n-tab-pane
+        v-for="(result, index) in queryResults"
         :key="result.id"
         :name="result.id"
         :tab="formatTabLabel(result, index)"
       >
-        <div class="result-content">
-          <div v-if="result.type === 'success'" class="result-success">
-            <div class="result-header">
-              <div class="result-meta">
-                <n-tag type="success" size="small">Success</n-tag>
-                <n-text depth="3">{{ result.data?.length || 0 }} rows returned in {{ result.executionTime }}ms</n-text>
-              </div>
-              <div class="result-actions">
-                <n-button-group size="small">
-                  <n-button @click="handleExport(result, 'csv')">Export CSV</n-button>
-                  <n-button @click="handleExport(result, 'json')">Export JSON</n-button>
-                  <n-button @click="handleCopy(result)">Copy</n-button>
-                  <n-button @click="$emit('delete-result', result.id)" type="error" ghost>
-                    <template #icon><n-icon>🗑️</n-icon></template>
-                    Delete
-                  </n-button>
-                </n-button-group>
-              </div>
+        <div class="result-tab-pane-content">
+          <div class="result-header">
+            <n-tag :type="result.error ? 'error' : 'success'" size="small">{{ result.error ? 'Error' : 'Success' }}</n-tag>
+            <n-text depth="3">{{ pagedCount(result) }} rows returned in {{ result.executionTime ?? result.latency_ms ?? 0 }}ms</n-text>
+            <div class="result-actions">
+              <n-button size="small" @click="handleExport(result, 'csv')">Export CSV</n-button>
+              <n-button size="small" @click="handleExport(result, 'json')">Export JSON</n-button>
+              <n-button size="small" @click="handleCopy(result)">Copy</n-button>
+              <n-button size="small" type="error" ghost @click="$emit('delete-result', result.id)">Delete</n-button>
             </div>
-            <n-data-table
-              v-if="getData(result).length > 0"
-              :columns="getColumns(result)"
-              :data="getData(result)"
-              :pagination="{ pageSize: 50, showSizePicker: true, pageSizes: [20, 50, 100, 200, 500], showQuickJumper: true, prefix: ({ itemCount }) => `Total ${itemCount} rows` }"
-              :scroll-x="Math.max(1200, (result.columns?.length ?? 0) * 150)"
-              size="small"
-              bordered
-              striped
-              virtual-scroll
-              :max-height="500"
-              :row-key="(row) => row._rowIndex"
-              flex-height
-              style="min-height: 200px;"
+          </div>
+          <div class="result-table-wrapper">
+            <div v-if="hasRows(result)" class="result-table-scroll-wrapper">
+              <n-data-table
+                :columns="getColumns(result)"
+                :data="getPagedData(result)"
+                :scroll-x="Math.max(1200, getColumns(result).length * 150)"
+                size="small"
+                bordered
+                striped
+                :row-key="(row) => String(row._rowIndex)"
+                class="result-table"
+              />
+            </div>
+            <n-empty v-else description="No data returned" class="result-empty" />
+          </div>
+          <div v-if="hasRows(result)" class="result-pagination-wrapper">
+            <n-pagination
+              :page="getPage(result.id)"
+              :page-size="getPageSize(result.id)"
+              :page-sizes="pageSizes"
+              :item-count="getData(result).length"
+              show-size-picker
+              show-quick-jumper
+              @update:page="p => setPage(result.id, p)"
+              @update:page-size="ps => setPageSize(result.id, ps)"
             />
-            <n-empty v-else description="No data returned" />
-          </div>
-          <div v-else-if="result.type === 'error'" class="result-error">
-            <n-alert type="error" :title="`SQL Error (${result.executionTime}ms)`">
-              <pre class="error-details">{{ result.details }}</pre>
-            </n-alert>
-          </div>
-          <div v-else-if="result.type === 'non-query'" class="result-non-query">
-            <n-alert type="info" :title="`Query executed successfully (${result.executionTime}ms)`">
-              {{ result.message }}
-            </n-alert>
           </div>
         </div>
       </n-tab-pane>
     </n-tabs>
-    <n-empty 
-      v-else 
-      description="No results to display. Run a query to see results here." 
-      style="margin-top: 100px;"
+    <n-empty
+      v-else
+      description="No results to display. Run a query to see results here."
+      class="results-empty"
     >
       <template #extra>
-        <div style="margin-top: 16px; color: #6b7280; font-size: 12px;">
+        <div class="results-empty-extra">
           <div>💡 Shortcuts:</div>
           <div>• {{ isMac ? '⌘' : 'Ctrl' }}+Enter: Execute query</div>
         </div>
@@ -81,92 +73,114 @@
 </template>
 
 <script setup lang="ts">
-import { QueryResult } from '@/api/sql';
+import { ref } from 'vue';
+const pageMap = ref<Record<string, number>>({})
+const pageSizeMap = ref<Record<string, number>>({})
+const defaultPageSize = 50
+const pageSizes = [20, 50, 100, 200, 500]
 
 const props = defineProps<{
-  queryResults: QueryResult[],
+  queryResults: ({
+    id: string
+    column_names: string[]
+    column_type_names: string[]
+    rows: any[][]
+    rows_count?: number
+    error?: string
+    latency_ms?: number
+    statement?: string
+    messages?: { level: string; content: string }[]
+    executionTime?: number
+  })[],
   activeResultTab: string,
   isMac: boolean
 }>()
 
-const emit = defineEmits(['close-tab', 'export-data', 'copy-result', 'delete-result', 'update:activeResultTab'])
+function getPage(id: string) {
+  return pageMap.value[id] || 1
+}
+function getPageSize(id: string) {
+  return pageSizeMap.value[id] || defaultPageSize
+}
+function setPage(id: string, page: number) {
+  pageMap.value[id] = page
+}
+function setPageSize(id: string, size: number) {
+  pageSizeMap.value[id] = size
+}
+function getColumns(result) {
+  const columns = Array.isArray(result.column_names)
+    ? result.column_names.map((col, idx) => ({ title: col, key: col, type: result.column_type_names?.[idx] ?? '' }))
+    : []
 
+  const rowNumColumn = {
+    title: '#',
+    key: 'rowNum',
+    width: 60,
+    render(row, index) {
+      const page = getPage(result.id)
+      const pageSize = getPageSize(result.id)
+      return (page - 1) * pageSize + index + 1
+    },
+  }
+
+  return [rowNumColumn, ...columns]
+}
+function getData(result) {
+  const columnNames = result.column_names || []
+  return Array.isArray(result.rows) && columnNames.length
+    ? result.rows.map((row, i) => {
+        const obj: Record<string, any> = {}
+        columnNames.forEach((colName, j) => {
+          obj[colName] = Array.isArray(row) ? row[j] ?? '' : ''
+        })
+        obj._rowIndex = i
+        return obj
+      })
+    : []
+}
+function getPagedData(result) {
+  const data = getData(result)
+  const page = getPage(result.id)
+  const size = getPageSize(result.id)
+  return data.slice((page - 1) * size, page * size)
+}
+function hasRows(result) {
+  return getData(result).length > 0
+}
+function pagedCount(result) {
+  return getData(result).length
+}
 function formatTabLabel(result, index) {
   const queryNum = `Q${index + 1}`
-  const time = `${result.executionTime}ms`
-  let statusIcon = ''
-  if (result.type === 'success') {
-    const rowCount = result.data?.length || 0
-    const formattedCount = rowCount.toLocaleString()
-    statusIcon = `✓ ${formattedCount} row${rowCount !== 1 ? 's' : ''}`
-  } else if (result.type === 'error') {
-    statusIcon = '✗ Error'
-  } else {
-    statusIcon = 'ℹ Info'
-  }
-  return `${queryNum} • ${statusIcon} • ${time}`
+  const time = `${result.executionTime ?? result.latency_ms ?? 0}ms`
+  const rowCount = Array.isArray(result.rows) ? result.rows.length : 0
+  const status = result.error ? '✗ Error' : `✓ ${rowCount.toLocaleString()} row${rowCount !== 1 ? 's' : ''}`
+  return `${queryNum} • ${status} • ${time}`
 }
-
-function getColumns(result) {
-  if (!result || !result.columns || result.columns.length === 0) return []
-  // columns: [{ title, key, type }]
-  return result.columns.map((col, idx) => ({
-    title: col,
-    key: col,
-    align: 'left',
-    ellipsis: true,
-    // 可扩展类型
-    type: result.columnTypes ? result.columnTypes[idx] : undefined
-  }))
-}
-
-function getData(result) {
-  if (!result || !result.data || result.data.length === 0 || !result.columns) return []
-  // 调试输出，辅助定位数据结构问题
-  console.log('getData result.data:', result.data)
-  console.log('getData result.columns:', result.columns)
-  return result.data.map((row, idx) => {
-    const obj = { _rowIndex: idx }
-    result.columns.forEach((col, i) => {
-      obj[col] = row[i]
-    })
-    return obj
-  })
-}
-
-function handleExport(result, type) {
-  const columns = getColumns(result)
+function handleExport(result, type: 'csv' | 'json') {
+  const cols = getColumns(result)
   const data = getData(result)
-  if (!data.length) {
-    window.$message?.warning('无数据可导出')
-    return
-  }
+  if (!data.length) return window.$message?.warning('无数据可导出')
   if (type === 'csv') {
-    const header = columns.map(c => c.title).join(',')
-    const rows = data.map(row => columns.map(c => JSON.stringify(row[c.key] ?? '')).join(','))
-    const csv = [header, ...rows].join('\n')
-    copyToClipboard(csv)
+    const header = cols.map(c => c.title).join(',')
+    const rows = data.map(row => cols.map(c => JSON.stringify(row[c.key] ?? '')).join(','))
+    copyToClipboard([header, ...rows].join('\n'))
     window.$message?.success('CSV 已复制到剪贴板')
-  } else if (type === 'json') {
+  } else {
     copyToClipboard(JSON.stringify(data, null, 2))
     window.$message?.success('JSON 已复制到剪贴板')
   }
 }
-
 function handleCopy(result) {
   const data = getData(result)
-  if (!data.length) {
-    window.$message?.warning('无数据可复制')
-    return
-  }
+  if (!data.length) return window.$message?.warning('无数据可复制')
   copyToClipboard(JSON.stringify(data, null, 2))
   window.$message?.success('结果已复制到剪贴板')
 }
-
-function copyToClipboard(text) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text)
-  } else {
+function copyToClipboard(text: string) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text)
+  else {
     const textarea = document.createElement('textarea')
     textarea.value = text
     document.body.appendChild(textarea)
@@ -180,44 +194,97 @@ function copyToClipboard(text) {
 <style scoped>
 .results-panel {
   height: 100%;
-  background: white;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background-color: #fdfdfd;
 }
+
 .results-tabs {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: 0;
 }
-.results-tabs .n-tabs-pane {
+
+/* This is a workaround to make n-tabs content area flexible */
+:deep(.n-tabs-pane-wrapper) {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
-.result-content {
-  padding: 16px;
+:deep(.n-tab-pane) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
 }
+
+.result-tab-pane-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 8px;
+  gap: 8px;
+}
+
 .result-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  flex-shrink: 0;
 }
-.result-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+
 .result-actions {
   display: flex;
   gap: 8px;
 }
-.error-details {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+
+.result-table-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #e0e0e6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.result-table-scroll-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.result-table {
+  background: #fff;
+}
+
+.result-pagination-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e6;
+}
+
+.result-empty,
+.results-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.results-empty-extra {
+  margin-top: 16px;
+  color: #6b7280;
   font-size: 12px;
 }
 </style>

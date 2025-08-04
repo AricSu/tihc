@@ -8,7 +8,6 @@
       @open-new-connection-modal="() => sqlEditor.setShowConnectionModal(true)"
       @open-connection-management-modal="() => sqlEditor.setShowConnectionModal(true)"
       @show-query-history="sqlEditor.setShowQueryHistory(true)"
-      @show-settings="sqlEditor.setShowSettings(true)"
     />
     <n-layout has-sider style="height: calc(100vh - 120px);">
       <SqlEditorSidebar
@@ -23,6 +22,7 @@
         <n-split direction="vertical" :min="0.3" :max="0.7" :default-size="0.5" :resizer-style="{ backgroundColor: '#e0e6ed', height: '2px' }">
           <template #1>
             <QueryEditor
+              ref="queryEditorRef"
               v-model:sqlContent="sqlEditor.sqlContent"
               :is-executing="isExecuting"
               :connection-status="currentConnectionStatus"
@@ -33,7 +33,7 @@
               @execute-query="sqlEditor.executeQuery"
               @insert-template="sqlEditor.insertTemplate"
               @format-sql="sqlEditor.formatSQL"
-              @clear-editor="sqlEditor.clearEditor"
+              @clear-editor="queryEditorRef?.handleClearEditor()"
               @save-query="sqlEditor.saveQuery"
               @toggle-slowlog-panel="sqlEditor.toggleSlowlogPanel"
               @keydown="sqlEditor.handleKeyDown"
@@ -42,6 +42,7 @@
             />
           </template>
           <template #2>
+            <!-- ResultsPanel 只接收严格结构化的 SqlResult[]，每个对象必须包含 column_names、rows 等字段，且 rows 为二维数组，字段顺序与 column_names 完全一致。 -->
             <ResultsPanel
               :query-results="sqlEditor.queryResults"
               :active-result-tab="sqlEditor.activeResultTab"
@@ -82,101 +83,60 @@
       @delete-connection="conn => handleConnectionAction('delete', conn)"
       @open-slowlog="sqlEditor.setShowSlowlogPanel(true)"
     />
-    <!-- 设置弹窗 -->
-    <n-modal v-model:show="sqlEditor.showSettings" preset="dialog" title="设置" style="width: 480px">
-        <SettingsForm />
-      <template #action>
-        <n-button @click="sqlEditor.setShowSettings(false)">关闭</n-button>
-      </template>
+    <!-- SQL 历史弹窗 -->
+    <n-modal v-model:show="sqlEditor.showQueryHistory" preset="card" title="历史记录" style="width: 600px;">
+      <QueryHistory @restore="onRestoreHistory" />
     </n-modal>
-    <!-- 查询历史弹窗 -->
-    <n-modal v-model:show="sqlEditor.showQueryHistory" preset="dialog" title="查询历史" style="width: 600px">
-      <QueryHistory @restore="sqlEditor.setSqlContent($event.sql)" />
-      <template #action>
-        <n-button @click="sqlEditor.setShowQueryHistory(false)">关闭</n-button>
-      </template>
-    </n-modal>
-  </div>
+    </div>
 </template>
 
 <script setup lang="ts">
-// 慢日志相关事件处理
-function handleScanFiles(files: any) {
-  // 这里可以根据实际需求处理文件列表
-  sqlEditor.slowlogFiles = files
-  window.$message?.success('慢日志文件已扫描')
+// Naive UI 全局 API 类型声明（防止 TS 报错）
+declare global {
+  interface Window {
+    $message?: any
+    $loadingBar?: any
+    $dialog?: any
+    $notification?: any
+  }
 }
-
-function handleProcessFiles(files: any) {
-  // 这里可以根据实际需求处理文件内容
-  // 例如触发后端 API 或更新 store
-  window.$message?.success('慢日志文件已处理')
-}
+// --- 依赖与状态 ---
+import { ref, computed, nextTick } from 'vue'
+import { useSqlEditorStore } from '@/store/modules/sqlEditor'
+import QueryHistory from './components/QueryHistory.vue'
 import EditorHeader from './components/EditorHeader.vue'
 import SqlEditorSidebar from './components/SqlEditorSidebar.vue'
 import QueryEditor from './components/QueryEditor.vue'
 import ResultsPanel from './components/ResultsPanel.vue'
 import ConnectionManager from './components/ConnectionManager.vue'
-import SettingsForm from './components/SettingsForm.vue'
-import QueryHistory from './components/QueryHistory.vue'
 import SlowlogDrawer from './components/SlowlogDrawer.vue'
+import { executeSql } from '@/api/sql'
 import {
   createConnection,
   testConnection,
   deleteConnection,
   listConnections,
-  handleUpdateConnection,
-  Connection
+  handleUpdateConnection
 } from '@/api/connection'
-import { computed, ref } from 'vue'
-import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 
-const sqlEditor = useSqlEditorStore()
+// Pinia store（仅用于状态，不直接扩展 actions 类型）
+const sqlEditor = useSqlEditorStore() as any
+const queryEditorRef = ref()
+const slowlogDrawerRef = ref()
 const isMac = /Mac/.test(navigator.userAgent)
 const isExecuting = computed(() => sqlEditor.isExecuting)
 const lineCount = computed(() => sqlEditor.sqlContent.split('\n').length)
-const slowlogDrawerRef = ref()
 
-// SQL 执行功能
-import { executeSql } from '@/api/sql'
-sqlEditor.executeQuery = async function () {
-  const sql = sqlEditor.sqlContent
-  const connection_id = sqlEditor.currentConnection?.id
-  if (!sql || !connection_id) {
-    window.$message?.error('SQL 或连接未选择')
-    return
-  }
-  sqlEditor.isExecuting = true
-  try {
-    const res = await executeSql({ connection_id, sql })
-    const data = res.data
-    sqlEditor.queryResults.push({
-      id: Date.now().toString(),
-      type: data.error ? 'error' : 'success',
-      executionTime: data.latency_ms,
-      columns: data.column_names,
-      data: data.rows,
-      details: data.error,
-      message: data.messages,
-      columnTypes: data.column_type_names,
-      statement: data.statement,
-      rowsCount: data.rows_count,
-    })
-    sqlEditor.activeResultTab = sqlEditor.queryResults[sqlEditor.queryResults.length - 1].id
-  } catch (e) {
-    window.$message?.error('SQL 执行失败')
-  } finally {
-    sqlEditor.isExecuting = false
-  }
-}
-
-// 当前连接状态从 connections 列表查找
+// 当前连接状态
 const currentConnectionStatus = computed(() => {
-  const conn = sqlEditor.connections.find(c => c.id === sqlEditor.currentConnection?.id)
+  const conn = sqlEditor.currentConnection
   return conn?.status || 'disconnected'
 })
 
-// 统一连接管理方法
+// --- 连接管理相关 ---
+/**
+ * 连接管理、测试、切换、保存、删除
+ */
 async function handleConnectionAction(action, conn) {
   showGlobalLoading()
   try {
@@ -212,18 +172,16 @@ async function handleConnectionAction(action, conn) {
         break
     }
   } catch {
-    handleQueryError(`${getActionErrorMsg(action)}`)
+    handleQueryError(getActionErrorMsg(action))
     if (action === 'test' || action === 'switch') {
       updateConnectionStatus(conn, 'disconnected')
     }
   }
 }
-
 function updateConnectionStatus(conn, status) {
   const idx = sqlEditor.connections.findIndex(c => c.id === conn.id)
   if (idx !== -1) sqlEditor.connections[idx].status = status
 }
-
 function getActionErrorMsg(action) {
   switch (action) {
     case 'save': return '保存连接失败'
@@ -234,7 +192,6 @@ function getActionErrorMsg(action) {
     default: return '操作失败'
   }
 }
-
 async function fetchConnections() {
   try {
     const res = await listConnections()
@@ -243,21 +200,155 @@ async function fetchConnections() {
     sqlEditor.connections = []
   }
 }
-
-// 页面首次加载时同步后端连接列表
 fetchConnections()
 
-// Naive UI 全局 API 类型声明（防止 TS 报错）
-declare global {
-  interface Window {
-    $message?: any
-    $loadingBar?: any
-    $dialog?: any
-    $notification?: any
+// --- SQL 执行与结果管理 ---
+/**
+ * 执行 SQL，管理结果与历史
+ */
+sqlEditor.executeQuery = async function (sql) {
+  const connection_id = sqlEditor.currentConnection?.id
+  if (!sql || !connection_id) {
+    window.$message?.error('SQL 或连接未选择')
+    return
+  }
+  sqlEditor.isExecuting = true
+  try {
+    const result = await executeSql({ connection_id, sql })
+    if (result.data.error) {
+      window.$message?.error(result.data.error)
+      return
+    }
+    sqlEditor.queryResults.push({
+      id: Date.now().toString(),
+      ...result.data
+    })
+    sqlEditor.activeResultTab = sqlEditor.queryResults[sqlEditor.queryResults.length - 1].id
+    sqlEditor.history = sqlEditor.history || []
+    sqlEditor.history.unshift({ sql, time: new Date().toLocaleString() })
+    if (sqlEditor.history.length > 50) sqlEditor.history.length = 50
+  } catch {
+    window.$message?.error('SQL 执行失败')
+  } finally {
+    sqlEditor.isExecuting = false
   }
 }
+sqlEditor.handleTabClose = function (id) {
+  const idx = sqlEditor.queryResults.findIndex((r: any) => r.id === id)
+  if (idx !== -1) {
+    sqlEditor.queryResults.splice(idx, 1)
+    if (sqlEditor.activeResultTab === id) {
+      sqlEditor.activeResultTab = sqlEditor.queryResults.length > 0 ? sqlEditor.queryResults[sqlEditor.queryResults.length - 1].id : ''
+    }
+    window.$message?.success('结果已删除')
+  }
+}
+sqlEditor.deleteResult = sqlEditor.handleTabClose
 
-// 推荐用法：全局 loading
+// --- 编辑器与模板插入 ---
+/**
+ * SQL 模板插入，始终追加到编辑器末尾
+ */
+sqlEditor.insertTemplate = function (sql) {
+  // 日志：ref/editor/model
+  console.log('[insertTemplate] queryEditorRef.value:', queryEditorRef.value)
+  console.log('[insertTemplate] monacoEditorRef:', queryEditorRef.value?.monacoEditorRef)
+  // 1. 优先直接插入到 MonacoEditor 当前光标处
+  if (queryEditorRef.value && queryEditorRef.value.monacoEditorRef?.editor) {
+    const editor = queryEditorRef.value.monacoEditorRef.editor
+    console.log('[insertTemplate] editor:', editor)
+    const model = editor.getModel()
+    console.log('[insertTemplate] model:', model)
+    if (model) {
+      // 获取当前光标位置
+      const selection = editor.getSelection()
+      let range
+      let insertText = sql + '\n'
+      if (selection) {
+        // 如果有选区则替换选区，否则在光标处插入
+        range = {
+          startLineNumber: selection.startLineNumber,
+          startColumn: selection.startColumn,
+          endLineNumber: selection.endLineNumber,
+          endColumn: selection.endColumn
+        }
+        // 判断是否需要在前面加换行（如光标不在行首且前面有内容）
+        const lineContent = model.getLineContent(selection.startLineNumber)
+        if (selection.startColumn > 1 && lineContent.trim() !== '') {
+          insertText = '\n' + insertText
+        }
+      } else {
+        // fallback: 末尾插入
+        const lastLine = model.getLineCount()
+        const lastCol = model.getLineMaxColumn(lastLine)
+        range = {
+          startLineNumber: lastLine,
+          startColumn: lastCol,
+          endLineNumber: lastLine,
+          endColumn: lastCol
+        }
+        const needsNewline = lastCol > 1 && model.getLineContent(lastLine).trim() !== ''
+        if (needsNewline) insertText = '\n' + insertText
+      }
+      console.log('[insertTemplate] range:', range)
+      console.log('[insertTemplate] insertText:', insertText)
+      editor.executeEdits('insert-template', [
+        {
+          range,
+          text: insertText,
+          forceMoveMarkers: true
+        }
+      ])
+      // 移动光标到插入末尾
+      const pos = editor.getPosition()
+      editor.setPosition({ lineNumber: pos.lineNumber, column: pos.column })
+      editor.focus()
+      // 同步 Pinia store 内容
+      const newValue = model.getValue()
+      console.log('[insertTemplate] setSqlContent value:', newValue)
+      sqlEditor.setSqlContent(newValue)
+      window.$message?.success('模板已插入')
+      return
+    }
+  }
+  // 2. fallback：直接追加到 store 内容末尾
+  let newContent = ''
+  console.log('[insertTemplate] fallback sqlContent:', sqlEditor.sqlContent)
+  if (sqlEditor.sqlContent && sqlEditor.sqlContent.trim()) {
+    newContent = sqlEditor.sqlContent.replace(/\s*$/, '') + '\n' + sql
+  } else {
+    newContent = sql
+  }
+  console.log('[insertTemplate] fallback newContent:', newContent)
+  sqlEditor.setSqlContent(newContent)
+  window.$message?.success('模板已插入')
+}
+
+// --- 历史恢复 ---
+/**
+ * 恢复历史 SQL 到编辑器
+ */
+function onRestoreHistory(item) {
+  const newContent = sqlEditor.sqlContent && sqlEditor.sqlContent.trim()
+    ? sqlEditor.sqlContent.replace(/\s*$/, '') + '\n' + item.sql
+    : item.sql
+  sqlEditor.setSqlContent(newContent)
+  nextTick(() => {
+    sqlEditor.setShowQueryHistory(false)
+    window.$message?.success('已恢复到编辑器')
+  })
+}
+
+// --- 慢日志相关 ---
+function handleScanFiles(files) {
+  sqlEditor.slowlogFiles = files
+  window.$message?.success('慢日志文件已扫描')
+}
+function handleProcessFiles(files) {
+  window.$message?.success('慢日志文件已处理')
+}
+
+// --- 全局消息与 loading ---
 function showGlobalLoading() {
   window.$loadingBar && window.$loadingBar.start()
 }
@@ -266,8 +357,6 @@ function hideGlobalLoading(success = true) {
     success ? window.$loadingBar.finish() : window.$loadingBar.error()
   }
 }
-
-// 推荐用法：全局消息
 function handleQuerySuccess(msg = '执行成功') {
   hideGlobalLoading(true)
   window.$message && window.$message.success(msg)

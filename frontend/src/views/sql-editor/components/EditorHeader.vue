@@ -12,36 +12,42 @@
       />
       <n-button @click="$emit('open-new-connection-modal')" size="small" type="primary" secondary>
         <template #icon>
-          <n-icon>🗄️</n-icon>
+          <n-icon><Icon icon="mdi:server" width="20" height="20" /></n-icon>
         </template>
         New Connection
       </n-button>
     </div>
     <div class="header-right">
       <n-tag v-if="connectionStatus === 'connected'" type="success">
-        <template #icon><n-icon>✅</n-icon></template>
+        <template #icon>
+          <n-icon><Icon icon="mdi:check-circle-outline" width="18" height="18" /></n-icon>
+        </template>
         Connected
       </n-tag>
       <n-tag v-else-if="connectionStatus === 'connecting'" type="warning">
-        <template #icon><n-icon>⏳</n-icon></template>
+        <template #icon>
+          <n-icon><Icon icon="mdi:progress-clock" width="18" height="18" /></n-icon>
+        </template>
         Connecting...
       </n-tag>
       <n-tag v-else type="error">
-        <template #icon><n-icon>❌</n-icon></template>
+        <template #icon>
+          <n-icon><Icon icon="mdi:close-circle-outline" width="18" height="18" /></n-icon>
+        </template>
         Disconnected
       </n-tag>
       <n-button-group>
         <n-button @click="$emit('open-connection-management-modal')" size="small">
-          <template #icon><n-icon>🗄️</n-icon></template>
+          <template #icon>
+            <n-icon><Icon icon="mdi:server" width="18" height="18" /></n-icon>
+          </template>
           Connections
         </n-button>
         <n-button @click="$emit('show-query-history')" size="small">
-          <template #icon><n-icon>📜</n-icon></template>
+          <template #icon>
+            <n-icon><Icon icon="mdi:history" width="18" height="18" /></n-icon>
+          </template>
           History
-        </n-button>
-        <n-button @click="$emit('show-settings')" size="small">
-          <template #icon><n-icon>⚙️</n-icon></template>
-          Settings
         </n-button>
       </n-button-group>
     </div>
@@ -50,6 +56,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Icon } from '@iconify/vue'
 interface ConnectionOption {
   id: string | number
   name: string

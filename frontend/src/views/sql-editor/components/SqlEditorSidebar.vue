@@ -8,7 +8,7 @@ import { fetchTableList, fetchColumnList, fetchIndexList } from '../../../api/ta
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 
 const props = defineProps({ showSidebar: Boolean })
-const emit = defineEmits(['update:showSidebar'])
+const emit = defineEmits(['update:showSidebar', 'insert-template'])
 
 const treeData = ref([])
 const loadingSchema = ref(false)
@@ -325,7 +325,7 @@ const handleLoad = async (node) => {
           SQL Templates
         </n-text>
         <n-divider style="margin: 8px 0;" />
-        <SqlTemplateSidebar :showSidebar="props.showSidebar" />
+        <SqlTemplateSidebar :showSidebar="props.showSidebar" @insert-template="(sql) => emit('insert-template', sql)" />
       </n-card>
     </n-space>
   </n-layout-sider>

@@ -196,9 +196,7 @@ const processFiles = async () => {
     const connectionId = sqlEditor.currentConnection?.id
     const logDir = form.logDir
     const pattern = form.pattern
-    console.log('[SlowlogDrawer] processFiles called, connectionId:', connectionId, 'logDir:', logDir, 'pattern:', pattern)
     const res = await processSlowlogFiles(connectionId, logDir, pattern)
-    console.log('[SlowlogDrawer] processSlowlogFiles response:', res)
     if (res?.status === 'success') {
       processStatus.value = {
         status: 'success',
@@ -235,9 +233,7 @@ const scanFiles = async () => {
     scanning.value = true
     scanCompleted.value = false
     scannedFiles.value = []
-    console.log('[SlowlogDrawer] scanFiles called, form:', { logDir: form.logDir, pattern: form.pattern })
     const res = await getSlowlogFiles({ logDir: form.logDir.trim(), pattern: form.pattern })
-    console.log('[SlowlogDrawer] getSlowlogFiles response:', res)
     if (res?.code && res.code !== 200) {
       let msg = ''
       switch (res.reason) {

@@ -28,7 +28,6 @@ export function createConnection(conn: Connection) {
     ca_cert_path: conn.ca_cert_path ?? '',
     created_at: conn.created_at || new Date().toISOString()
   }
-  console.log('[createConnection] payload', payload)
   return request.post('/api/connections/create', payload)
 }
 
@@ -48,7 +47,6 @@ export function testConnection(conn: Connection) {
   }
   // 强制 id 为 number 类型
   payload.id = Number(payload.id)
-  console.log('[testConnection] payload', payload)
   return request.post('/api/connections/test', payload)
 }
 
@@ -77,6 +75,5 @@ export async function handleUpdateConnection(conn: Connection) {
     ca_cert_path: conn.ca_cert_path ?? '',
     created_at: conn.created_at || new Date().toISOString()
   }
-  console.log('[handleUpdateConnection] payload', payload)
   return updateConnection(idNum, payload)
 }

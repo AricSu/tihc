@@ -1,11 +1,3 @@
-<!--------------------------------
- - @Author: Ronnie Zhang
- - @LastEditor: Ronnie Zhang
- - @LastEditTime: 2023/12/16 18:50:35
- - @Email: zclzone@outlook.com
- - Copyright © 2023 Ronnie Zhang(大脸怪) | https://isme.top
- --------------------------------->
-
 <template>
   <n-menu
     ref="menu"
@@ -23,30 +15,42 @@
 
 <script setup>
 import { useAppStore } from '@/store'
+import { ref, computed } from 'vue'
 
 const appStore = useAppStore()
 const staticMenus = [
+  {
+    label: '首页',
+    key: 'home',
+    path: '/',
+    icon: () => h('i', { class: 'i-mdi-home text-16' }),
+  },
   {
     label: 'SQL 编辑器',
     key: 'sql-editor',
     path: '/sql-editor',
     icon: () => h('i', { class: 'i-mdi-database-search text-16' }),
   },
-  {
-    label: '慢日志分析',
-    key: 'slowlog',
-    path: '/slowlog',
-    icon: () => h('i', { class: 'i-mdi-timer-sand text-16' }),
-  },
-  {
-    label: 'DDL 检查',
-    key: 'ddl',
-    path: '/ddl',
-    icon: () => h('i', { class: 'i-mdi-table-edit text-16' }),
-  },
+  // {
+  //   label: 'DDL 检查',
+  //   key: 'ddl',
+  //   path: '/ddl',
+  //   icon: () => h('i', { class: 'i-mdi-table-edit text-16' }),
+  // },
 ]
 
-const activeKey = ref('sql-editor')
+// 根据当前 hash 路由自动设置高亮菜单 key
+const activeKey = ref(getActiveKeyByHash())
+
+function getActiveKeyByHash() {
+  const hash = window.location.hash.replace(/^#/, '')
+  const found = staticMenus.find(m => m.path === hash)
+  return found ? found.key : staticMenus[0].key
+}
+
+window.addEventListener('hashchange', () => {
+  activeKey.value = getActiveKeyByHash()
+})
 
 function handleMenuSelect(key, item) {
   if (!item.path) return

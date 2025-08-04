@@ -334,7 +334,6 @@ function onTestConnection() {
       use_tls: form.use_tls ?? false,
       ca_cert_path: form.ca_cert_path ?? ''
     }
-    console.log('test-connection payload', payload)
     emit('test-connection', payload)
   })
 }
@@ -360,7 +359,6 @@ function onSaveConnection() {
       use_tls: form.use_tls ?? false,
       ca_cert_path: form.ca_cert_path ?? ''
     }
-    console.log(isEdit ? 'edit-connection payload' : 'save-connection payload', payload)
     if (isEdit) {
       emit('update-connection', payload)
     } else {

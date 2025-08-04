@@ -1,20 +1,28 @@
 import { request } from '@/utils/http'
 
-export interface QueryResult {
-  id: string
-  type: 'success' | 'error' | 'non-query'
-  executionTime: number
-  columns?: string[]
-  columnTypes?: string[]
-  data?: any[]
-  details?: string
-  message?: string
+// 严格映射后端 SqlResult 结构体
+export interface SqlMessage {
+  level: string
+  content: string
+}
+
+export interface QueryResults {
+  data: {
+    column_names: string[]
+    column_type_names: string[]
+    rows: any[][]
+    rows_count?: number
+    error?: string
+    latency_ms?: number
+    statement?: string
+    messages?: SqlMessage[]
+  }
 }
 
 export function executeSql(params: { connection_id: number|string, sql: string }) {
   return request({
     url: '/api/sql/execute',
     method: 'post',
-    data: [params.connection_id, params.sql]
-  })
+    data: params
+  }) as Promise<QueryResults>;
 }

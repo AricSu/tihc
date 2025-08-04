@@ -5,6 +5,7 @@ use sqlx::MySqlPool;
 use std::sync::Arc;
 use sqlx::{Column, Row};
 use base64::Engine;
+use time;
 
 // --- SQL Constants ---
 const MYSQL_SELECT_ONE: &str = "SELECT SCHEMA_NAME ,DEFAULT_COLLATION_NAME, DEFAULT_CHARACTER_SET_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
@@ -122,10 +123,13 @@ impl DatabaseBackend for MySqlBackend {
     }
 
     async fn execute_sql(&self, sql: &str) -> Result<SqlResult, SqlEditorError> {
+        use std::time::Instant;
         tracing::info!(target: "sql_editor_backend", "execute_sql: SQL = {}", sql);
         let mut result = SqlResult::default();
+        let start_time = Instant::now();
         let mut stream = sqlx::query(sql).fetch(self.pool.as_ref());
         let mut row_count = 0;
+
         while let Some(row) = futures_util::StreamExt::next(&mut stream)
             .await
             .transpose()
@@ -133,50 +137,28 @@ impl DatabaseBackend for MySqlBackend {
         {
             if result.column_names.is_empty() {
                 result.column_names = row.columns().iter().map(|c| c.name().to_string()).collect();
-                result.column_type_names = row
-                    .columns()
-                    .iter()
-                    .map(|c| c.type_info().to_string())
-                    .collect();
-                tracing::info!(target: "sql_editor_backend", "execute_sql: columns = {:?}", result.column_names);
+                result.column_type_names = row.columns().iter().map(|c| c.type_info().to_string()).collect();
+                tracing::debug!(target: "sql_editor_backend", "execute_sql: columns = {:?}", result.column_names);
             }
             let mut row_vec = Vec::new();
             for idx in 0..row.len() {
-                let value = if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(idx) {
-                    serde_json::Value::String(v.to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<u64>, _>(idx) {
-                    serde_json::Value::String(v.to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<f64>, _>(idx) {
-                    serde_json::Value::String(v.to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<bool>, _>(idx) {
-                    serde_json::Value::String(v.to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<String>, _>(idx) {
-                    serde_json::Value::String(v)
-                } else if let Ok(Some(v)) = row.try_get::<Option<Vec<u8>>, _>(idx) {
-                    if v.is_empty() {
-                        serde_json::Value::String("".to_string())
-                    } else {
-                        serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(v))
-                    }
-                } else if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
-                    serde_json::Value::String(v.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
-                    serde_json::Value::String(v.format("%Y-%m-%d").to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
-                    serde_json::Value::String(v.format("%H:%M:%S").to_string())
-                } else if let Ok(Some(v)) = row.try_get::<Option<serde_json::Value>, _>(idx) {
-                    v
-                } else {
-                    serde_json::Value::Null
-                };
+                let col_name = row.columns().get(idx).map(|c| c.name()).unwrap_or("");
+                let col_type = row.columns().get(idx).map(|c| c.type_info().to_string()).unwrap_or_default();
+                let (value, raw_debug) = parse_sqlx_value(&row, idx);
+                tracing::debug!(target: "sql_editor_backend", "execute_sql: col={} type={} idx={} raw={} value={:?}", col_name, col_type, idx, raw_debug, value);
                 row_vec.push(value);
             }
-            tracing::info!(target: "sql_editor_backend", "execute_sql: row {} = {:?}", row_count, row_vec);
+            tracing::debug!(target: "sql_editor_backend", "execute_sql: row {} = {:?}", row_count, row_vec);
             result.rows.push(row_vec);
             row_count += 1;
         }
+        let elapsed = start_time.elapsed();
+        result.latency_ms = Some(elapsed.as_millis() as u64);
+        result.rows_count = Some(row_count as u64);
+        result.statement = Some(sql.to_string());
         tracing::info!(target: "sql_editor_backend", "execute_sql: total rows = {}", row_count);
         tracing::info!(target: "sql_editor_backend", "execute_sql: result.rows = {:?}", result.rows);
+
         let warn_rows = sqlx::query("SHOW WARNINGS")
             .fetch_all(self.pool.as_ref())
             .await
@@ -192,6 +174,58 @@ impl DatabaseBackend for MySqlBackend {
         }
         Ok(result)
     }
+
+}
+
+/// 统一解析 sqlx::Row 的字段，返回 (值, debug)
+fn parse_sqlx_value(row: &sqlx::mysql::MySqlRow, idx: usize) -> (serde_json::Value, String) {
+    use serde_json::Value;
+    // 优先类型解码
+    macro_rules! try_type {
+        ($ty:ty, $desc:expr, $fmt:expr) => {
+            if let Ok(Some(v)) = row.try_get::<Option<$ty>, _>(idx) {
+                return ($fmt(v.clone()), format!(concat!($desc, ": {:?}"), &v));
+            }
+        };
+    }
+    try_type!(chrono::NaiveDateTime, "chrono::NaiveDateTime", |v: chrono::NaiveDateTime| Value::String(v.format("%Y-%m-%d %H:%M:%S%.6f").to_string()));
+    try_type!(chrono::NaiveDate, "chrono::NaiveDate", |v: chrono::NaiveDate| Value::String(v.format("%Y-%m-%d").to_string()));
+    try_type!(chrono::NaiveTime, "chrono::NaiveTime", |v: chrono::NaiveTime| Value::String(v.format("%H:%M:%S").to_string()));
+    try_type!(time::PrimitiveDateTime, "time::PrimitiveDateTime", |v: time::PrimitiveDateTime| Value::String(v.to_string()));
+    try_type!(time::Date, "time::Date", |v: time::Date| Value::String(v.to_string()));
+    try_type!(time::Time, "time::Time", |v: time::Time| Value::String(v.to_string()));
+    try_type!(String, "String", |v: String| Value::String(v.clone()));
+    try_type!(i64, "i64", |v: i64| Value::String(v.to_string()));
+    try_type!(u64, "u64", |v: u64| Value::String(v.to_string()));
+    try_type!(f64, "f64", |v: f64| Value::String(v.to_string()));
+    try_type!(bool, "bool", |v: bool| Value::String(v.to_string()));
+    try_type!(Vec<u8>, "Vec<u8>", |v: Vec<u8>| {
+        if v.is_empty() {
+            Value::String(String::new())
+        } else {
+            Value::String(base64::engine::general_purpose::STANDARD.encode(&v))
+        }
+    });
+    try_type!(serde_json::Value, "serde_json::Value", |v: serde_json::Value| v.clone());
+
+    // 兜底 decode_raw
+    match row.try_get_raw(idx) {
+        Ok(v) => {
+            if let Ok(dt) = <chrono::NaiveDateTime as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
+                return (Value::String(dt.format("%Y-%m-%d %H:%M:%S%.6f").to_string()), format!("decode_raw chrono::NaiveDateTime: {:?}", dt));
+            } else if let Ok(dt) = <time::PrimitiveDateTime as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
+                return (Value::String(dt.to_string()), format!("decode_raw time::PrimitiveDateTime: {:?}", dt));
+            } else if let Ok(s) = <String as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
+                return (Value::String(s.clone()), format!("decode_raw String: {:?}", s));
+            } else if let Ok(b) = <Vec<u8> as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
+                return (Value::String(base64::engine::general_purpose::STANDARD.encode(&b)), format!("decode_raw Vec<u8>: {:?}", b));
+            } else {
+                return (Value::Null, "decode_raw NULL".to_string());
+            }
+        }
+        Err(e) => (Value::Null, format!("get_raw error: {}", e)),
+    }
+// END parse_sqlx_value
 }
 
 // --- DatabaseStore 动态分发 ---
