@@ -5,22 +5,22 @@
         <n-button-group>
           <n-button @click="handleExecuteQuery" type="primary" :loading="isExecuting">
             <template #icon><n-icon>▶️</n-icon></template>
-            Run ({{ isMac ? '⌘' : 'Ctrl' }}+Enter)
+            {{ t('sqlEditor.run') }} ({{ isMac ? '⌘' : 'Ctrl' }}+Enter)
           </n-button>
         </n-button-group>
         <n-divider vertical />
         <n-button-group>
-          <n-button @click="handleFormatSql"><template #icon><n-icon>📝</n-icon></template>Format</n-button>
-          <n-button @click="$emit('clear-editor')"><template #icon><n-icon>🗑️</n-icon></template>Clear</n-button>
+          <n-button @click="handleFormatSql"><template #icon><n-icon>📝</n-icon></template>{{ t('sqlEditor.format') }}</n-button>
+          <n-button @click="$emit('clear-editor')"><template #icon><n-icon>🗑️</n-icon></template>{{ t('sqlEditor.clear') }}</n-button>
         </n-button-group>
         <n-divider vertical />
         <n-button-group>
-          <n-button @click="$emit('toggle-slowlog-panel')">{{ showSlowlogPanel ? 'Hide' : 'Show' }} Slowlog Tools</n-button>
+          <n-button @click="$emit('toggle-slowlog-panel')">{{ showSlowlogPanel ? t('sqlEditor.hideSlowlog') : t('sqlEditor.showSlowlog') }}</n-button>
         </n-button-group>
       </div>
       <div class="toolbar-right" style="flex: 1; display: flex; justify-content: flex-end; align-items: center;">
         <n-text depth="3" style="color: #888; font-size: 12px; margin-right: 8px;">
-          Lines: {{ (modelValue || '').split('\n').length }} | Length: {{ (modelValue || '').length }}
+          {{ t('sqlEditor.lines') }}: {{ (modelValue || '').split('\n').length }} | {{ t('sqlEditor.length') }}: {{ (modelValue || '').length }}
         </n-text>
       </div>
     </div>
@@ -32,7 +32,6 @@
         theme="vs"
         :options="editorOptions"
         style="height: 100%; width: 100%; flex: 1; border-radius: 0; border: none; box-shadow: none; background: #fff; min-height: 0;"
-        
       />
     </div>
   </n-card>
@@ -40,6 +39,8 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 import MonacoEditor from 'monaco-editor-vue3'
 import { format as sqlFormat } from 'sql-formatter'
 

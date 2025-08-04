@@ -23,10 +23,19 @@
 
 <script setup>
 import { darkTheme, dateZhCN, zhCN } from 'naive-ui'
+import { getCurrentInstance } from 'vue'
+import i18n from './i18n'
 import { LayoutSetting } from '@/components'
 import { useAppStore, useTabStore } from '@/store'
 import { layoutSettingVisible } from './settings'
 
+
+
+// 全局挂载 i18n
+const app = getCurrentInstance()?.appContext.app
+if (app && !app.$i18n) {
+  app.use(i18n)
+}
 
 const layouts = new Map()
 function getLayout(name) {

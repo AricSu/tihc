@@ -8,6 +8,8 @@
       @open-new-connection-modal="() => sqlEditor.setShowConnectionModal(true)"
       @open-connection-management-modal="() => sqlEditor.setShowConnectionModal(true)"
       @show-query-history="sqlEditor.setShowQueryHistory(true)"
+      :title="$t('sqlEditor.connection')"
+      :new-connection-label="$t('sqlEditor.newConnection')"
     />
     <n-layout has-sider style="height: calc(100vh - 120px);">
       <SqlEditorSidebar
@@ -84,7 +86,7 @@
       @open-slowlog="sqlEditor.setShowSlowlogPanel(true)"
     />
     <!-- SQL 历史弹窗 -->
-    <n-modal v-model:show="sqlEditor.showQueryHistory" preset="card" title="历史记录" style="width: 600px;">
+    <n-modal v-model:show="sqlEditor.showQueryHistory" preset="card" :title="$t('sqlEditor.history')" style="width: 600px;">
       <QueryHistory @restore="onRestoreHistory" />
     </n-modal>
     </div>
@@ -118,6 +120,7 @@ import {
   listConnections,
   handleUpdateConnection
 } from '@/api/connection'
+import { useI18n } from 'vue-i18n'
 
 // Pinia store（仅用于状态，不直接扩展 actions 类型）
 const sqlEditor = useSqlEditorStore() as any
@@ -126,6 +129,7 @@ const slowlogDrawerRef = ref()
 const isMac = /Mac/.test(navigator.userAgent)
 const isExecuting = computed(() => sqlEditor.isExecuting)
 const lineCount = computed(() => sqlEditor.sqlContent.split('\n').length)
+const { t } = useI18n()
 
 // 当前连接状态
 const currentConnectionStatus = computed(() => {
@@ -145,25 +149,25 @@ async function handleConnectionAction(action, conn) {
       case 'save':
         await createConnection({ ...conn, id: conn.id ?? Date.now(), use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
         await fetchConnections()
-        handleQuerySuccess('连接已保存')
+        handleQuerySuccess(t('sqlEditor.successSave'))
         break
       case 'update':
         await handleUpdateConnection({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '', id: conn.id })
         await fetchConnections()
-        handleQuerySuccess('连接已更新')
+        handleQuerySuccess(t('sqlEditor.successUpdate'))
         break
       case 'delete':
         await deleteConnection(conn.id)
         await fetchConnections()
-        handleQuerySuccess('连接已删除')
+        handleQuerySuccess(t('sqlEditor.successDeleteConn'))
         break
       case 'test':
         res = await testConnection({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
         updateConnectionStatus(conn, res.data.status === 'success' ? 'connected' : 'disconnected')
         if (res.data.status === 'success') {
-          handleQuerySuccess('连接测试成功')
+          handleQuerySuccess(t('sqlEditor.successTest'))
         } else {
-          handleQueryError(res.data.message || '连接测试失败')
+          handleQueryError(res.data.message || t('sqlEditor.failTest'))
         }
         break
       case 'switch':
@@ -184,12 +188,12 @@ function updateConnectionStatus(conn, status) {
 }
 function getActionErrorMsg(action) {
   switch (action) {
-    case 'save': return '保存连接失败'
-    case 'update': return '更新连接失败'
-    case 'delete': return '删除连接失败'
-    case 'test': return '连接测试失败'
-    case 'switch': return '切换连接失败'
-    default: return '操作失败'
+    case 'save': return t('sqlEditor.failSave')
+    case 'update': return t('sqlEditor.failUpdate')
+    case 'delete': return t('sqlEditor.failDelete')
+    case 'test': return t('sqlEditor.failTest')
+    case 'switch': return t('sqlEditor.failSwitch')
+    default: return t('sqlEditor.failExec')
   }
 }
 async function fetchConnections() {
@@ -209,7 +213,7 @@ fetchConnections()
 sqlEditor.executeQuery = async function (sql) {
   const connection_id = sqlEditor.currentConnection?.id
   if (!sql || !connection_id) {
-    window.$message?.error('SQL 或连接未选择')
+    window.$message?.error(t('sqlEditor.failNoSqlOrConn'))
     return
   }
   sqlEditor.isExecuting = true
@@ -228,7 +232,7 @@ sqlEditor.executeQuery = async function (sql) {
     sqlEditor.history.unshift({ sql, time: new Date().toLocaleString() })
     if (sqlEditor.history.length > 50) sqlEditor.history.length = 50
   } catch {
-    window.$message?.error('SQL 执行失败')
+    window.$message?.error(t('sqlEditor.failExec'))
   } finally {
     sqlEditor.isExecuting = false
   }
@@ -240,7 +244,7 @@ sqlEditor.handleTabClose = function (id) {
     if (sqlEditor.activeResultTab === id) {
       sqlEditor.activeResultTab = sqlEditor.queryResults.length > 0 ? sqlEditor.queryResults[sqlEditor.queryResults.length - 1].id : ''
     }
-    window.$message?.success('结果已删除')
+    window.$message?.success(t('sqlEditor.successDelete'))
   }
 }
 sqlEditor.deleteResult = sqlEditor.handleTabClose
@@ -307,7 +311,7 @@ sqlEditor.insertTemplate = function (sql) {
       const newValue = model.getValue()
       console.log('[insertTemplate] setSqlContent value:', newValue)
       sqlEditor.setSqlContent(newValue)
-      window.$message?.success('模板已插入')
+      window.$message?.success(t('sqlEditor.successInsert'))
       return
     }
   }
@@ -321,7 +325,7 @@ sqlEditor.insertTemplate = function (sql) {
   }
   console.log('[insertTemplate] fallback newContent:', newContent)
   sqlEditor.setSqlContent(newContent)
-  window.$message?.success('模板已插入')
+  window.$message?.success(t('sqlEditor.successInsert'))
 }
 
 // --- 历史恢复 ---
@@ -335,17 +339,17 @@ function onRestoreHistory(item) {
   sqlEditor.setSqlContent(newContent)
   nextTick(() => {
     sqlEditor.setShowQueryHistory(false)
-    window.$message?.success('已恢复到编辑器')
+    window.$message?.success(t('sqlEditor.successRestore'))
   })
 }
 
 // --- 慢日志相关 ---
 function handleScanFiles(files) {
   sqlEditor.slowlogFiles = files
-  window.$message?.success('慢日志文件已扫描')
+  window.$message?.success(t('sqlEditor.successInsert'))
 }
 function handleProcessFiles(files) {
-  window.$message?.success('慢日志文件已处理')
+  window.$message?.success(t('sqlEditor.successInsert'))
 }
 
 // --- 全局消息与 loading ---
@@ -357,11 +361,11 @@ function hideGlobalLoading(success = true) {
     success ? window.$loadingBar.finish() : window.$loadingBar.error()
   }
 }
-function handleQuerySuccess(msg = '执行成功') {
+function handleQuerySuccess(msg = t('common.success')) {
   hideGlobalLoading(true)
   window.$message && window.$message.success(msg)
 }
-function handleQueryError(msg = '执行失败') {
+function handleQueryError(msg = t('common.fail')) {
   hideGlobalLoading(false)
   window.$message && window.$message.error(msg)
 }

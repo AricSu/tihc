@@ -1,16 +1,16 @@
 <template>
   <div class="sql-template-sidebar-col">
-    <div class="sidebar-title">SQL模板 / SQL Templates</div>
-    <n-button block type="primary" ghost size="small" class="sidebar-browse-btn" @click="showTemplateModal = true">浏览全部模板</n-button>
+    <div class="sidebar-title">{{ t('sqlEditor.templates') }}</div>
+    <n-button block type="primary" ghost size="small" class="sidebar-browse-btn" @click="showTemplateModal = true">{{ t('sqlEditor.browseTemplates') }}</n-button>
     <div class="sidebar-quick">
-      <div class="sidebar-quick-label">快速插入</div>
+      <div class="sidebar-quick-label">{{ t('sqlEditor.quickInsert') }}</div>
       <n-space vertical size="small">
         <n-button v-for="tpl in quickTemplates" :key="tpl.key" block size="small" secondary class="sidebar-quick-btn" @click="handleInsertTemplateByKey(tpl.key)">
-          {{ tpl['zh-label'] }}
+          {{ tpl[locale === 'zh' ? 'zh-label' : 'en-label'] }}
         </n-button>
       </n-space>
     </div>
-    <n-modal v-model:show="showTemplateModal" preset="card" title="SQL模板 / SQL Templates" class="sidebar-modal">
+    <n-modal v-model:show="showTemplateModal" preset="card" :title="t('sqlEditor.templates')" class="sidebar-modal">
       <div class="sidebar-modal-main">
         <div class="sidebar-modal-categories">
           <n-space vertical size="small">
@@ -31,10 +31,10 @@
           <n-space vertical size="medium">
             <div v-for="tpl in templatesByCategory[activeCategory]" :key="tpl.key" class="sidebar-modal-template-item">
               <div class="sidebar-modal-template-header">
-                <span class="sidebar-modal-template-title">{{ tpl['zh-label'] }} / {{ tpl['en-label'] }}</span>
+                <span class="sidebar-modal-template-title">{{ tpl[locale === 'zh' ? 'zh-label' : 'en-label'] }}</span>
                 <div class="sidebar-modal-template-actions">
-                  <n-button @click="handleInsertTemplate(tpl.template)" size="tiny" type="primary">插入</n-button>
-                  <n-button @click="handleCopyToClipboard(tpl.template)" size="tiny">复制</n-button>
+                  <n-button @click="handleInsertTemplate(tpl.template)" size="tiny" type="primary">{{ t('sqlEditor.insert') }}</n-button>
+                  <n-button @click="handleCopyToClipboard(tpl.template)" size="tiny">{{ t('common.copy') }}</n-button>
                 </div>
               </div>
               <n-code :code="tpl.template" language="sql" class="sidebar-modal-template-code" />
@@ -43,7 +43,7 @@
         </div>
       </div>
       <template #action>
-        <n-button @click="showTemplateModal = false">关闭</n-button>
+        <n-button @click="showTemplateModal = false">{{ t('common.close') }}</n-button>
       </template>
     </n-modal>
   </div>
@@ -51,6 +51,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+const { t, locale } = useI18n()
 // @ts-expect-error: TypeScript JSON import
 import sqlTemplatesRaw from '@/store/sqlTemplate.json' with { type: 'json' }
 
@@ -90,29 +92,24 @@ const quickTemplates = computed(() => sqlTemplatesRaw.slice(0, 3))
 // 插入相关逻辑
 function handleInsertTemplateByKey(key: string) {
   const tpl = sqlTemplatesRaw.find(t => t.key === key)
-  console.log('[SqlTemplateSidebar] handleInsertTemplateByKey', key, tpl)
   if (tpl) {
-    console.log('[SqlTemplateSidebar] emit insert-template', tpl.template)
     emit('insert-template', tpl.template, { append: true })
-    window.$message.success('模板已插入')
+    window.$message.success(t('sqlEditor.successInsert'))
   } else {
-    window.$message.warning('未找到模板')
+    window.$message.warning(t('sqlEditor.templateNotFound'))
   }
 }
-
 function handleInsertTemplate(sql: string) {
   if (sql) {
-    console.log('[SqlTemplateSidebar] emit insert-template', sql)
     emit('insert-template', sql, { append: true })
     showTemplateModal.value = false
-    window.$message.success('模板已插入')
+    window.$message.success(t('sqlEditor.successInsert'))
   }
 }
-
 function handleCopyToClipboard(text: string) {
   navigator.clipboard.writeText(text)
-    .then(() => window.$message.success('已复制到剪贴板'))
-    .catch(() => window.$message.error('复制失败'))
+    .then(() => window.$message.success(t('common.copySuccess')))
+    .catch(() => window.$message.error(t('common.copyFail')))
 }
 </script>
 
