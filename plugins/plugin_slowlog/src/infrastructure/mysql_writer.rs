@@ -4,17 +4,9 @@ use anyhow::Result;
 use sqlx::MySqlPool;
 use sqlx::QueryBuilder;
 
-/// 根据 Connection 创建 MySQL 连接池
+/// 根据 Connection 创建 MySQL 连接池（支持默认配置）
 pub async fn get_mysql_pool(conn: &Connection) -> Result<MySqlPool> {
-    let db_url = format!(
-        "mysql://{}:{}@{}:{}/{}",
-        conn.username,
-        conn.password.as_deref().unwrap_or(""),
-        conn.host,
-        conn.port,
-        conn.database.as_deref().unwrap_or("tihc")
-    );
-    Ok(MySqlPool::connect(&db_url).await?)
+    MySqlPool::connect(&conn.mysql_url()).await.map_err(Into::into)
 }
 
 /// 初始化数据库和 SLOW_QUERY 表（如不存在）

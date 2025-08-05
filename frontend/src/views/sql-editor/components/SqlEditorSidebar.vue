@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, h, resolveComponent } from 'vue'
 import { NIcon, NTree, NPopover } from 'naive-ui'
-import { BookOutline, RefreshOutline, ListOutline, ServerOutline, GridOutline, FolderOutline, DocumentTextOutline, KeyOutline } from '@vicons/ionicons5'
+import { RefreshOutline, ListOutline, ServerOutline, GridOutline, FolderOutline, DocumentTextOutline, KeyOutline } from '@vicons/ionicons5'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'
-import { fetchDatabaseList } from '../../../api/database'
-import { fetchTableList, fetchColumnList, fetchIndexList } from '../../../api/table'
+import { DatabaseAPI, TableAPI } from '@/api/sql-editor'
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 
 const props = defineProps({ showSidebar: Boolean })
@@ -166,7 +165,7 @@ const fetchSchema = async () => {
     return
   }
   try {
-    const dbList = await fetchDatabaseList(connectionId)
+    const dbList = await DatabaseAPI.list(connectionId)
     treeData.value = dbList.map(db => ({
       key: 'db-' + db.schema_name,
       label: db.schema_name,
@@ -199,7 +198,7 @@ const handleLoad = async (node) => {
     }
     try {
       console.log('[Tree] handleLoad: fetchTableList', connectionId, node.label)
-      const tableList = await fetchTableList(connectionId, node.label)
+      const tableList = await TableAPI.list(connectionId, node.label)
       console.log('[Tree] handleLoad: tableList result', tableList)
       node.children = tableList.map(tbl => ({
         key: node.key + '-table-' + tbl.table_name,
@@ -231,8 +230,8 @@ const handleLoad = async (node) => {
     })()
     console.log('[Tree] handleLoad: fetchColumnList & fetchIndexList', connectionId, schema, table)
     try {
-      const columnList = typeof fetchColumnList === 'function' ? await fetchColumnList(connectionId, schema, table) : []
-      const indexList = typeof fetchIndexList === 'function' ? await fetchIndexList(connectionId, schema, table) : []
+      const columnList = await TableAPI.columns(connectionId, schema, table)
+      const indexList = await TableAPI.indexes(connectionId, schema, table)
       node.children = [
         {
           key: node.key + '-columns',

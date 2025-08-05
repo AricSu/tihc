@@ -57,6 +57,6 @@ async fn sql_status(Path(_task_id): Path<u64>) -> Json<serde_json::Value> {
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/api/sql/execute", post(handle_execute_sql))
-        .route("/api/sql/status/{task_id}", get(sql_status))
+        .route("/api/sql_editor/sql/execute", post(handle_execute_sql))
+        .route("/api/sql_editor/status/{task_id}", get(sql_status))
 }

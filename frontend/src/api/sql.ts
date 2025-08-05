@@ -21,7 +21,7 @@ export interface QueryResults {
 
 export function executeSql(params: { connection_id: number|string, sql: string }) {
   return request({
-    url: '/api/sql/execute',
+    url: '/api/sql_editor/sql/execute',
     method: 'post',
     data: params
   }) as Promise<QueryResults>;

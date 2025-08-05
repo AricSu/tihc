@@ -1,14 +1,13 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+// use std::ffi::CString;
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+// pub fn precheck_sql(sql: &str, collation_enabled: bool, verbose: bool) -> i32 {
+//     let c_sql = CString::new(sql).unwrap();
+//     unsafe {
+//         PrecheckSQL(
+//             c_sql.as_ptr(),
+//             if collation_enabled { 1 } else { 0 },
+//             if verbose { 1 } else { 0 },
+//         )
+//     }
+// }

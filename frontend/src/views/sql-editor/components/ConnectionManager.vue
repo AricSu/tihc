@@ -1,117 +1,117 @@
 <template>
-  <n-modal :show="modelValue" @update:show="() => emit('update:modelValue', false)" preset="card" title="Database Connection" style="width: 600px;">
+  <n-modal :show="modelValue" @update:show="() => emit('update:modelValue', false)" preset="card" :title="t('sqlEditor.databaseConnection')" style="width: 600px;">
     <n-tabs :value="props.activeTab" @update:value="val => emit('update:activeTab', val)" type="line">
-      <n-tab-pane name="new" tab="New Connection">
+      <n-tab-pane name="new" :tab="t('sqlEditor.newConnection')">
         <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="120">
-          <n-form-item label="Connection Name" path="name">
-            <n-input v-model:value="form.name" placeholder="My TiDB Connection" @blur="generateConnectionName" />
-          </n-form-item>
-          <n-form-item label="Database Type" path="engine">
-            <n-select v-model:value="form.engine" :options="databaseTypes" @update:value="handleDatabaseTypeChange" />
-          </n-form-item>
-          <n-form-item label="Host" path="host">
-            <n-input v-model:value="form.host" placeholder="localhost" />
-          </n-form-item>
-          <n-form-item label="Port" path="port">
-            <n-input-number v-model:value="form.port" :min="1" :max="65535" placeholder="3306" style="width: 100%;" />
-          </n-form-item>
-          <n-form-item label="Username" path="username">
-            <n-input v-model:value="form.username" placeholder="root" />
-          </n-form-item>
-          <n-form-item label="Password" path="password">
-            <n-input v-model:value="form.password" type="password" placeholder="password (optional)" show-password-on="click" />
-          </n-form-item>
-          <n-form-item label="Database" path="database">
-            <n-input v-model:value="form.database" placeholder="test (optional)" />
-          </n-form-item>
-          <n-form-item label="Use TLS" path="use_tls">
-            <n-switch v-model:value="form.use_tls" />
-          </n-form-item>
-          <n-form-item v-if="form.use_tls" label="CA Cert Path" path="ca_cert_path">
-            <n-input v-model:value="form.ca_cert_path" placeholder="/path/to/ca.pem (optional)" />
-          </n-form-item>
+        <n-form-item :label="t('sqlEditor.connectionName')" path="name">
+          <n-input v-model:value="form.name" :placeholder="t('sqlEditor.connectionNamePlaceholder')" @blur="generateConnectionName" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.databaseType')" path="engine">
+          <n-select v-model:value="form.engine" :options="databaseTypes" @update:value="setDatabaseType" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.host')" path="host">
+          <n-input v-model:value="form.host" :placeholder="t('sqlEditor.hostPlaceholder')" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.port')" path="port">
+          <n-input-number v-model:value="form.port" :min="1" :max="65535" :placeholder="t('sqlEditor.portPlaceholder')" style="width: 100%;" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.username')" path="username">
+          <n-input v-model:value="form.username" :placeholder="t('sqlEditor.usernamePlaceholder')" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.password')" path="password">
+          <n-input v-model:value="form.password" type="password" :placeholder="t('sqlEditor.passwordPlaceholder')" show-password-on="click" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.database')" path="database">
+          <n-input v-model:value="form.database" :placeholder="t('sqlEditor.databasePlaceholder')" />
+        </n-form-item>
+        <n-form-item :label="t('sqlEditor.useTLS')" path="use_tls">
+          <n-switch v-model:value="form.use_tls" />
+        </n-form-item>
+        <n-form-item v-if="form.use_tls" :label="t('sqlEditor.caCertPath')" path="ca_cert_path">
+          <n-input v-model:value="form.ca_cert_path" :placeholder="t('sqlEditor.caCertPathPlaceholder')" />
+        </n-form-item>
         </n-form>
         <n-space justify="end" style="margin-top: 16px;">
-          <n-button @click="onTestConnection">Test Connection</n-button>
-          <n-button @click="() => emit('update:modelValue', false)">Cancel</n-button>
-          <n-button type="primary" @click="onSaveConnection">
-            Save & Connect
+          <n-button @click="testConnection">{{ t('sqlEditor.testConnection') }}</n-button>
+          <n-button @click="() => emit('update:modelValue', false)">{{ t('sqlEditor.cancel') }}</n-button>
+          <n-button type="primary" @click="saveConnection">
+            {{ t('sqlEditor.saveAndConnect') }}
           </n-button>
         </n-space>
       </n-tab-pane>
-      <n-tab-pane name="saved" tab="Saved Connections">
+      <n-tab-pane name="saved" :tab="t('sqlEditor.savedConnections')">
         <n-spin :show="loadingConnections">
           <template v-if="savedConnections.length"> 
             <div class="saved-connections">
-              <n-list bordered>
-                <n-list-item v-for="conn in savedConnections" :key="conn.id" class="connection-item">
-                  <template #prefix>
-                    <div class="connection-icon">
-                      <n-icon size="20" :color="getConnectionStatusColor(conn)" /><DatabaseIcon />
-                      <div class="connection-status-dot" :class="getConnectionStatusClass(conn)"></div>
-                    </div>
-                  </template>
-                  <div class="connection-details">
-                    <n-thing class="connection-thing">
-                      <template #header>
-                        <div class="connection-header">
-                          <n-text strong>{{ conn.name }}</n-text>
-                          <n-tag v-if="isCurrentConnection(conn)" type="success" size="small" style="margin-left: 8px;">Connected</n-tag>
-                        </div>
-                      </template>
-                      <template #description>
-                        <div class="connection-info">
-                          <n-text depth="3">
-                            {{ (conn.engine || '').toUpperCase() }} • {{ conn.host }}:{{ conn.port }}
-                          </n-text>
-                          <n-text depth="3" v-if="conn.database">
-                            Database: {{ conn.database }}
-                          </n-text>
-                          <n-text depth="3">
-                            User: {{ conn.username }}
-                          </n-text>
-                        </div>
-                      </template>
-                    </n-thing>
+            <n-list bordered>
+              <n-list-item v-for="conn in savedConnections" :key="conn.id" class="connection-item">
+                <template #prefix>
+                  <div class="connection-icon">
+                    <Icon :icon="'mdi:database'" :width="20" :height="20" :color="getConnectionStatusColor(conn)" />
+                    <div class="connection-status-dot" :class="getConnectionStatusClass(conn)"></div>
                   </div>
-                  <template #suffix>
-                    <div class="connection-actions">
-                      <n-space>
-                        <n-button 
-                          size="small" 
-                          type="primary"
-                          :disabled="!!isCurrentConnection(conn)"
-                          :loading="connectingTo === (conn.id || conn.name)"
-                          @click="() => emit('connect-to-saved', conn)"
-                        >
+                </template>
+                <div class="connection-details">
+                  <n-thing class="connection-thing">
+                    <template #header>
+                      <div class="connection-header">
+                        <n-text strong>{{ conn.name }}</n-text>
+                        <n-tag v-if="isCurrentConnection(conn)" type="success" size="small" style="margin-left: 8px;">{{ t('sqlEditor.connected') }}</n-tag>
+                      </div>
+                    </template>
+                    <template #description>
+                      <div class="connection-info">
+                        <n-text depth="3">
+                          {{ (conn.engine || '').toUpperCase() }} • {{ conn.host }}:{{ conn.port }}
+                        </n-text>
+                        <n-text depth="3" v-if="conn.database">
+                          {{ t('sqlEditor.database') }}: {{ conn.database }}
+                        </n-text>
+                        <n-text depth="3">
+                          {{ t('sqlEditor.user') }}: {{ conn.username }}
+                        </n-text>
+                      </div>
+                    </template>
+                  </n-thing>
+                </div>
+                <template #suffix>
+                  <div class="connection-actions">
+                    <n-space>
+                      <n-button 
+                        size="small" 
+                        type="primary"
+                        :disabled="!!isCurrentConnection(conn)"
+                        :loading="connectingTo === (conn.id || conn.name)"
+                        @click="connectToSaved(conn)"
+                      >
+                        <template #icon>
+                          <Icon icon="mdi:link-variant" width="18" height="18" />
+                        </template>
+                        {{ isCurrentConnection(conn) ? t('sqlEditor.connected') : t('sqlEditor.connect') }}
+                      </n-button>
+                      <n-dropdown 
+                        trigger="click" 
+                        :options="getConnectionMenuOptions(conn)"
+                        @select="key => handleConnectionMenu(key, conn)"
+                      >
+                        <n-button size="small" quaternary>
                           <template #icon>
-                            <n-icon><ConnectIcon /></n-icon>
+                            <Icon icon="mdi:dots-horizontal" width="18" height="18" />
                           </template>
-                          {{ isCurrentConnection(conn) ? 'Connected' : 'Connect' }}
                         </n-button>
-                        <n-dropdown 
-                          trigger="click" 
-                          :options="getConnectionMenuOptions(conn)"
-                          @select="key => onConnectionMenu(key, conn)"
-                        >
-                          <n-button size="small" quaternary>
-                            <template #icon>
-                              <n-icon><MoreIcon /></n-icon>
-                            </template>
-                          </n-button>
-                        </n-dropdown>
-                      </n-space>
-                    </div>
-                  </template>
-                </n-list-item>
-              </n-list>
+                      </n-dropdown>
+                    </n-space>
+                  </div>
+                </template>
+              </n-list-item>
+            </n-list>
             </div>
           </template>
           <template v-else>
-            <n-empty description="No saved connections">
+            <n-empty :description="t('sqlEditor.noSavedConnections')">
               <template #extra>
                 <n-button @click="() => emit('update:activeTab', 'new')">
-                  Create your first connection
+                  {{ t('sqlEditor.createFirstConnection') }}
                 </n-button>
               </template>
             </n-empty>
@@ -124,43 +124,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, watch, h } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { Icon } from '@iconify/vue'
 import {
   NModal, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber,
   NSelect, NButton, NSpace, NList, NListItem, NThing, NText,
-  NTag, NIcon, NDropdown, NEmpty, NSpin
+  NTag, NDropdown, NEmpty, NSpin
 } from 'naive-ui'
 import { PropType } from 'vue'
 
 
-
-const DatabaseIcon = () => '🗄️'
-const ConnectIcon = () => '🔗'
-const MoreIcon = () => '⋯'
-const EditIcon = () => '✏️'
-const DeleteIcon = () => '🗑️'
-const CopyIcon = () => '📋'
-const CheckCircleIcon = () => '✅'
-
-
-
-// Dropdown menu options for each connection (admin-style, English)
+// Returns dropdown menu options for a connection
 function getConnectionMenuOptions(conn: Connection) {
   return [
     {
       label: 'Edit',
       key: 'edit',
-      icon: () => EditIcon()
+      icon: () => h(Icon, { icon: 'mdi:pencil', width: 18, height: 18 })
     },
     {
       label: 'Duplicate',
       key: 'duplicate',
-      icon: () => CopyIcon()
+      icon: () => h(Icon, { icon: 'mdi:content-copy', width: 18, height: 18 })
     },
     {
       label: testingFromMenu.value === (conn.id || conn.name) ? 'Testing...' : 'Test Connection',
       key: 'test',
-      icon: () => CheckCircleIcon(),
+      icon: () => h(Icon, { icon: 'mdi:check-circle', width: 18, height: 18, color: '#18a058' }),
       disabled: testingFromMenu.value === (conn.id || conn.name)
     },
     {
@@ -169,9 +160,9 @@ function getConnectionMenuOptions(conn: Connection) {
     {
       label: 'Delete',
       key: 'delete',
-      icon: () => DeleteIcon()
+      icon: () => h(Icon, { icon: 'mdi:delete', width: 18, height: 18 })
     }
-  ]
+  ];
 }
 
 interface Connection {
@@ -222,11 +213,9 @@ const emit = defineEmits([
   'delete-connection'
 ])
 
-// Track which connection is being tested from the menu
-const testingFromMenu = ref<string | null>(null)
-
-const formRef = ref()
-
+// State: tracks which connection is being tested from the menu
+const testingFromMenu = ref<string | null>(null);
+const formRef = ref();
 const form = reactive({
   id: undefined as number | undefined,
   name: '',
@@ -239,61 +228,47 @@ const form = reactive({
   use_tls: false,
   ca_cert_path: '',
   created_at: ''
-})
+});
 
-// When modal opens, just reset form
-watch(
-  () => props.modelValue,
-  (val) => {
-    if (val) {
-      resetForm()
-    }
-  }
-)
+// Reset form when modal opens
+watch(() => props.modelValue, (val) => { if (val) resetForm(); });
 
+const { t } = useI18n();
 const databaseTypes = [
-  { label: 'TiDB', value: 'tidb' }
-]
+  { label: t('sqlEditor.tidb'), value: 'tidb' }
+];
 const rules = {
-  name: { required: true, message: '请输入连接名称', trigger: 'blur' },
-  engine: { required: true, message: '请选择数据库类型', trigger: 'change' },
-  host: { required: true, message: '请输入主机地址', trigger: 'blur' },
+  name: { required: true, message: t('sqlEditor.connectionNameRequired'), trigger: 'blur' },
+  engine: { required: true, message: t('sqlEditor.databaseTypeRequired'), trigger: 'change' },
+  host: { required: true, message: t('sqlEditor.hostRequired'), trigger: 'blur' },
   port: {
     required: true,
-    message: '请输入有效端口 (1-65535)',
+    message: t('sqlEditor.portRange'),
     trigger: 'blur',
     validator: (_rule: any, value: number) => {
-      if (!value) {
-        return new Error('请输入端口')
-      }
-      if (value < 1 || value > 65535) {
-        return new Error('端口需在 1-65535 之间')
-      }
-      return true
+      if (!value) return new Error(t('sqlEditor.portRequired'));
+      if (value < 1 || value > 65535) return new Error(t('sqlEditor.portRange'));
+      return true;
     }
   },
-  username: { required: true, message: '请输入用户名', trigger: 'blur' },
+  username: { required: true, message: t('sqlEditor.usernameRequired'), trigger: 'blur' },
   password: { required: false, trigger: 'blur' },
   use_tls: { required: false },
   ca_cert_path: { required: false },
   created_at: { required: false }
-}
+};
 function generateConnectionName() {
   if (!form.name && form.host && form.engine) {
-    const typeMap = {
-      tidb: 'TiDB'
-    }
-    form.name = `${typeMap[form.engine] || 'Database'} - ${form.host}`
+    const typeMap = { tidb: t('sqlEditor.tidb') };
+    form.name = `${typeMap[form.engine] || t('sqlEditor.database')} - ${form.host}`;
   }
 }
-function handleDatabaseTypeChange(type: string) {
-  form.engine = type
-  const defaultPorts = {
-    tidb: 4000
-  }
-  form.port = defaultPorts[type] || 4000
+function setDatabaseType(type: string) {
+  form.engine = type;
+  const defaultPorts = { tidb: 4000 };
+  form.port = defaultPorts[type] || 4000;
 }
-function fillForm(conn: Connection) {
+function setFormFromConnection(conn: Connection) {
   Object.assign(form, {
     id: conn.id,
     name: conn.name,
@@ -306,7 +281,7 @@ function fillForm(conn: Connection) {
     use_tls: conn.use_tls ?? false,
     ca_cert_path: conn.ca_cert_path || '',
     created_at: conn.created_at || ''
-  })
+  });
 }
 function resetForm() {
   Object.assign(form, {
@@ -321,96 +296,84 @@ function resetForm() {
     use_tls: false,
     ca_cert_path: '',
     created_at: ''
-  })
+  });
 }
-function onTestConnection() {
+function testConnection() {
   formRef.value?.validate().then(() => {
-    if (!form.created_at) {
-      form.created_at = new Date().toISOString()
-    }
-    // 确保 use_tls 和 ca_cert_path 字段始终存在
+    if (!form.created_at) form.created_at = new Date().toISOString();
     const payload = {
       ...form,
       use_tls: form.use_tls ?? false,
       ca_cert_path: form.ca_cert_path ?? ''
-    }
-    emit('test-connection', payload)
-  })
+    };
+    emit('test-connection', payload);
+  });
 }
-function onSaveConnection() {
+function saveConnection() {
   formRef.value?.validate().then(() => {
-    // 检查名称唯一性
     const exists = props.savedConnections.some(
       c => c.name === form.name && c.id !== form.id
-    )
+    );
     if (exists) {
-      window.$message?.error?.('连接名称已存在，请使用唯一名称')
-      return
+      window.$message?.error?.(t('sqlEditor.connectionNameExists'));
+      return;
     }
-    if (!form.created_at) {
-      form.created_at = new Date().toISOString()
-    }
-    // 判断是编辑还是新建
-    const idNum = typeof form.id === 'number' ? form.id : Number(form.id)
-    const isEdit = props.savedConnections.some(c => c.id === idNum)
+    if (!form.created_at) form.created_at = new Date().toISOString();
+    const idNum = typeof form.id === 'number' ? form.id : Number(form.id);
+    const isEdit = props.savedConnections.some(c => c.id === idNum);
     const payload = {
       ...form,
       id: isEdit ? idNum : Date.now(),
       use_tls: form.use_tls ?? false,
       ca_cert_path: form.ca_cert_path ?? ''
-    }
+    };
     if (isEdit) {
-      emit('update-connection', payload)
+      emit('update-connection', payload);
     } else {
-      emit('save-connection', payload)
+      emit('save-connection', payload);
     }
-    resetForm()
-    emit('update:activeTab', 'saved')
-    emit('update:modelValue', false)
-  })
+    resetForm();
+    emit('update:activeTab', 'saved');
+    emit('update:modelValue', false);
+  });
 }
-function onConnectToSaved(conn) {
-  emit('connect-to-saved', conn)
+function connectToSaved(conn: Connection) {
+  emit('connect-to-saved', conn);
 }
-function onConnectionMenu(key, conn) {
+function handleConnectionMenu(key: string, conn: Connection) {
   switch (key) {
     case 'edit': {
-      // 编辑时保留原 id，确保保存时为更新，id 类型强制为 number
-      const idNum = typeof conn.id === 'string' ? Number(conn.id) : conn.id
-      fillForm({ ...conn, id: idNum })
-      emit('update:activeTab', 'new')
-      break
+      const idNum = typeof conn.id === 'string' ? Number(conn.id) : conn.id;
+      setFormFromConnection({ ...conn, id: idNum });
+      emit('update:activeTab', 'new');
+      break;
     }
     case 'duplicate': {
-      // 复制时 id 置为 undefined，名称加 (copy)
       const duplicated = {
         ...conn,
         id: undefined,
         name: conn.name + ' (copy)'
-      }
-      fillForm(duplicated)
-      emit('update:activeTab', 'new')
-      break
+      };
+      setFormFromConnection(duplicated);
+      emit('update:activeTab', 'new');
+      break;
     }
     case 'test':
-      emit('test-connection', conn)
-      break
+      emit('test-connection', conn);
+      break;
     case 'delete':
-      emit('delete-connection', conn)
-      break
+      emit('delete-connection', conn);
+      break;
   }
 }
-// Utility: check if a connection is当前选中
-const isCurrentConnection = (conn: Connection) => {
-  return props.currentConnection && conn.id === props.currentConnection.id
+function isCurrentConnection(conn: Connection) {
+  return props.currentConnection && conn.id === props.currentConnection.id;
 }
-// Utility: get color for connection status icon
-const getConnectionStatusColor = (conn: Connection) => {
-  return isCurrentConnection(conn) ? '#18a058' : '#c0c4cc'
+function getConnectionStatusColor(conn: Connection) {
+  return isCurrentConnection(conn) ? '#18a058' : '#c0c4cc';
 }
-// Utility: get class for connection status dot
-const getConnectionStatusClass = (conn: Connection) => {
-  return isCurrentConnection(conn) ? 'connected' : 'disconnected'
+function getConnectionStatusClass(conn: Connection) {
+  return isCurrentConnection(conn) ? 'connected' : 'disconnected';
 }
 
 

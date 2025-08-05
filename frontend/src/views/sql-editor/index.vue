@@ -112,14 +112,7 @@ import QueryEditor from './components/QueryEditor.vue'
 import ResultsPanel from './components/ResultsPanel.vue'
 import ConnectionManager from './components/ConnectionManager.vue'
 import SlowlogDrawer from './components/SlowlogDrawer.vue'
-import { executeSql } from '@/api/sql'
-import {
-  createConnection,
-  testConnection,
-  deleteConnection,
-  listConnections,
-  handleUpdateConnection
-} from '@/api/connection'
+import { SqlAPI, ConnectionAPI } from '@/api/sql-editor'
 import { useI18n } from 'vue-i18n'
 
 // Pinia store（仅用于状态，不直接扩展 actions 类型）
@@ -147,22 +140,22 @@ async function handleConnectionAction(action, conn) {
     let res
     switch (action) {
       case 'save':
-        await createConnection({ ...conn, id: conn.id ?? Date.now(), use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
+        await ConnectionAPI.create({ ...conn, id: conn.id ?? Date.now(), use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
         await fetchConnections()
         handleQuerySuccess(t('sqlEditor.successSave'))
         break
       case 'update':
-        await handleUpdateConnection({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '', id: conn.id })
+        await ConnectionAPI.update(conn.id, { ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '', id: conn.id })
         await fetchConnections()
         handleQuerySuccess(t('sqlEditor.successUpdate'))
         break
       case 'delete':
-        await deleteConnection(conn.id)
+        await ConnectionAPI.delete(conn.id)
         await fetchConnections()
         handleQuerySuccess(t('sqlEditor.successDeleteConn'))
         break
       case 'test':
-        res = await testConnection({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
+        res = await ConnectionAPI.test({ ...conn, use_tls: conn.use_tls ?? false, ca_cert_path: conn.ca_cert_path ?? '' })
         updateConnectionStatus(conn, res.data.status === 'success' ? 'connected' : 'disconnected')
         if (res.data.status === 'success') {
           handleQuerySuccess(t('sqlEditor.successTest'))
@@ -198,7 +191,7 @@ function getActionErrorMsg(action) {
 }
 async function fetchConnections() {
   try {
-    const res = await listConnections()
+    const res = await ConnectionAPI.list()
     sqlEditor.connections = (res.data.data || []).map(conn => ({ ...conn, status: conn.status || 'disconnected' }))
   } catch {
     sqlEditor.connections = []
@@ -218,7 +211,7 @@ sqlEditor.executeQuery = async function (sql) {
   }
   sqlEditor.isExecuting = true
   try {
-    const result = await executeSql({ connection_id, sql })
+    const result = await SqlAPI.execute({ connection_id, sql })
     if (result.data.error) {
       window.$message?.error(result.data.error)
       return

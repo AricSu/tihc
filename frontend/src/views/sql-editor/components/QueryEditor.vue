@@ -4,18 +4,23 @@
       <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px;">
         <n-button-group>
           <n-button @click="handleExecuteQuery" type="primary" :loading="isExecuting">
-            <template #icon><n-icon>▶️</n-icon></template>
+            <template #icon><Icon icon="mdi:play" width="18" height="18" /></template>
             {{ t('sqlEditor.run') }} ({{ isMac ? '⌘' : 'Ctrl' }}+Enter)
           </n-button>
         </n-button-group>
         <n-divider vertical />
         <n-button-group>
-          <n-button @click="handleFormatSql"><template #icon><n-icon>📝</n-icon></template>{{ t('sqlEditor.format') }}</n-button>
-          <n-button @click="$emit('clear-editor')"><template #icon><n-icon>🗑️</n-icon></template>{{ t('sqlEditor.clear') }}</n-button>
+          <n-button @click="handleFormatSql"><template #icon><Icon icon="mdi:pencil" width="18" height="18" /></template>{{ t('sqlEditor.format') }}</n-button>
+          <n-button @click="$emit('clear-editor')"><template #icon><Icon icon="mdi:delete" width="18" height="18" /></template>{{ t('sqlEditor.clear') }}</n-button>
         </n-button-group>
         <n-divider vertical />
         <n-button-group>
-          <n-button @click="$emit('toggle-slowlog-panel')">{{ showSlowlogPanel ? t('sqlEditor.hideSlowlog') : t('sqlEditor.showSlowlog') }}</n-button>
+          <n-button @click="$emit('toggle-slowlog-panel')">
+            <template #icon>
+              <Icon :icon="showSlowlogPanel ? 'mdi:chart-bar-off' : 'mdi:chart-bar'" :color="showSlowlogPanel ? '#b0b3b8' : '#1976d2'" width="20" height="20" />
+            </template>
+            {{ showSlowlogPanel ? t('sqlEditor.hideSlowlog') : t('sqlEditor.showSlowlog') }}
+          </n-button>
         </n-button-group>
       </div>
       <div class="toolbar-right" style="flex: 1; display: flex; justify-content: flex-end; align-items: center;">
@@ -38,8 +43,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Icon } from '@iconify/vue'
 const { t } = useI18n()
 import MonacoEditor from 'monaco-editor-vue3'
 import { format as sqlFormat } from 'sql-formatter'
