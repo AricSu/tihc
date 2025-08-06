@@ -129,6 +129,35 @@ graph TD
 
 ---
 
+## Quick Start
+
+### 🚀 Universal One-line Installation (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AricSu/tihc/main/scripts/universal-install.sh | bash
+```
+
+**Supports:** Linux, macOS, Windows (WSL) - automatically detects your platform!
+
+### 📦 Manual Installation
+
+Download the latest release for your platform:
+
+- [Linux x86_64](https://github.com/AricSu/tihc/releases/latest)
+- [macOS x86_64 (Intel)](https://github.com/AricSu/tihc/releases/latest) 
+- [macOS ARM64 (Apple Silicon)](https://github.com/AricSu/tihc/releases/latest)
+
+### 🔨 Build from Source
+
+```bash
+git clone https://github.com/AricSu/tihc.git
+cd tihc
+make server
+./bin/tihc --help
+```
+
+---
+
 ## Key Features
 
 - **Database Management**: Create, view, and delete databases.
@@ -177,6 +206,28 @@ tihc/
 - Plugins are independent crates, each with domain/application/infrastructure layers.
 - All code must use English for comments and documentation. See `/docs/design/tihc-core design.md` for doc style.
 - For API details and usage, see [Online Docs](https://www.askaric.com/en/tihc/).
+
+### Supported Platforms
+
+- **Linux x86_64** - Primary development and deployment platform
+- **macOS x86_64** - Intel-based Mac development
+- **macOS ARM64** - Apple Silicon Mac development
+
+> **Note**: Windows and Linux ARM64 support are planned for future releases.
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/AricSu/tihc.git
+cd tihc
+
+# Build the CLI
+make server
+
+# The binary will be available at bin/tihc
+./bin/tihc --help
+```
 
 ---
 

@@ -12,7 +12,7 @@ use tracing::info;
 #[derive(Parser, Debug)]
 #[command(
     name = "tihc",
-    version = "1.0.0",
+    version = "1.1.0",
     author = "Aric <ask.aric.su@gmail.com>",
     about = "TiDB Intelligent Health Check (tihc) CLI Tool",
     long_about = "A CLI for TiDB Intelligent Health Check (tihc)\nDoc: https://www.askaric.com/en/tihc",

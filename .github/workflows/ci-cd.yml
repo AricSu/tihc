@@ -57,10 +57,11 @@ jobs:
             platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
             use_makefile: true
-          - os: ubuntu-latest
-            platform: linux-arm64
-            target: aarch64-unknown-linux-gnu
-            use_makefile: false
+          # Temporarily disable ARM64 until we solve the OpenSSL cross-compilation issue
+          # - os: ubuntu-latest
+          #   platform: linux-arm64
+          #   target: aarch64-unknown-linux-gnu
+          #   use_makefile: false
           - os: macos-latest
             platform: macos-x86_64
             target: x86_64-apple-darwin
@@ -84,10 +85,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev make
-          # Install cross-compilation tools for ARM64
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-          fi
 
       - name: Install system dependencies (macOS)
         if: matrix.os == 'macos-latest'
@@ -100,21 +97,21 @@ jobs:
         with:
           key: ${{ matrix.platform }}
 
+      - name: Debug build environment
+        run: |
+          echo "=== Build Environment Debug ==="
+          echo "OS: ${{ matrix.os }}"
+          echo "Platform: ${{ matrix.platform }}"
+          echo "Target: ${{ matrix.target }}"
+          echo "Use Makefile: ${{ matrix.use_makefile }}"
+          echo "Current directory: $(pwd)"
+          echo "Rust version: $(rustc --version)"
+          echo "Available targets: $(rustup target list --installed)"
+          echo "==============================="
+
       - name: Build with Makefile (native targets)
         if: matrix.use_makefile == true
         run: make server
-
-      - name: Build with cargo (cross-compilation)
-        if: matrix.use_makefile == false
-        run: |
-          # Set environment variables for cross-compilation
-          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
-          export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
-          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          cargo build --package cli --release --target ${{ matrix.target }}
-          mkdir -p bin
-          cp target/${{ matrix.target }}/release/cli bin/tihc
 
       - name: Strip binary
         run: |
@@ -125,25 +122,55 @@ jobs:
       - name: Test CLI binary
         run: |
           if [ -f "bin/tihc" ]; then
+            echo "Testing tihc binary..."
+            ./bin/tihc --version
             ./bin/tihc --help
           else
-            ./target/release/cli --help
+            echo "Error: tihc binary not found at bin/tihc"
+            echo "Checking target directory..."
+            ls -la target/release/ || echo "No target/release directory"
+            exit 1
           fi
 
       # Only package for releases
       - name: Package binary
         if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
         run: |
+          # Extract version from tag if available
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="dev-$(date +%Y%m%d-%H%M%S)"
+          fi
+          
+          echo "Packaging version: ${VERSION}"
+          echo "Platform: ${{ matrix.platform }}"
+          
+          # Ensure binary exists
+          if [ ! -f "bin/tihc" ]; then
+            echo "Error: Binary not found at bin/tihc"
+            exit 1
+          fi
+          
+          # Create package
           cd bin
-          tar czf ../tihc-${{ matrix.platform }}.tar.gz tihc
+          tar czf ../tihc-${{ matrix.platform }}-${VERSION}.tar.gz tihc
           cd ..
+          
+          # Verify package
+          echo "Created package:"
+          ls -la tihc-${{ matrix.platform }}-${VERSION}.tar.gz
+          
+          # Test package contents
+          echo "Package contents:"
+          tar -tzf tihc-${{ matrix.platform }}-${VERSION}.tar.gz
 
       - name: Upload artifact
         if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tihc-${{ matrix.platform }}
-          path: tihc-${{ matrix.platform }}.tar.gz
+          path: tihc-${{ matrix.platform }}-*.tar.gz
 
   release:
     name: Create GitHub Release
@@ -162,21 +189,60 @@ jobs:
         with:
           path: artifacts
 
-      - name: List artifacts
-        run: find artifacts -type f -name "*"
+      - name: List artifacts (debug)
+        run: |
+          echo "=== Artifacts Debug ==="
+          find artifacts -type f -name "*" | head -20
+          echo "=== Directory structure ==="
+          ls -la artifacts/ || echo "No artifacts directory"
+          for dir in artifacts/*/; do
+            if [ -d "$dir" ]; then
+              echo "Directory: $dir"
+              ls -la "$dir"
+            fi
+          done
+          echo "======================="
 
       - name: Extract version from tag
-        if: startsWith(github.ref, 'refs/tags/')
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+            echo "Found tag version: ${VERSION}"
+          else
+            VERSION="manual-release-$(date +%Y%m%d-%H%M%S)"
+            echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+            echo "Using manual version: ${VERSION}"
+          fi
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.get_version.outputs.VERSION || 'manual-release' }}
-          name: ${{ steps.get_version.outputs.VERSION || 'Manual Release' }}
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
-          prerelease: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
           files: artifacts/**/*.tar.gz
+          body: |
+            ## TiHC Release ${{ steps.get_version.outputs.VERSION }}
+            
+            ### Installation
+            
+            **Universal Installation (Recommended):**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/AricSu/tihc/main/scripts/universal-install.sh | bash
+            ```
+            
+            **Manual Download:**
+            Download the appropriate binary for your platform below.
+            
+            ### Supported Platforms
+            - Linux x86_64
+            - macOS x86_64 (Intel)
+            - macOS ARM64 (Apple Silicon)
+            
+            ### Changes
+            See the commit history for detailed changes in this release.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
