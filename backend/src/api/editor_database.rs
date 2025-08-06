@@ -233,19 +233,25 @@ pub async fn list_databases(
 pub fn routes(registry: Arc<ServiceRegistry>) -> Router {
     Router::new()
         // 连接管理
-        .route("/api/sql_editor/connections/create", post(create_connection))
-        .route("/api/sql_editor/connections/list", get(list_connections))
-        .route("/api/sql_editor/connections/{id}", delete(delete_connection))
         .route(
-            "/api/sql_editor/connections/{id}",
+            "/sql_editor/connections/create",
+            post(create_connection),
+        )
+        .route("/sql_editor/connections/list", get(list_connections))
+        .route(
+            "/sql_editor/connections/{id}",
+            delete(delete_connection),
+        )
+        .route(
+            "/sql_editor/connections/{id}",
             get(get_connection).put(update_connection),
         )
-        .route("/api/sql_editor/connections/test", post(test_connection))
+        .route("/sql_editor/connections/test", post(test_connection))
         // 数据库管理
-        .route("/api/sql_editor/databases/list", get(list_databases))
-        .route("/api/sql_editor/tables/list", get(list_tables))
+        .route("/sql_editor/databases/list", get(list_databases))
+        .route("/sql_editor/tables/list", get(list_tables))
         // 列与索引管理
-        .route("/api/sql_editor/columns/list", get(list_columns))
-        .route("/api/sql_editor/indexes/list", get(list_indexes))
+        .route("/sql_editor/columns/list", get(list_columns))
+        .route("/sql_editor/indexes/list", get(list_indexes))
         .layer(Extension(registry))
 }

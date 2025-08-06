@@ -20,21 +20,22 @@ import { useI18n } from 'vue-i18n'
 
 const appStore = useAppStore()
 const { t } = useI18n()
+
 const staticMenus = computed(() => [
   {
-    label: t('navigation.home'),
+    label: t('menu.home'),
     key: 'home',
     path: '/home',
     icon: () => h('i', { class: 'i-mdi-home text-16' }),
   },
   {
-    label: t('navigation.sqlEditor'),
+    label: t('menu.sqlEditor'),
     key: 'sql-editor',
     path: '/sql-editor',
     icon: () => h('i', { class: 'i-mdi-database-search text-16' }),
   },
   // {
-  //   label: t('navigation.ddlCheck'),
+  //   label: t('menu.ddlCheck'),
   //   key: 'ddl',
   //   path: '/ddl',
   //   icon: () => h('i', { class: 'i-mdi-table-edit text-16' }),

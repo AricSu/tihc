@@ -6,7 +6,7 @@ use microkernel::platform::command_registry::CommandRegistry;
 #[derive(Args, Debug, Default)]
 pub struct WebOptions {
     /// Port to listen on.
-    #[clap(long, default_value = "5000", help = "Port to listen on")]
+    #[clap(long, default_value = "8080", help = "Port to listen on")]
     pub port: u16,
     /// Address to bind to.
     #[clap(long, default_value = "127.0.0.1", help = "Address to bind to")]

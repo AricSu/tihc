@@ -1,22 +1,36 @@
-use crate::domain::database::{ColumnInfo, TableInfo, IndexInfo};
 use crate::domain::database::DatabasePool;
+use crate::domain::database::{ColumnInfo, IndexInfo, TableInfo};
 use crate::domain::error::SqlEditorError;
+use crate::infrastructure::connection_store::ConnectionStore;
 use async_trait::async_trait;
 use common::error::CommonError;
+use sqlx::Row;
 use std::sync::{Arc, Mutex};
 use tracing::debug;
-use crate::infrastructure::connection_store::ConnectionStore;
-use sqlx::Row;
 
 #[async_trait]
 pub trait TableStoreOps: Send + Sync {
     async fn add(&self, table: TableInfo, pool: DatabasePool) -> Result<(), SqlEditorError>;
-    async fn list(&self, pool: DatabasePool, schema: &str) -> Result<Vec<TableInfo>, SqlEditorError>;
+    async fn list(
+        &self,
+        pool: DatabasePool,
+        schema: &str,
+    ) -> Result<Vec<TableInfo>, SqlEditorError>;
     async fn get(&self, table_name: &str) -> Result<Option<TableInfo>, SqlEditorError>;
     async fn update(&self, table_name: &str, table: TableInfo) -> Result<bool, SqlEditorError>;
     async fn delete(&self, table_name: &str, pool: DatabasePool) -> Result<bool, SqlEditorError>;
-    async fn list_columns(&self, pool: DatabasePool, schema: &str, table: &str) -> Result<Vec<ColumnInfo>, SqlEditorError>;
-    async fn list_indexes(&self, pool: DatabasePool, schema: &str, table: &str) -> Result<Vec<IndexInfo>, SqlEditorError>;
+    async fn list_columns(
+        &self,
+        pool: DatabasePool,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<ColumnInfo>, SqlEditorError>;
+    async fn list_indexes(
+        &self,
+        pool: DatabasePool,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<IndexInfo>, SqlEditorError>;
     // async fn add_column(&self, table_name: &str, column: Column) -> Result<bool, SqlEditorError>;
     // async fn delete_column(
     //     &self,
@@ -42,7 +56,12 @@ impl TableStore {
 
 #[async_trait]
 impl TableStoreOps for TableStore {
-    async fn list_columns(&self, pool: DatabasePool, schema: &str, table: &str) -> Result<Vec<ColumnInfo>, SqlEditorError> {
+    async fn list_columns(
+        &self,
+        pool: DatabasePool,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<ColumnInfo>, SqlEditorError> {
         use sqlx::Row;
         match pool {
             crate::domain::database::DatabasePool::MySql(ref mysql_pool) => {
@@ -56,23 +75,31 @@ impl TableStoreOps for TableStore {
                     .fetch_all(&**mysql_pool)
                     .await
                     .map_err(|e| SqlEditorError::InfraCommon(CommonError::Other(e.to_string())))?;
-                let columns = rows.into_iter().map(|row| ColumnInfo {
-                    column_name: row.try_get("COLUMN_NAME").unwrap_or_default(),
-                    column_default: row.try_get("COLUMN_DEFAULT").ok(),
-                    is_nullable: row.try_get("IS_NULLABLE").ok(),
-                    data_type: row.try_get("DATA_TYPE").ok(),
-                    character_octet_length: row.try_get("CHARACTER_OCTET_LENGTH").ok(),
-                    character_set_name: row.try_get("CHARACTER_SET_NAME").ok(),
-                    collation_name: row.try_get("COLLATION_NAME").ok(),
-                    column_type: row.try_get("COLUMN_TYPE").ok(),
-                }).collect();
+                let columns = rows
+                    .into_iter()
+                    .map(|row| ColumnInfo {
+                        column_name: row.try_get("COLUMN_NAME").unwrap_or_default(),
+                        column_default: row.try_get("COLUMN_DEFAULT").ok(),
+                        is_nullable: row.try_get("IS_NULLABLE").ok(),
+                        data_type: row.try_get("DATA_TYPE").ok(),
+                        character_octet_length: row.try_get("CHARACTER_OCTET_LENGTH").ok(),
+                        character_set_name: row.try_get("CHARACTER_SET_NAME").ok(),
+                        collation_name: row.try_get("COLLATION_NAME").ok(),
+                        column_type: row.try_get("COLUMN_TYPE").ok(),
+                    })
+                    .collect();
                 Ok(columns)
             }
             _ => Ok(vec![]),
         }
     }
 
-    async fn list_indexes(&self, pool: DatabasePool, schema: &str, table: &str) -> Result<Vec<IndexInfo>, SqlEditorError> {
+    async fn list_indexes(
+        &self,
+        pool: DatabasePool,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<IndexInfo>, SqlEditorError> {
         use sqlx::Row;
         match pool {
             crate::domain::database::DatabasePool::MySql(ref mysql_pool) => {
@@ -85,14 +112,17 @@ impl TableStoreOps for TableStore {
                     .fetch_all(&**mysql_pool)
                     .await
                     .map_err(|e| SqlEditorError::InfraCommon(CommonError::Other(e.to_string())))?;
-                let indexes = rows.into_iter().map(|row| IndexInfo {
-                    table_schema: row.try_get("TABLE_SCHEMA").unwrap_or_default(),
-                    table_name: row.try_get("TABLE_NAME").unwrap_or_default(),
-                    non_unique: row.try_get("NON_UNIQUE").ok(),
-                    key_name: row.try_get("KEY_NAME").unwrap_or_default(),
-                    column_name: row.try_get("COLUMN_NAME").unwrap_or_default(),
-                    index_comment: row.try_get("INDEX_COMMENT").ok(),
-                }).collect();
+                let indexes = rows
+                    .into_iter()
+                    .map(|row| IndexInfo {
+                        table_schema: row.try_get("TABLE_SCHEMA").unwrap_or_default(),
+                        table_name: row.try_get("TABLE_NAME").unwrap_or_default(),
+                        non_unique: row.try_get("NON_UNIQUE").ok(),
+                        key_name: row.try_get("KEY_NAME").unwrap_or_default(),
+                        column_name: row.try_get("COLUMN_NAME").unwrap_or_default(),
+                        index_comment: row.try_get("INDEX_COMMENT").ok(),
+                    })
+                    .collect();
                 Ok(indexes)
             }
             _ => Ok(vec![]),
@@ -106,7 +136,11 @@ impl TableStoreOps for TableStore {
             .push(table);
         Ok(())
     }
-    async fn list(&self, pool: DatabasePool, schema: &str) -> Result<Vec<TableInfo>, SqlEditorError> {
+    async fn list(
+        &self,
+        pool: DatabasePool,
+        schema: &str,
+    ) -> Result<Vec<TableInfo>, SqlEditorError> {
         debug!("TableStore::list with sqlx, schema={}", schema);
         // 仅支持 MySQL，其他类型可扩展
         match pool {
@@ -147,7 +181,10 @@ impl TableStoreOps for TableStore {
             .tables
             .lock()
             .map_err(|e| SqlEditorError::InfraCommon(CommonError::LockError(e.to_string())))?;
-        if let Some(t) = tables.iter_mut().find(|t| t.table_name.as_deref() == Some(table_name)) {
+        if let Some(t) = tables
+            .iter_mut()
+            .find(|t| t.table_name.as_deref() == Some(table_name))
+        {
             *t = table;
             Ok(true)
         } else {

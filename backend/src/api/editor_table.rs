@@ -47,10 +47,13 @@ async fn delete_column() -> Json<serde_json::Value> {
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/api/sql_editor/tables", get(list_tables))
-        .route("/api/sql_editor/tables/{table_id}/add_column", post(add_column))
+        .route("/sql_editor/tables", get(list_tables))
         .route(
-            "/api/sql_editor/tables/{table_id}/columns/{column_name}",
+            "/sql_editor/tables/{table_id}/add_column",
+            post(add_column),
+        )
+        .route(
+            "/sql_editor/tables/{table_id}/columns/{column_name}",
             delete(delete_column),
         )
 }

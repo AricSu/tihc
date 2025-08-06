@@ -47,7 +47,6 @@ pub struct TableInfo {
     pub table_comment: Option<String>,
 }
 
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ColumnInfo {
     pub column_name: String,

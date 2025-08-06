@@ -2,12 +2,13 @@
 CARGO = cargo
 PNPM = yarn
 FRONTEND_DIR = frontend
+FRONTEND_DIR_DIST = $(FRONTEND_DIR)/dist
 WORKSPACE_MEMBERS = cli microkernel web common plugins
 BIN_DIR = bin
 LOG_PATH = tihc.log
 
 # 默认目标：构建全部
-all: server dashboard
+all: dashboard server 
 
 # 构建 Rust backend（workspace所有crate），并复制 binary 到 bin/
 server:
@@ -19,6 +20,7 @@ server:
 
 # 构建前端
 dashboard:
+	rm -rf $(FRONTEND_DIR_DIST)
 	cd $(FRONTEND_DIR) && $(PNPM) install
 	cd $(FRONTEND_DIR) && $(PNPM) build
 

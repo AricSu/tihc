@@ -38,6 +38,9 @@
               @clear-editor="queryEditorRef?.handleClearEditor()"
               @save-query="sqlEditor.saveQuery"
               @toggle-slowlog-panel="sqlEditor.toggleSlowlogPanel"
+              @keydown="sqlEditor.handleKeyDown"
+              @input="sqlEditor.handleInput"
+              @scroll="sqlEditor.handleScroll"
             />
           </template>
           <template #2>
@@ -206,7 +209,6 @@ sqlEditor.executeQuery = async function (sql) {
     window.$message?.error(t('sqlEditor.failNoSqlOrConn'))
     return
   }
-  
   sqlEditor.isExecuting = true
   try {
     const result = await SqlAPI.execute({ connection_id, sql })
@@ -214,19 +216,14 @@ sqlEditor.executeQuery = async function (sql) {
       window.$message?.error(result.data.error)
       return
     }
-    
-    // 添加查询结果
     sqlEditor.queryResults.push({
       id: Date.now().toString(),
       ...result.data
     })
     sqlEditor.activeResultTab = sqlEditor.queryResults[sqlEditor.queryResults.length - 1].id
-    
-    // 添加到历史记录
     sqlEditor.history = sqlEditor.history || []
     sqlEditor.history.unshift({ sql, time: new Date().toLocaleString() })
     if (sqlEditor.history.length > 50) sqlEditor.history.length = 50
-    
   } catch {
     window.$message?.error(t('sqlEditor.failExec'))
   } finally {

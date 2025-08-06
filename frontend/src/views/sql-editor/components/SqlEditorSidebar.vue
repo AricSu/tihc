@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, h, getCurrentInstance } from 'vue'
+import { ref, onMounted, watch, h, resolveComponent, getCurrentInstance } from 'vue'
 import { NTree, NPopover } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'

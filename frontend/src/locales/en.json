@@ -1,8 +1,65 @@
 {
-    "navigation": {
-        "home": "Home",
-        "sqlEditor": "SQL Editor",
-        "ddlCheck": "DDL Check"
+    "login": {
+        "welcome": "Welcome to TiHC",
+        "oneClickExperience": "One-Click Experience",
+        "verifying": "Verifying...",
+        "loggingIn": "Logging in...",
+        "loginSuccess": "Login successful"
+    },
+    "home": {
+        "whyTihc": "Why TiHC?",
+        "motto": "Make database health checks simple and effective.",
+        "mottoAuthor": "—— TiHC Team",
+        "welcomeTitle": "Welcome to TiHC",
+        "description": "TiHC (TiDB Intelligent Health Check) is an intelligent database health check tool built with {techStack}.",
+        "techStack": "Rust + Vue 3",
+        "authorIntro": "About Author",
+        "codeRepo": "Source Code",
+        "roadmapTitle": "Feature Roadmap",
+        "statusImplemented": "Implemented",
+        "statusInProgress": "In Progress",
+        "statusPlanned": "Planned",
+        "featurePlugin": {
+            "title": "Plugin Architecture",
+            "description": "Microkernel-based plugin system with dynamic loading and extension support"
+        },
+        "featureCli": {
+            "title": "CLI Tool",
+            "description": "Complete command-line interface with automation and batch processing support"
+        },
+        "featureFrontend": {
+            "title": "Web Interface",
+            "description": "Modern Vue 3 frontend with responsive design"
+        },
+        "featureSqlEditor": {
+            "title": "SQL Editor",
+            "description": "Powerful SQL editing and execution environment with Monaco Editor"
+        },
+        "featureSlowlog": {
+            "title": "Slowlog Analysis",
+            "description": "Intelligent parsing and analysis of TiDB slow query logs"
+        },
+        "featureBugTrack": {
+            "title": "Issue Tracking",
+            "description": "GitHub Issues integration for automated issue tracking and management"
+        },
+        "featureDdlCheck": {
+            "title": "DDL Check",
+            "description": "Safety checks and recommendations for database structure changes"
+        },
+        "featureReport": {
+            "title": "Health Report",
+            "description": "Generate comprehensive database health analysis reports"
+        },
+        "visitDoc": "View Documentation",
+        "techStackTitle": "Technology Stack",
+        "trendTitle": "Project Development Trend",
+        "chartLabels": {
+            "githubStars": "GitHub Stars",
+            "monthlyCommits": "Monthly Commits",
+            "stars": "Stars",
+            "commits": "Commits"
+        }
     },
     "sqlEditor": {
         "rowOne": "row",
@@ -15,6 +72,7 @@
         "howToUse": "How to use:",
         "enterLogDir": "Enter directory path in 'Log Directory' field",
         "enterPattern": "Enter regex pattern in 'File Pattern' field to match filenames",
+        "templates": "SQL Templates",
         "examplePatterns": "Example patterns: .*slow.*.log, .*.log, tidb-slow-.*",
         "largeFilesTip": "Large files may take time to process",
         "ensureReadAccess": "Ensure server has read access to log files",
@@ -79,8 +137,8 @@
         "quickInsert": "Quick Insert",
         "insert": "Insert",
         "templateNotFound": "Template not found",
-        "hideSlowlog": "Hide Slowlog Import Tools",
-        "showSlowlog": "Show Slowlog Import Tools",
+        "hideSlowlog": "Hide Slowlog Tools",
+        "showSlowlog": "Show Slowlog Tools",
         "lines": "Lines",
         "length": "Length",
         "ConnectionSaved": "Connection saved successfully.",
@@ -153,7 +211,6 @@
         "refresh": "Refresh",
         "loading": "Loading...",
         "sqlTemplates": "SQL Templates",
-        "templates": "SQL Templates",
         "noDatabaseInfo": "No database information",
         "selectConnectionFirst": "Please select a connection first",
         "schemaLoadFailed": "Schema load failed",
@@ -163,8 +220,9 @@
         "ms": "ms",
         "error": "Error",
         "success": "Success",
-        "rowSingle": "row",
-        "rowPlural": "rows",
+        "row": "{count, plural, =1 {row} other {rows}}",
+        "rowCount": "{count} rows",
+        "executionTime": "took {time}ms",
         "rowsReturned": "{count} rows returned in {time}ms",
         "copyCsv": "Copy CSV",
         "copyJson": "Copy JSON",
@@ -180,68 +238,10 @@
         "noDataToCopy": "No data to copy",
         "resultCopied": "Result copied to clipboard"
     },
-    "home": {
-        "whyTihc": "Why TiHC",
-        "welcomeTitle": "Welcome to TiHC 1.1.0",
-        "description": "A professional TiDB diagnostic tool built with {techStack} architecture. Zero dependency deployment, ready to use out of the box; complete frontend-backend separated development, single-file self-contained; lightweight, efficient, and secure.",
-        "techStack": "Rust + Vue",
-        "authorIntro": "About Author",
-        "codeRepo": "Code Repository",
-        "motto": "Solve problems efficiently and leave more time for life.",
-        "mottoAuthor": "—— Aric",
-        "roadmapTitle": "TiHC Roadmap & Features",
-        "techStackTitle": "Tech Stack",
-        "trendTitle": "Trends",
-        "statusImplemented": "Implemented",
-        "statusInProgress": "In Progress",
-        "statusPlanned": "Planned",
-        "featurePlugin": {
-            "title": "TiHC Plugin Architecture",
-            "description": "Code refactoring based on microkernel & DDD design patterns, supporting modular functional extensions"
-        },
-        "featureCli": {
-            "title": "TiHC CLI Tool",
-            "description": "Built with Rust Clap CLI, all features self-contained, no dependencies required"
-        },
-        "featureFrontend": {
-            "title": "Modern Frontend",
-            "description": "Interactive interface built with Vue Naive Admin + NativeUI, providing elegant user experience"
-        },
-        "featureSqlEditor": {
-            "title": "WEB SQL Editor",
-            "description": "Monaco Editor implementation with syntax highlighting, keyboard shortcuts execution and result display, efficient slowlog analysis"
-        },
-        "featureSlowlog": {
-            "title": "Slowlog Parsing & Import",
-            "description": "Slowlog import and visualization to help identify performance bottlenecks"
-        },
-        "featureBugTrack": {
-            "title": "Bug Fix Information Tracking",
-            "description": "Based on TiDB GitHub Issue information, enabling specific bug fix version queries"
-        },
-        "featureDdlCheck": {
-            "title": "Lossy DDL Check",
-            "description": "Intelligent DDL statement checking to prevent potential database risks from lossy DDL causing statistics loss"
-        },
-        "featureReport": {
-            "title": "Inspection Report Generation",
-            "description": "Database health monitoring with key metrics display and PDF export"
-        },
-        "visitDoc": "Visit TiHC Doc to learn more about TiHC progress, under continuous development...",
-        "chartLabels": {
-            "githubStars": "GitHub Stars",
-            "monthlyCommits": "Monthly Commits",
-            "commits": "Commits",
-            "stars": "Stars"
-        }
-    },
-    "login": {
-        "title": "TiHC Login",
-        "oneClickExperience": "Quick Start",
-        "verifying": "Verifying, please wait...",
-        "loggingIn": "Logging in...",
-        "loginSuccess": "Login successful",
-        "welcome": "Welcome to TiHC"
+    "menu": {
+        "home": "Home",
+        "sqlEditor": "SQL Editor",
+        "ddlCheck": "DDL Check"
     },
     "common": {
         "language": "Language",

@@ -1,7 +1,7 @@
-use axum::{Extension, Json};
-use std::sync::Arc;
-use microkernel::platform::{CommandRegistry, ServiceRegistry};
 use crate::api::editor_sql::{ExecuteSqlRequest, SqlResult};
+use axum::{Extension, Json};
+use microkernel::platform::{CommandRegistry, ServiceRegistry};
+use std::sync::Arc;
 
 /// HTTP API handler: /api/sql/execute
 pub async fn handle_execute_sql(
@@ -11,7 +11,6 @@ pub async fn handle_execute_sql(
     tracing::info!(target: "editor_sql_handler", "handle_execute_sql called, connection_id={}, sql={}", req.connection_id, req.sql);
     execute_sql(Extension(registry), Json(req)).await
 }
-
 
 /// 执行 SQL 查询，仅支持 SELECT
 /// POST /api/sql/execute
@@ -48,16 +47,18 @@ pub async fn execute_sql(
             if let Err(e) = serde_json::from_value::<SqlResult>(val.clone()) {
                 tracing::error!(target: "editor_sql_handler", "SqlResult parse error: {}. Raw value: {:?}", e, val);
             }
-            Json(serde_json::from_value(val.clone()).unwrap_or_else(|_| SqlResult {
-                column_names: vec![],
-                column_type_names: vec![],
-                rows: vec![],
-                rows_count: Some(0),
-                error: Some("结果解析失败".to_string()),
-                latency_ms: None,
-                statement: Some(sql.to_string()),
-                messages: None,
-            }))
+            Json(
+                serde_json::from_value(val.clone()).unwrap_or_else(|_| SqlResult {
+                    column_names: vec![],
+                    column_type_names: vec![],
+                    rows: vec![],
+                    rows_count: Some(0),
+                    error: Some("结果解析失败".to_string()),
+                    latency_ms: None,
+                    statement: Some(sql.to_string()),
+                    messages: None,
+                }),
+            )
         }
         Err(e) => {
             tracing::error!(target: "editor_sql_handler", "SQL execution error: {}", e);

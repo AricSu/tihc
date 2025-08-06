@@ -6,7 +6,9 @@ use sqlx::QueryBuilder;
 
 /// 根据 Connection 创建 MySQL 连接池（支持默认配置）
 pub async fn get_mysql_pool(conn: &Connection) -> Result<MySqlPool> {
-    MySqlPool::connect(&conn.mysql_url()).await.map_err(Into::into)
+    MySqlPool::connect(&conn.mysql_url())
+        .await
+        .map_err(Into::into)
 }
 
 /// 初始化数据库和 SLOW_QUERY 表（如不存在）

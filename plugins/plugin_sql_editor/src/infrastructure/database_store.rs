@@ -1,10 +1,10 @@
 use crate::domain::database::Database;
 use crate::domain::error::SqlEditorError;
 use crate::domain::sql::{SqlMessage, SqlResult};
-use sqlx::MySqlPool;
-use std::sync::Arc;
-use sqlx::{Column, Row};
 use base64::Engine;
+use sqlx::MySqlPool;
+use sqlx::{Column, Row};
+use std::sync::Arc;
 use time;
 
 // --- SQL Constants ---
@@ -18,7 +18,10 @@ const MYSQL_DELETE: &str = "DELETE FROM databases WHERE name = ?";
 #[async_trait::async_trait]
 pub trait DatabaseBackend: Send + Sync {
     async fn add(&self, db: &Database) -> Result<(), SqlEditorError>;
-    async fn list(&self, pool: crate::domain::database::DatabasePool) -> Result<Vec<Database>, SqlEditorError>;
+    async fn list(
+        &self,
+        pool: crate::domain::database::DatabasePool,
+    ) -> Result<Vec<Database>, SqlEditorError>;
     async fn get(&self, db_name: &str) -> Result<Option<Database>, SqlEditorError>;
     async fn update(&self, db_name: &str, db: &Database) -> Result<bool, SqlEditorError>;
     async fn delete(&self, db_name: &str) -> Result<bool, SqlEditorError>;
@@ -34,7 +37,10 @@ impl DatabaseBackend for DummyBackend {
             "DummyBackend not implemented".to_string(),
         ))
     }
-    async fn list(&self, _pool: crate::domain::database::DatabasePool) -> Result<Vec<Database>, SqlEditorError> {
+    async fn list(
+        &self,
+        _pool: crate::domain::database::DatabasePool,
+    ) -> Result<Vec<Database>, SqlEditorError> {
         Err(SqlEditorError::Database(
             "DummyBackend not implemented".to_string(),
         ))
@@ -79,7 +85,10 @@ impl DatabaseBackend for MySqlBackend {
         Ok(())
     }
 
-    async fn list(&self, pool: crate::domain::database::DatabasePool) -> Result<Vec<Database>, SqlEditorError> {
+    async fn list(
+        &self,
+        pool: crate::domain::database::DatabasePool,
+    ) -> Result<Vec<Database>, SqlEditorError> {
         // 只处理 MySql 类型，后续可扩展
         match pool {
             crate::domain::database::DatabasePool::MySql(mysql_pool) => {
@@ -89,7 +98,9 @@ impl DatabaseBackend for MySqlBackend {
                     .map_err(|e| SqlEditorError::Database(e.to_string()))?;
                 Ok(rows)
             }
-            _ => Err(SqlEditorError::Database("Unsupported pool type for MySqlBackend".to_string())),
+            _ => Err(SqlEditorError::Database(
+                "Unsupported pool type for MySqlBackend".to_string(),
+            )),
         }
     }
 
@@ -137,13 +148,21 @@ impl DatabaseBackend for MySqlBackend {
         {
             if result.column_names.is_empty() {
                 result.column_names = row.columns().iter().map(|c| c.name().to_string()).collect();
-                result.column_type_names = row.columns().iter().map(|c| c.type_info().to_string()).collect();
+                result.column_type_names = row
+                    .columns()
+                    .iter()
+                    .map(|c| c.type_info().to_string())
+                    .collect();
                 tracing::debug!(target: "sql_editor_backend", "execute_sql: columns = {:?}", result.column_names);
             }
             let mut row_vec = Vec::new();
             for idx in 0..row.len() {
                 let col_name = row.columns().get(idx).map(|c| c.name()).unwrap_or("");
-                let col_type = row.columns().get(idx).map(|c| c.type_info().to_string()).unwrap_or_default();
+                let col_type = row
+                    .columns()
+                    .get(idx)
+                    .map(|c| c.type_info().to_string())
+                    .unwrap_or_default();
                 let (value, raw_debug) = parse_sqlx_value(&row, idx);
                 tracing::debug!(target: "sql_editor_backend", "execute_sql: col={} type={} idx={} raw={} value={:?}", col_name, col_type, idx, raw_debug, value);
                 row_vec.push(value);
@@ -174,7 +193,6 @@ impl DatabaseBackend for MySqlBackend {
         }
         Ok(result)
     }
-
 }
 
 /// 统一解析 sqlx::Row 的字段，返回 (值, debug)
@@ -188,12 +206,32 @@ fn parse_sqlx_value(row: &sqlx::mysql::MySqlRow, idx: usize) -> (serde_json::Val
             }
         };
     }
-    try_type!(chrono::NaiveDateTime, "chrono::NaiveDateTime", |v: chrono::NaiveDateTime| Value::String(v.format("%Y-%m-%d %H:%M:%S%.6f").to_string()));
-    try_type!(chrono::NaiveDate, "chrono::NaiveDate", |v: chrono::NaiveDate| Value::String(v.format("%Y-%m-%d").to_string()));
-    try_type!(chrono::NaiveTime, "chrono::NaiveTime", |v: chrono::NaiveTime| Value::String(v.format("%H:%M:%S").to_string()));
-    try_type!(time::PrimitiveDateTime, "time::PrimitiveDateTime", |v: time::PrimitiveDateTime| Value::String(v.to_string()));
-    try_type!(time::Date, "time::Date", |v: time::Date| Value::String(v.to_string()));
-    try_type!(time::Time, "time::Time", |v: time::Time| Value::String(v.to_string()));
+    try_type!(
+        chrono::NaiveDateTime,
+        "chrono::NaiveDateTime",
+        |v: chrono::NaiveDateTime| Value::String(v.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+    );
+    try_type!(
+        chrono::NaiveDate,
+        "chrono::NaiveDate",
+        |v: chrono::NaiveDate| Value::String(v.format("%Y-%m-%d").to_string())
+    );
+    try_type!(
+        chrono::NaiveTime,
+        "chrono::NaiveTime",
+        |v: chrono::NaiveTime| Value::String(v.format("%H:%M:%S").to_string())
+    );
+    try_type!(
+        time::PrimitiveDateTime,
+        "time::PrimitiveDateTime",
+        |v: time::PrimitiveDateTime| Value::String(v.to_string())
+    );
+    try_type!(time::Date, "time::Date", |v: time::Date| Value::String(
+        v.to_string()
+    ));
+    try_type!(time::Time, "time::Time", |v: time::Time| Value::String(
+        v.to_string()
+    ));
     try_type!(String, "String", |v: String| Value::String(v.clone()));
     try_type!(i64, "i64", |v: i64| Value::String(v.to_string()));
     try_type!(u64, "u64", |v: u64| Value::String(v.to_string()));
@@ -206,26 +244,47 @@ fn parse_sqlx_value(row: &sqlx::mysql::MySqlRow, idx: usize) -> (serde_json::Val
             Value::String(base64::engine::general_purpose::STANDARD.encode(&v))
         }
     });
-    try_type!(serde_json::Value, "serde_json::Value", |v: serde_json::Value| v.clone());
+    try_type!(
+        serde_json::Value,
+        "serde_json::Value",
+        |v: serde_json::Value| v.clone()
+    );
 
     // 兜底 decode_raw
     match row.try_get_raw(idx) {
         Ok(v) => {
-            if let Ok(dt) = <chrono::NaiveDateTime as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
-                return (Value::String(dt.format("%Y-%m-%d %H:%M:%S%.6f").to_string()), format!("decode_raw chrono::NaiveDateTime: {:?}", dt));
-            } else if let Ok(dt) = <time::PrimitiveDateTime as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
-                return (Value::String(dt.to_string()), format!("decode_raw time::PrimitiveDateTime: {:?}", dt));
+            if let Ok(dt) =
+                <chrono::NaiveDateTime as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone())
+            {
+                return (
+                    Value::String(dt.format("%Y-%m-%d %H:%M:%S%.6f").to_string()),
+                    format!("decode_raw chrono::NaiveDateTime: {:?}", dt),
+                );
+            } else if let Ok(dt) =
+                <time::PrimitiveDateTime as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone())
+            {
+                return (
+                    Value::String(dt.to_string()),
+                    format!("decode_raw time::PrimitiveDateTime: {:?}", dt),
+                );
             } else if let Ok(s) = <String as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
-                return (Value::String(s.clone()), format!("decode_raw String: {:?}", s));
-            } else if let Ok(b) = <Vec<u8> as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone()) {
-                return (Value::String(base64::engine::general_purpose::STANDARD.encode(&b)), format!("decode_raw Vec<u8>: {:?}", b));
+                return (
+                    Value::String(s.clone()),
+                    format!("decode_raw String: {:?}", s),
+                );
+            } else if let Ok(b) = <Vec<u8> as sqlx::decode::Decode<sqlx::MySql>>::decode(v.clone())
+            {
+                return (
+                    Value::String(base64::engine::general_purpose::STANDARD.encode(&b)),
+                    format!("decode_raw Vec<u8>: {:?}", b),
+                );
             } else {
                 return (Value::Null, "decode_raw NULL".to_string());
             }
         }
         Err(e) => (Value::Null, format!("get_raw error: {}", e)),
     }
-// END parse_sqlx_value
+    // END parse_sqlx_value
 }
 
 // --- DatabaseStore 动态分发 ---
@@ -235,13 +294,18 @@ pub struct DatabaseStore {
 }
 
 impl DatabaseStore {
-    pub fn new_dummy(connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>) -> Self {
+    pub fn new_dummy(
+        connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>,
+    ) -> Self {
         Self {
             backend: Arc::new(DummyBackend),
             connection_store,
         }
     }
-    pub fn new_mysql(pool: Arc<MySqlPool>, connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>) -> Self {
+    pub fn new_mysql(
+        pool: Arc<MySqlPool>,
+        connection_store: Arc<crate::infrastructure::connection_store::ConnectionStore>,
+    ) -> Self {
         Self {
             backend: Arc::new(MySqlBackend { pool }),
             connection_store,

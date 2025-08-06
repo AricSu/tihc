@@ -19,7 +19,7 @@
         <div class="result-tab-pane-content">
           <div class="result-header">
             <n-tag :type="result.error ? 'error' : 'success'" size="small">{{ result.error ? t('sqlEditor.error') : t('sqlEditor.success') }}</n-tag>
-            <n-text depth="3">{{ pagedCount(result) }} {{ t('sqlEditor.rowsReturned', { count: pagedCount(result), time: result.executionTime ?? result.latency_ms ?? 0 }) }}</n-text>
+            <n-text depth="3">{{ getDisplayText(result) }} • {{ t('sqlEditor.executionTime', { time: result.executionTime ?? result.latency_ms ?? 0 }) }}</n-text>
             <div class="result-actions">
               <n-button size="small" @click="handleExport(result, 'csv')">{{ t('sqlEditor.copyCsv') }}</n-button>
               <n-button size="small" @click="handleExport(result, 'json')">{{ t('sqlEditor.copyJson') }}</n-button>
@@ -150,23 +150,31 @@ function getPagedData(result) {
 function hasRows(result) {
   return getData(result).length > 0
 }
-function pagedCount(result) {
+function getTotalRowCount(result) {
   return getData(result).length
+}
+function getDisplayText(result) {
+  const totalRows = getTotalRowCount(result)
+  if (totalRows === 0) return t('sqlEditor.noDataReturned')
+  
+  const page = getPage(result.id)
+  const pageSize = getPageSize(result.id)
+  const startRow = (page - 1) * pageSize + 1
+  const endRow = Math.min(page * pageSize, totalRows)
+  
+  if (totalRows <= pageSize) {
+    return t('sqlEditor.rowCount', { count: totalRows })
+  } else {
+    return `${startRow}-${endRow} / ${t('sqlEditor.rowCount', { count: totalRows })}`
+  }
 }
 function formatTabLabel(result, index) {
   const queryNum = t('sqlEditor.queryNum', { num: index + 1 })
   const time = `${result.executionTime ?? result.latency_ms ?? 0}${t('sqlEditor.ms')}`
   const rowCount = Array.isArray(result.rows) ? result.rows.length : 0
-  
-  let status
-  if (result.error) {
-    status = `✗ ${t('sqlEditor.error')}`
-  } else {
-    // 使用国际化的单复数文本
-    const rowText = rowCount === 1 ? t('sqlEditor.rowSingle') : t('sqlEditor.rowPlural')
-    status = `✓ ${rowCount} ${rowText}`
-  }
-  
+  const status = result.error
+    ? `✗ ${t('sqlEditor.error')}`
+    : `✓ ${t('sqlEditor.rowCount', { count: rowCount })}`
   return `${queryNum} • ${status} • ${time}`
 }
 function handleExport(result, type: 'csv' | 'json') {

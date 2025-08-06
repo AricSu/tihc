@@ -41,7 +41,7 @@ impl ConnectionStore {
             let pool_url = format!(
                 "mysql://{}:{}@{}:{}/{}",
                 conn.username,
-                conn.password.as_deref().unwrap_or("") ,
+                conn.password.as_deref().unwrap_or(""),
                 conn.host,
                 conn.port,
                 conn.database.as_deref().unwrap_or("")

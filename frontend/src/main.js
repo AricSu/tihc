@@ -1,12 +1,14 @@
-// 修复 Monaco Editor Web Worker 警告（本地静态资源方案）
-if (typeof window !== 'undefined') {
-  window.MonacoEnvironment = {
-    getWorkerUrl: function (moduleId, label) {
-      return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-        self.MonacoEnvironment = { baseUrl: location.origin };
-        importScripts('${location.origin}/monaco-editor/min/vs/base/worker/workerMain.js');
-      `)}`;
-    }
+// 禁用 Monaco Editor 的 Web Workers，避免加载问题
+// 这会让 Monaco Editor 在主线程中运行，适合嵌入式部署
+window.MonacoEnvironment = {
+  getWorker: function (moduleId, label) {
+    return new Worker(
+      URL.createObjectURL(
+        new Blob(['self.MonacoEnvironment = { baseUrl: "/" }; self.module = undefined; self.process = undefined; self.Buffer = undefined;'], {
+          type: 'application/javascript',
+        })
+      )
+    )
   }
 }
 import { createApp } from 'vue'

@@ -109,7 +109,10 @@ impl CommandHandler for Command<crate::infrastructure::database_store::DatabaseS
                     self.store.backend.add(&db).await?;
                     Ok(serde_json::to_value("ok")?)
                 } else {
-                    Err(SqlEditorError::Other("Invalid arguments for AddDatabase".to_string()).into())
+                    Err(
+                        SqlEditorError::Other("Invalid arguments for AddDatabase".to_string())
+                            .into(),
+                    )
                 }
             }
             Op::DeleteDatabase => {
@@ -126,46 +129,61 @@ impl CommandHandler for Command<crate::infrastructure::database_store::DatabaseS
                 let connection_id = parse_args!(args, u64);
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
                 // 动态分发 backend
-                let backend: Arc<dyn crate::infrastructure::database_store::DatabaseBackend> = match &pool {
-                    Some(crate::domain::database::DatabasePool::MySql(mysql_pool)) => {
-                        Arc::new(crate::infrastructure::database_store::MySqlBackend { pool: Arc::clone(mysql_pool) })
-                    }
-                    // 可扩展更多类型
-                    _ => Arc::new(crate::infrastructure::database_store::DummyBackend)
-                };
+                let backend: Arc<dyn crate::infrastructure::database_store::DatabaseBackend> =
+                    match &pool {
+                        Some(crate::domain::database::DatabasePool::MySql(mysql_pool)) => {
+                            Arc::new(crate::infrastructure::database_store::MySqlBackend {
+                                pool: Arc::clone(mysql_pool),
+                            })
+                        }
+                        // 可扩展更多类型
+                        _ => Arc::new(crate::infrastructure::database_store::DummyBackend),
+                    };
                 let data = backend.list(pool.unwrap()).await?;
                 Ok(serde_json::to_value(data)?)
             }
             Op::ExecuteSql => {
                 tracing::debug!("handler: ExecuteSql entered");
-                let connection_id = args.get(0)
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .ok_or_else(|| SqlEditorError::Other("Invalid connection_id for ExecuteSql".to_string()))?;
-                let sql = args.get(1)
-                    .cloned()
-                    .ok_or_else(|| SqlEditorError::Other("Missing sql for ExecuteSql".to_string()))?;
+                let connection_id =
+                    args.get(0)
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .ok_or_else(|| {
+                            SqlEditorError::Other(
+                                "Invalid connection_id for ExecuteSql".to_string(),
+                            )
+                        })?;
+                let sql = args.get(1).cloned().ok_or_else(|| {
+                    SqlEditorError::Other("Missing sql for ExecuteSql".to_string())
+                })?;
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
                 // 动态分发 backend
-                let backend: Arc<dyn crate::infrastructure::database_store::DatabaseBackend> = match &pool {
-                    Some(crate::domain::database::DatabasePool::MySql(mysql_pool)) => {
-                        Arc::new(crate::infrastructure::database_store::MySqlBackend { pool: Arc::clone(mysql_pool) })
-                    }
-                    // 可扩展更多类型
-                    _ => Arc::new(crate::infrastructure::database_store::DummyBackend)
-                };
+                let backend: Arc<dyn crate::infrastructure::database_store::DatabaseBackend> =
+                    match &pool {
+                        Some(crate::domain::database::DatabasePool::MySql(mysql_pool)) => {
+                            Arc::new(crate::infrastructure::database_store::MySqlBackend {
+                                pool: Arc::clone(mysql_pool),
+                            })
+                        }
+                        // 可扩展更多类型
+                        _ => Arc::new(crate::infrastructure::database_store::DummyBackend),
+                    };
                 let res = backend.execute_sql(&sql).await?;
                 Ok(serde_json::to_value(res)?)
             }
             _ => {
                 tracing::error!(target: "handler", "DatabaseStore unsupported op: {:?}", self.op);
                 Ok(serde_json::to_value("unsupported")?)
-            },
+            }
         }
     }
 }
@@ -178,13 +196,20 @@ impl CommandHandler for Command<TableStore> {
                 tracing::debug!("handler: ListTable entered");
                 // args: [connection_id, schema_name]
                 if args.len() < 2 {
-                    return Err(SqlEditorError::Other("Missing arguments for ListTable".to_string()).into());
+                    return Err(SqlEditorError::Other(
+                        "Missing arguments for ListTable".to_string(),
+                    )
+                    .into());
                 }
-                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let connection_id = args[0]
+                    .parse::<u64>()
+                    .map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
                 let schema_name = &args[1];
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
                 let tables = self.store.list(pool.unwrap(), schema_name).await?;
                 Ok(serde_json::to_value(tables)?)
@@ -193,44 +218,71 @@ impl CommandHandler for Command<TableStore> {
                 tracing::debug!("handler: ListColumn entered");
                 // args: [connection_id, schema_name, table_name]
                 if args.len() < 3 {
-                    return Err(SqlEditorError::Other("Missing arguments for ListColumn".to_string()).into());
+                    return Err(SqlEditorError::Other(
+                        "Missing arguments for ListColumn".to_string(),
+                    )
+                    .into());
                 }
-                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let connection_id = args[0]
+                    .parse::<u64>()
+                    .map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
                 let schema_name = &args[1];
                 let table_name = &args[2];
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
-                let columns = self.store.list_columns(pool.unwrap(), schema_name, table_name).await?;
+                let columns = self
+                    .store
+                    .list_columns(pool.unwrap(), schema_name, table_name)
+                    .await?;
                 Ok(serde_json::to_value(columns)?)
             }
             Op::ListIndex => {
                 tracing::debug!("handler: ListIndex entered");
                 // args: [connection_id, schema_name, table_name]
                 if args.len() < 3 {
-                    return Err(SqlEditorError::Other("Missing arguments for ListIndex".to_string()).into());
+                    return Err(SqlEditorError::Other(
+                        "Missing arguments for ListIndex".to_string(),
+                    )
+                    .into());
                 }
-                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let connection_id = args[0]
+                    .parse::<u64>()
+                    .map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
                 let schema_name = &args[1];
                 let table_name = &args[2];
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
-                let indexes = self.store.list_indexes(pool.unwrap(), schema_name, table_name).await?;
+                let indexes = self
+                    .store
+                    .list_indexes(pool.unwrap(), schema_name, table_name)
+                    .await?;
                 Ok(serde_json::to_value(indexes)?)
             }
             Op::AddTable => {
                 tracing::debug!("handler: AddTable entered");
                 // args: [connection_id, table_json]
                 if args.len() < 2 {
-                    return Err(SqlEditorError::Other("Missing arguments for AddTable".to_string()).into());
+                    return Err(SqlEditorError::Other(
+                        "Missing arguments for AddTable".to_string(),
+                    )
+                    .into());
                 }
-                let connection_id = args[0].parse::<u64>().map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
+                let connection_id = args[0]
+                    .parse::<u64>()
+                    .map_err(|e| SqlEditorError::Other(format!("Invalid connection_id: {}", e)))?;
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
                 let table: crate::domain::database::TableInfo = serde_json::from_str(&args[1])?;
                 self.store.add(table, pool.unwrap()).await?;
@@ -241,7 +293,9 @@ impl CommandHandler for Command<TableStore> {
                 let connection_id = parse_args!(args, u64);
                 let pool = self.store.connection_store.get_pool(connection_id);
                 if pool.is_none() {
-                    return Err(SqlEditorError::Other("Connection pool not found".to_string()).into());
+                    return Err(
+                        SqlEditorError::Other("Connection pool not found".to_string()).into(),
+                    );
                 }
                 let deleted = self.store.delete(&args[1], pool.unwrap()).await?;
                 Ok(serde_json::to_value(deleted)?)

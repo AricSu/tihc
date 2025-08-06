@@ -8,7 +8,6 @@ pub struct SqlMessage {
     pub content: String,
 }
 
-
 /// SQL 执行结果
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct SqlResult {

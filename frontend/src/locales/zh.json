@@ -1,8 +1,65 @@
 {
-    "navigation": {
-        "home": "首页",
-        "sqlEditor": "SQL 编辑器",
-        "ddlCheck": "DDL 检查"
+    "login": {
+        "welcome": "欢迎使用 TiHC",
+        "oneClickExperience": "一键体验",
+        "verifying": "验证中...",
+        "loggingIn": "登录中...",
+        "loginSuccess": "登录成功"
+    },
+    "home": {
+        "whyTihc": "为什么选择 TiHC？",
+        "motto": "让数据库健康检查变得简单而有效。",
+        "mottoAuthor": "—— TiHC 团队",
+        "welcomeTitle": "欢迎使用 TiHC",
+        "description": "TiHC (TiDB Intelligent Health Check) 是一个基于 {techStack} 构建的智能数据库健康检查工具。",
+        "techStack": "Rust + Vue 3",
+        "authorIntro": "作者介绍",
+        "codeRepo": "代码仓库",
+        "roadmapTitle": "功能路线图",
+        "statusImplemented": "已实现",
+        "statusInProgress": "开发中",
+        "statusPlanned": "计划中",
+        "featurePlugin": {
+            "title": "插件架构",
+            "description": "基于微内核的插件系统，支持动态加载和扩展"
+        },
+        "featureCli": {
+            "title": "命令行工具",
+            "description": "提供完整的 CLI 接口，支持自动化脚本和批处理"
+        },
+        "featureFrontend": {
+            "title": "Web 界面",
+            "description": "现代化的 Vue 3 前端界面，支持响应式设计"
+        },
+        "featureSqlEditor": {
+            "title": "SQL 编辑器",
+            "description": "集成 Monaco Editor 的强大 SQL 编辑和执行环境"
+        },
+        "featureSlowlog": {
+            "title": "慢日志分析",
+            "description": "智能解析和分析 TiDB 慢查询日志"
+        },
+        "featureBugTrack": {
+            "title": "问题追踪",
+            "description": "集成 GitHub Issues，自动化 BUG 跟踪"
+        },
+        "featureDdlCheck": {
+            "title": "有损 DDL 检查",
+            "description": "数据库结构变更的安全性检查和建议"
+        },
+        "featureReport": {
+            "title": "健康报告",
+            "description": "生成全面的数据库健康状况分析报告"
+        },
+        "visitDoc": "查看文档",
+        "techStackTitle": "技术栈分布",
+        "trendTitle": "项目发展趋势",
+        "chartLabels": {
+            "githubStars": "GitHub Stars",
+            "monthlyCommits": "月度提交数",
+            "stars": "Stars",
+            "commits": "提交数"
+        }
     },
     "sqlEditor": {
         "rowOne": "行",
@@ -14,7 +71,8 @@
         "tips": "提示",
         "howToUse": "使用方法：",
         "enterLogDir": "在“日志目录”字段输入目录路径",
-        "enterPattern": "在“文件模式”字段输入正则表达式以匹配文件名",
+        "enterPattern": "在'文件模式'字段输入正则表达式以匹配文件名",
+        "templates": "SQL 模板",
         "examplePatterns": "示例：.*slow.*.log, .*.log, tidb-slow-.*",
         "largeFilesTip": "大文件处理可能需要时间",
         "ensureReadAccess": "请确保服务器有读取日志文件的权限",
@@ -79,7 +137,7 @@
         "quickInsert": "快速插入",
         "insert": "插入",
         "templateNotFound": "未找到模板",
-        "hideSlowlog": "隐藏慢日志导入工具",
+        "hideSlowlog": "隐藏慢日志工具",
         "databaseConnection": "数据库连接",
         "savedConnections": "已保存连接",
         "connectionName": "连接名称",
@@ -114,7 +172,7 @@
         "portRange": "端口必须在 1 到 65535 之间",
         "usernameRequired": "用户名不能为空",
         "connectionNameExists": "连接名称已存在，请使用唯一名称",
-        "showSlowlog": "显示慢日志导入工具",
+        "showSlowlog": "显示慢日志工具",
         "lines": "行数",
         "length": "长度",
         "ConnectionSaved": "连接保存成功。",
@@ -154,7 +212,6 @@
         "refresh": "刷新",
         "loading": "加载中...",
         "sqlTemplates": "SQL模板",
-        "templates": "SQL模板",
         "noDatabaseInfo": "暂无数据库信息",
         "selectConnectionFirst": "请先选择连接",
         "schemaLoadFailed": "Schema 加载失败",
@@ -163,8 +220,9 @@
         "ms": "毫秒",
         "error": "错误",
         "success": "成功",
-        "rowSingle": "行",
-        "rowPlural": "行",
+        "row": "{count}行",
+        "rowCount": "{count}行",
+        "executionTime": "用时 {time}毫秒",
         "rowsReturned": "{count} 行已返回，用时 {time}毫秒",
         "copyCsv": "复制 CSV",
         "copyJson": "复制 JSON",
@@ -180,68 +238,10 @@
         "noDataToCopy": "无数据可复制",
         "resultCopied": "结果已复制到剪贴板"
     },
-    "home": {
-        "whyTihc": "为什么选择 TiHC",
-        "welcomeTitle": "欢迎使用 TiHC 1.1.0",
-        "description": "专为 TiDB 打造的问题诊断工具，采用 {techStack} 架构设计。零依赖部署，开箱即用；前后端分离开发，单文件自包含构建；轻量高效，安全可靠。",
-        "techStack": "Rust + Vue",
-        "authorIntro": "作者简介",
-        "codeRepo": "代码仓库",
-        "motto": "让问题解决高效，留更多时间给生活。",
-        "mottoAuthor": "—— Aric",
-        "roadmapTitle": "TiHC Roadmap & 特性",
-        "techStackTitle": "技术栈",
-        "trendTitle": "趋势",
-        "statusImplemented": "已实现",
-        "statusInProgress": "制作中",
-        "statusPlanned": "规划中",
-        "featurePlugin": {
-            "title": "TiHC 整体插件化",
-            "description": "基于 微内核 & DDD 设计模式重构代码，支持功能模块化扩展"
-        },
-        "featureCli": {
-            "title": "TiHC CLI 工具",
-            "description": "基于 Rust Clap 构建 CLI，所有功能自包含，无需下载任何依赖"
-        },
-        "featureFrontend": {
-            "title": "现代化前端",
-            "description": "基于 Vue Naive Admin + NativeUI 构建可交互界面，提供优雅的用户体验"
-        },
-        "featureSqlEditor": {
-            "title": "WEB SQL 编辑器",
-            "description": "基于 Monaco Editor 实现，支持语法高亮，快捷键执行和结果展示，对慢日志高效分析"
-        },
-        "featureSlowlog": {
-            "title": "慢日志解析与导入",
-            "description": "Slowlog 导入与可视化，帮助识别性能瓶颈"
-        },
-        "featureBugTrack": {
-            "title": "BUG 修复信息追踪",
-            "description": "基于 TiDB GitHub Issue 信息，实现对某一具体 BUG 的修复版本查询"
-        },
-        "featureDdlCheck": {
-            "title": "有损 DDL 检查",
-            "description": "智能 DDL 语句检查，预防有损 DDL 导致统计信息丢失的潜在数据库风险"
-        },
-        "featureReport": {
-            "title": "巡检报告生成",
-            "description": "数据库健康状态监控，提供关键指标展示及 PDF 导出"
-        },
-        "visitDoc": "访问 TiHC Doc 了解更多 TiHC 进展，持续开发中...",
-        "chartLabels": {
-            "githubStars": "GitHub Stars",
-            "monthlyCommits": "月度提交数",
-            "commits": "提交数",
-            "stars": "Stars"
-        }
-    },
-    "login": {
-        "title": "TiHC 登录",
-        "oneClickExperience": "一键体验",
-        "verifying": "正在验证，请稍后...",
-        "loggingIn": "登录中...",
-        "loginSuccess": "登录成功",
-        "welcome": "欢迎使用 TiHC"
+    "menu": {
+        "home": "首页",
+        "sqlEditor": "SQL 编辑器",
+        "ddlCheck": "DDL 检查"
     },
     "common": {
         "language": "语言切换",

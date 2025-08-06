@@ -20,5 +20,5 @@ async fn notifications() -> impl IntoResponse {
 }
 
 pub fn routes() -> Router {
-    Router::new().route("/api/notifications", get(notifications))
+    Router::new().route("/notifications", get(notifications))
 }
