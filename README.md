@@ -20,6 +20,7 @@ TiHC is an **intelligent health check platform** for TiDB, designed for DBAs and
 ### Architecture Diagram
 
 
+
 #### Text Version (Layered Structure)
 
 ```

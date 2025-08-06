@@ -1,0 +1,182 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a new release'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev make
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  build:
+    name: Build for ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            use_makefile: true
+          - os: ubuntu-latest
+            platform: linux-arm64
+            target: aarch64-unknown-linux-gnu
+            use_makefile: false
+          - os: macos-latest
+            platform: macos-x86_64
+            target: x86_64-apple-darwin
+            use_makefile: true
+          - os: macos-latest
+            platform: macos-arm64
+            target: aarch64-apple-darwin
+            use_makefile: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev make
+          # Install cross-compilation tools for ARM64
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # macOS already has make, just ensure we have the target
+          rustup target add ${{ matrix.target }}
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform }}
+
+      - name: Build with Makefile (native targets)
+        if: matrix.use_makefile == true
+        run: make server
+
+      - name: Build with cargo (cross-compilation)
+        if: matrix.use_makefile == false
+        run: |
+          # Set environment variables for cross-compilation
+          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+          export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+          export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          cargo build --package cli --release --target ${{ matrix.target }}
+          mkdir -p bin
+          cp target/${{ matrix.target }}/release/cli bin/tihc
+
+      - name: Strip binary
+        run: |
+          if [ -f "bin/tihc" ]; then
+            strip bin/tihc
+          fi
+
+      - name: Test CLI binary
+        run: |
+          if [ -f "bin/tihc" ]; then
+            ./bin/tihc --help
+          else
+            ./target/release/cli --help
+          fi
+
+      # Only package for releases
+      - name: Package binary
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
+        run: |
+          cd bin
+          tar czf ../tihc-${{ matrix.platform }}.tar.gz tihc
+          cd ..
+
+      - name: Upload artifact
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-${{ matrix.platform }}
+          path: tihc-${{ matrix.platform }}.tar.gz
+
+  release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f -name "*"
+
+      - name: Extract version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION || 'manual-release' }}
+          name: ${{ steps.get_version.outputs.VERSION || 'Manual Release' }}
+          draft: false
+          prerelease: false
+          files: artifacts/**/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
