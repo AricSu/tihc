@@ -8,10 +8,10 @@
     },
     "home": {
         "whyTihc": "为什么选择 TiHC？",
-        "motto": "让数据库健康检查变得简单而有效。",
-        "mottoAuthor": "—— TiHC 团队",
+        "motto": "让解决问题高效，留时间给生活！",
+        "mottoAuthor": "—— Aric",
         "welcomeTitle": "欢迎使用 TiHC",
-        "description": "TiHC (TiDB Intelligent Health Check) 是一个基于 {techStack} 构建的智能数据库健康检查工具。",
+        "description": "TiHC (TiDB Health Check) 是一个基于 {techStack} 构建的 TiDB 健康检查及问题分析工具。",
         "techStack": "Rust + Vue 3",
         "authorIntro": "作者介绍",
         "codeRepo": "代码仓库",
@@ -21,7 +21,7 @@
         "statusPlanned": "计划中",
         "featurePlugin": {
             "title": "插件架构",
-            "description": "基于微内核的插件系统，支持动态加载和扩展"
+            "description": "基于 微内核 & DDD 的插件系统，支持动态加载和扩展"
         },
         "featureCli": {
             "title": "命令行工具",
@@ -37,7 +37,7 @@
         },
         "featureSlowlog": {
             "title": "慢日志分析",
-            "description": "智能解析和分析 TiDB 慢查询日志"
+            "description": "解析和分析 TiDB 慢查询日志"
         },
         "featureBugTrack": {
             "title": "问题追踪",
@@ -45,7 +45,7 @@
         },
         "featureDdlCheck": {
             "title": "有损 DDL 检查",
-            "description": "数据库结构变更的安全性检查和建议"
+            "description": "数据库结构变更前安全性检查，避免生产事故产生"
         },
         "featureReport": {
             "title": "健康报告",

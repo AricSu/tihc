@@ -12,12 +12,13 @@ use tracing::info;
 #[derive(Parser, Debug)]
 #[command(
     name = "tihc",
-    version = "1.1.0",
+    version = "1.3.0",
     author = "Aric <ask.aric.su@gmail.com>",
     about = "TiDB Intelligent Health Check (tihc) CLI Tool",
     long_about = "A CLI for TiDB Intelligent Health Check (tihc)\nDoc: https://www.askaric.com/en/tihc",
     after_help = "USAGE:\n    tihc [OPTIONS] <SUBCOMMAND>\n\nFor more information, visit: https://www.askaric.com/en/tihc"
 )]
+
 struct Cli {
     /// Log file path.
     #[arg(

@@ -7,11 +7,11 @@
         "loginSuccess": "Login successful"
     },
     "home": {
-        "whyTihc": "Why TiHC?",
-        "motto": "Make database health checks simple and effective.",
-        "mottoAuthor": "—— TiHC Team",
+        "whyTihc": "Why Choose TiHC?",
+        "motto": "Make problem-solving efficient, leave time for life!",
+        "mottoAuthor": "—— Aric",
         "welcomeTitle": "Welcome to TiHC",
-        "description": "TiHC (TiDB Intelligent Health Check) is an intelligent database health check tool built with {techStack}.",
+        "description": "TiHC (TiDB Health Check) is a TiDB health check and problem analysis tool built with {techStack}.",
         "techStack": "Rust + Vue 3",
         "authorIntro": "About Author",
         "codeRepo": "Source Code",
@@ -21,38 +21,38 @@
         "statusPlanned": "Planned",
         "featurePlugin": {
             "title": "Plugin Architecture",
-            "description": "Microkernel-based plugin system with dynamic loading and extension support"
+            "description": "Plugin system based on Microkernel & DDD, supporting dynamic loading and extension"
         },
         "featureCli": {
             "title": "CLI Tool",
-            "description": "Complete command-line interface with automation and batch processing support"
+            "description": "Complete CLI interface with automation script and batch processing support"
         },
         "featureFrontend": {
             "title": "Web Interface",
-            "description": "Modern Vue 3 frontend with responsive design"
+            "description": "Modern Vue 3 frontend interface with responsive design"
         },
         "featureSqlEditor": {
             "title": "SQL Editor",
-            "description": "Powerful SQL editing and execution environment with Monaco Editor"
+            "description": "Powerful SQL editing and execution environment integrated with Monaco Editor"
         },
         "featureSlowlog": {
             "title": "Slowlog Analysis",
-            "description": "Intelligent parsing and analysis of TiDB slow query logs"
+            "description": "Parse and analyze TiDB slow query logs"
         },
         "featureBugTrack": {
             "title": "Issue Tracking",
-            "description": "GitHub Issues integration for automated issue tracking and management"
+            "description": "GitHub Issues integration for automated bug tracking"
         },
         "featureDdlCheck": {
-            "title": "DDL Check",
-            "description": "Safety checks and recommendations for database structure changes"
+            "title": "Lossy DDL Check",
+            "description": "Safety checks before database structure changes to prevent production incidents"
         },
         "featureReport": {
             "title": "Health Report",
             "description": "Generate comprehensive database health analysis reports"
         },
         "visitDoc": "View Documentation",
-        "techStackTitle": "Technology Stack",
+        "techStackTitle": "Technology Stack Distribution",
         "trendTitle": "Project Development Trend",
         "chartLabels": {
             "githubStars": "GitHub Stars",
