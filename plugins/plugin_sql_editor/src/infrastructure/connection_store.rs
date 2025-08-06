@@ -36,7 +36,10 @@ impl ConnectionStore {
 
     /// 添加连接
     pub fn add(&self, mut conn: DatabaseConnection) -> Result<(), StoreError> {
-        tracing::info!(target: "connection_store", "add: id={}, engine={}, host={}, port={}, db={:?}", conn.id, conn.engine, conn.host, conn.port, conn.database);
+        tracing::info!(target: "connection_store", "Adding connection: id={}, engine={}, host={}:{}, db={}", 
+            conn.id, conn.engine, conn.host, conn.port, 
+            conn.database.as_deref().unwrap_or("(none)")
+        );
         if conn.engine == "mysql" || conn.engine == "tidb" {
             let pool_url = format!(
                 "mysql://{}:{}@{}:{}/{}",
@@ -46,7 +49,8 @@ impl ConnectionStore {
                 conn.port,
                 conn.database.as_deref().unwrap_or("")
             );
-            tracing::info!(target: "connection_store", "add: try create mysql pool, url={}", pool_url);
+            let safe_url = pool_url.split('@').last().unwrap_or(&pool_url);
+            tracing::info!(target: "connection_store", "add: creating mysql pool for {}", safe_url);
             let pool = MySqlPool::connect_lazy(&pool_url).ok();
             if pool.is_some() {
                 tracing::info!(target: "connection_store", "add: mysql pool created");

@@ -8,7 +8,7 @@ pub async fn handle_execute_sql(
     Extension(registry): Extension<Arc<ServiceRegistry>>,
     Json(req): Json<ExecuteSqlRequest>,
 ) -> Json<SqlResult> {
-    tracing::info!(target: "editor_sql_handler", "handle_execute_sql called, connection_id={}, sql={}", req.connection_id, req.sql);
+    tracing::debug!(target: "editor_sql_handler", "API request: connection_id={}, sql_length={}", req.connection_id, req.sql.len());
     execute_sql(Extension(registry), Json(req)).await
 }
 
@@ -26,7 +26,7 @@ pub async fn execute_sql(
             column_type_names: vec![],
             rows: vec![],
             rows_count: Some(0),
-            error: Some("只允许 SELECT 查询".to_string()),
+            error: Some("Only SELECT queries are allowed".to_string()),
             latency_ms: None,
             statement: Some(sql.to_string()),
             messages: None,
@@ -53,7 +53,7 @@ pub async fn execute_sql(
                     column_type_names: vec![],
                     rows: vec![],
                     rows_count: Some(0),
-                    error: Some("结果解析失败".to_string()),
+                    error: Some("Failed to parse result".to_string()),
                     latency_ms: None,
                     statement: Some(sql.to_string()),
                     messages: None,
@@ -61,7 +61,12 @@ pub async fn execute_sql(
             )
         }
         Err(e) => {
-            tracing::error!(target: "editor_sql_handler", "SQL execution error: {}", e);
+            let sql_preview = if sql.len() > 150 {
+                format!("{}...", &sql[..150])
+            } else {
+                sql.to_string()
+            };
+            tracing::error!(target: "editor_sql_handler", "SQL execution failed: {} | connection_id={} | sql={}", e, connection_id, sql_preview);
             Json(SqlResult {
                 column_names: vec![],
                 column_type_names: vec![],

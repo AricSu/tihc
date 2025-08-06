@@ -26,7 +26,7 @@ pub async fn start_server_with_shutdown(
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!(
         host,
-        port, "[TiHC] Web server started (with external shutdown)"
+        port, "[TiHC] Web server started"
     );
 
     axum::serve(listener, app.into_make_service())

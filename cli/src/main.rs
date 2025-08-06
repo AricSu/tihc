@@ -7,13 +7,13 @@ use microkernel::platform::command_registry::CommandRegistry;
 mod commands;
 use plugin_slowlog::SlowLogPlugin;
 use plugin_sql_editor::SqlEditorPlugin;
-use tokio::signal;
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(
     name = "tihc",
     version = "1.0.0",
-    author = "Aric <askaric@gmail.com>",
+    author = "Aric <ask.aric.su@gmail.com>",
     about = "TiDB Intelligent Health Check (tihc) CLI Tool",
     long_about = "A CLI for TiDB Intelligent Health Check (tihc)\nDoc: https://www.askaric.com/en/tihc",
     after_help = "USAGE:\n    tihc [OPTIONS] <SUBCOMMAND>\n\nFor more information, visit: https://www.askaric.com/en/tihc"
@@ -37,7 +37,7 @@ struct Cli {
         default_value = "info"
     )]
     log_level: String,
-    /// 是否启用日志切割
+    /// Whether to enable log cutting
     #[arg(
         short = 'r',
         long = "enable-log-rotation",
@@ -137,18 +137,21 @@ async fn main() -> Result<()> {
         merged.enable_log_rotation,
     )?;
 
+    // 打印通用欢迎信息到日志
+    info!(target: "tihc", "🎯 Welcome to use TiDB Health Check (tihc) v1.1.0 starting");
+    info!(target: "tihc", "📖 Documentation: https://www.askaric.com/en/tihc");
+    info!(target: "tihc", "👨‍💻 Author: Aric <ask.aric.su@gmail.com>");
+
     let mut kernel = microkernel::platform::Microkernel::new(app_config.clone());
     let mut command_registry = CommandRegistry::new();
     register_all_plugins(&mut kernel, &mut command_registry);
     // === 演示 handler 层访问全局配置（只打印一次即可） ===
     {
-        use tracing::info;
-        let app_config = kernel.core_services.config_service.get();
-        info!(target: "tihc", "[demo] config.some_option={:?}", app_config.some_option);
+        let _app_config = kernel.core_services.config_service.get();
+        // info!(target: "tihc", "[demo] config.some_option={:?}", app_config.some_option);
     }
     // 优雅关闭信号监听，主流程等待 Ctrl+C 后主动退出
     let core_services = kernel.core_services.clone();
-    let mut shutdown_rx = core_services.subscribe_shutdown();
     match &cli.command {
         Some(Commands::Tools(tools_cmd)) => {
             let (cmd, args) = match tools_cmd {
@@ -156,27 +159,109 @@ async fn main() -> Result<()> {
                     let mut args = Vec::new();
                     args.push(opts.log_dir.clone());
                     args.push(opts.pattern.clone());
-                    ("slowlog-scan", args)
+                    
+                    // 解析host中的端口信息
+                    let (host, port) = if opts.host.contains(':') {
+                        let parts: Vec<&str> = opts.host.split(':').collect();
+                        if parts.len() == 2 {
+                            (parts[0].to_string(), parts[1].parse::<u16>().unwrap_or(4000))
+                        } else {
+                            (opts.host.clone(), 4000)
+                        }
+                    } else {
+                        (opts.host.clone(), 4000)
+                    };
+                    
+                    // 手动构造数据库连接信息JSON字符串
+                    let password_val = if opts.password.is_empty() { "null".to_string() } else { format!("\"{}\"", opts.password) };
+                    let database_val = if opts.database == "tihc" { "null".to_string() } else { format!("\"{}\"", opts.database) };
+                    
+                    let conn_json = format!(
+                        r#"{{"id":0,"name":"cli-connection","engine":"tidb","host":"{}","port":{},"username":"{}","password":{},"database":{},"use_tls":false,"ca_cert_path":null}}"#,
+                        host, port, opts.user, password_val, database_val
+                    );
+                    args.push(conn_json);
+                    
+                    ("slowlog-import", args)
                 }
             };
-            command_registry.execute(cmd, &args).await?;
-            // 等待 Ctrl+C
-            tokio::select! {
-                _ = signal::ctrl_c() => {
-                    tracing::info!(target: "tihc", "[main] Received Ctrl+C, broadcasting shutdown signal...");
-                    core_services.broadcast_shutdown();
-                }
-                _ = shutdown_rx.recv() => {
-                    tracing::info!(target: "tihc", "[main] Received shutdown signal, exiting...");
+            
+            info!(target: "tihc", "🚀 About to execute command: {} with {} args", cmd, args.len());
+            for (i, arg) in args.iter().enumerate() {
+                info!(target: "tihc", "  Arg[{}]: {}", i, if i == 2 { "[JSON Connection Data]" } else { arg });
+            }
+            
+            let result = command_registry.execute(cmd, &args).await;
+            match &result {
+                Ok(value) => {
+                    info!(target: "tihc", "✅ Command executed successfully: {}", value);
+                    // 解析结果并打印到控制台
+                    if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(value.as_str().unwrap_or("{}")) {
+                        if cmd == "slowlog-scan" {
+                            if let Some(files) = json_value.get("matched_files").and_then(|f| f.as_array()) {
+                                println!("📂 Found {} slow log file(s):", files.len());
+                                for file in files {
+                                    if let Some(file_path) = file.as_str() {
+                                        println!("   📄 {}", file_path);
+                                    }
+                                }
+                            }
+                        } else if cmd == "slowlog-import" {
+                            if let Some(imported_count) = json_value.get("imported_count") {
+                                println!("✅ Successfully imported {} slow query records to database", imported_count);
+                            }
+                            if let Some(processed_files) = json_value.get("processed_files") {
+                                println!("📊 Processed files: {}", processed_files);
+                            }
+                        }
+                    }
+                    println!("🎉 Slowlog operation completed successfully!");
+                },
+                Err(e) => {
+                    info!(target: "tihc", "❌ Command execution failed: {}", e);
+                    println!("❌ Error: {}", e);
                 }
             }
+            result?;
+            // Tools 命令执行完成后直接退出，不需要等待信号
+            info!(target: "tihc", "🎉 Tools command completed, exiting...");
         }
         Some(Commands::Server(web_opts)) => {
-            // web 服务需支持 shutdown_rx，收到信号后主动退出
+            let shutdown_rx = core_services.subscribe_shutdown();
+            
+            println!();
+            println!("🎯 TiDB Health Check (tihc) Server");
+            println!("==============================================");
+            println!("🚀 Starting web server on {}:{}", web_opts.host, web_opts.port);
+            println!("🌐 Server URL: http://{}:{}", web_opts.host, web_opts.port);
+            println!("📝 Log Level: {}", cli.log_level);
+            if !merged.log_file.is_empty() {
+                let log_file_str = merged.log_file.as_ref();
+                let log_path = std::path::Path::new(log_file_str);
+                let absolute_path = if log_path.is_absolute() {
+                    log_file_str.to_string()
+                } else {
+                    std::env::current_dir()
+                        .unwrap_or_default()
+                        .join(log_file_str)
+                        .to_string_lossy()
+                        .to_string()
+                };
+                println!("📁 Log File: {}", absolute_path);
+            } else {
+                println!("📁 Log File: console output (no file specified)");
+            }
+            // println!("⚙️  Config File: {}", cli.config_file);
+            println!("==============================================");
+            println!("✅ Server is ready to accept connections");
+            println!();
+            
+            tracing::info!(target: "tihc", "Starting web server on {}:{}", web_opts.host, web_opts.port);
+
             commands::web::start_web_service(
                 web_opts,
                 command_registry,
-                core_services.subscribe_shutdown(),
+                shutdown_rx,
             )
             .await?;
         }

@@ -25,9 +25,9 @@ pub struct SlowlogOptions {
     /// Slow query log filename pattern (e.g. "tidb-slow*.log").
     #[clap(long, short = 't', value_name = "PATTERN")]
     pub pattern: String,
-    /// Timezone for parsing timestamps (e.g. UTC+8).
-    #[clap(long, default_value = "UTC")]
-    pub timezone: String,
+    // /// Timezone for parsing timestamps (e.g. UTC+8).
+    // #[clap(long, default_value = "UTC")]
+    // pub timezone: String,
 }
 
 impl SlowlogOptions {

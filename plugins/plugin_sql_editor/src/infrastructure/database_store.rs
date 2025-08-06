@@ -135,7 +135,12 @@ impl DatabaseBackend for MySqlBackend {
 
     async fn execute_sql(&self, sql: &str) -> Result<SqlResult, SqlEditorError> {
         use std::time::Instant;
-        tracing::info!(target: "sql_editor_backend", "execute_sql: SQL = {}", sql);
+        let sql_preview = if sql.len() > 200 {
+            format!("{}...", &sql[..200])
+        } else {
+            sql.to_string()
+        };
+        tracing::debug!(target: "sql_editor_backend", "Starting SQL execution: {}", sql_preview);
         let mut result = SqlResult::default();
         let start_time = Instant::now();
         let mut stream = sqlx::query(sql).fetch(self.pool.as_ref());
@@ -144,7 +149,10 @@ impl DatabaseBackend for MySqlBackend {
         while let Some(row) = futures_util::StreamExt::next(&mut stream)
             .await
             .transpose()
-            .map_err(|e| SqlEditorError::Database(e.to_string()))?
+            .map_err(|e| {
+                tracing::error!(target: "sql_editor_backend", "SQL execution failed: {} | SQL: {}", e, sql_preview);
+                SqlEditorError::Database(e.to_string())
+            })?
         {
             if result.column_names.is_empty() {
                 result.column_names = row.columns().iter().map(|c| c.name().to_string()).collect();
@@ -163,20 +171,55 @@ impl DatabaseBackend for MySqlBackend {
                     .get(idx)
                     .map(|c| c.type_info().to_string())
                     .unwrap_or_default();
-                let (value, raw_debug) = parse_sqlx_value(&row, idx);
-                tracing::debug!(target: "sql_editor_backend", "execute_sql: col={} type={} idx={} raw={} value={:?}", col_name, col_type, idx, raw_debug, value);
+                let (value, _) = parse_sqlx_value(&row, idx);
+                tracing::trace!(target: "sql_editor_backend", "execute_sql: processing column {} ({})", col_name, col_type);
                 row_vec.push(value);
             }
-            tracing::debug!(target: "sql_editor_backend", "execute_sql: row {} = {:?}", row_count, row_vec);
+            tracing::trace!(target: "sql_editor_backend", "execute_sql: processed row {}", row_count);
             result.rows.push(row_vec);
             row_count += 1;
+            
+            // Warn about large result sets
+            if row_count % 10000 == 0 {
+                tracing::warn!(target: "sql_editor_backend", "Large result set detected: {} rows processed", row_count);
+            }
         }
         let elapsed = start_time.elapsed();
         result.latency_ms = Some(elapsed.as_millis() as u64);
         result.rows_count = Some(row_count as u64);
         result.statement = Some(sql.to_string());
-        tracing::info!(target: "sql_editor_backend", "execute_sql: total rows = {}", row_count);
-        tracing::info!(target: "sql_editor_backend", "execute_sql: result.rows = {:?}", result.rows);
+        
+        // Performance monitoring
+        let elapsed_ms = elapsed.as_millis();
+        if elapsed_ms > 5000 {
+            tracing::warn!(target: "sql_editor_backend", 
+                "Slow query detected: {}ms | rows={} | sql={}", 
+                elapsed_ms, row_count, sql_preview
+            );
+        } else if elapsed_ms > 1000 {
+            tracing::info!(target: "sql_editor_backend", 
+                "Query completed: rows={}, columns={}, time={}ms | sql={}", 
+                row_count, 
+                result.column_names.len(),
+                elapsed_ms,
+                sql_preview
+            );
+        } else {
+            tracing::info!(target: "sql_editor_backend", 
+                "Query completed: rows={}, columns={}, time={}ms", 
+                row_count, 
+                result.column_names.len(),
+                elapsed_ms
+            );
+        }
+        
+        // Large result set warning
+        if row_count > 50000 {
+            tracing::warn!(target: "sql_editor_backend", 
+                "Very large result set returned: {} rows, {} columns. Consider using LIMIT clause.", 
+                row_count, result.column_names.len()
+            );
+        }
 
         let warn_rows = sqlx::query("SHOW WARNINGS")
             .fetch_all(self.pool.as_ref())

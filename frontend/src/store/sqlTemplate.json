@@ -5,7 +5,7 @@
     "zh-label": "Top 10 慢查询",
     "en-category": "slow",
     "zh-category": "慢查询",
-    "template": "select Time,Query_time,wait_time,Process_time,Prewrite_time,Plan_digest,Query from information_schema.cluster_slow_query where Time >= '2025-06-12 10:00:00' and Time <= '2025-06-12 11:00:00' order by Query_time desc limit 10;"
+    "template": "SELECT \n    Time,\n    Query_time,\n    wait_time,\n    Process_time,\n    Prewrite_time,\n    Plan_digest,\n    Query \nFROM information_schema.cluster_slow_query \nWHERE Time >= '2025-06-12 10:00:00' \n    AND Time <= '2025-06-12 11:00:00' \nORDER BY Query_time DESC \nLIMIT 10;"
   },
   {
     "key": "long-running",
@@ -13,7 +13,7 @@
     "zh-label": "Top 10 执行次数最多的查询",
     "en-category": "slow",
     "zh-category": "慢查询",
-    "template": "SELECT Digest, COUNT(*) AS exec_count, MAX(Query_time) AS max_query_time, ROUND(AVG(Query_time), 2) AS avg_query_time, SUM(Query_time) AS total_query_time, LEFT(MIN(Query), 300) AS SUB_query\nFROM information_schema.cluster_slow_query\nWHERE Time >= '2025-06-12 10:00:00' AND Time <= '2025-06-12 11:00:00'\nGROUP BY Digest\nORDER BY exec_count DESC\nLIMIT 10;"
+    "template": "SELECT \n    Digest, \n    COUNT(*) AS exec_count, \n    MAX(Query_time) AS max_query_time, \n    ROUND(AVG(Query_time), 2) AS avg_query_time, \n    SUM(Query_time) AS total_query_time, \n    LEFT(MIN(Query), 300) AS SUB_query\nFROM information_schema.cluster_slow_query\nWHERE Time >= '2025-06-12 10:00:00' \n    AND Time <= '2025-06-12 11:00:00'\nGROUP BY Digest\nORDER BY exec_count DESC\nLIMIT 10;"
   },
   {
     "key": "hot-region",
@@ -45,7 +45,7 @@
     "zh-label": "按统计信息估算表磁盘占用",
     "en-category": "disk",
     "zh-category": "磁盘",
-    "template": "SELECT table_schema AS `Database`, SUM(data_length + index_length) / 1024 / 1024 / 1024 AS `Size (GB)` FROM information_schema.tables WHERE table_schema not in ('mysql','INFORMATION_SCHEMA','METRICS_SCHEMA', 'PERFORMANCE_SCHEMA', 'sys') GROUP BY table_schema;"
+    "template": "SELECT \n    table_schema AS `Database`, \n    SUM(data_length + index_length) / 1024 / 1024 / 1024 AS `Size (GB)` \nFROM information_schema.tables \nWHERE table_schema NOT IN ('mysql','INFORMATION_SCHEMA','METRICS_SCHEMA', 'PERFORMANCE_SCHEMA', 'sys') \nGROUP BY table_schema;"
   },
   {
     "key": "estimated-by-region",
@@ -53,6 +53,6 @@
     "zh-label": "按 Region 估算表磁盘占用",
     "en-category": "disk",
     "zh-category": "磁盘",
-    "template": "SELECT db_name, table_name, ROUND(SUM(total_size / cnt), 2) Approximate_Size,\nROUND(SUM(total_size / cnt / (\nSELECT ROUND(AVG(value), 2)\nFROM METRICS_SCHEMA.store_size_amplification\nWHERE value > 0\n)), 2) Disk_Size\nFROM (\nSELECT db_name, table_name, region_id, SUM(Approximate_Size) total_size, COUNT(*) cnt\nFROM information_schema.TIKV_REGION_STATUS\nWHERE db_name = @dbname\nAND table_name IN (@table_name)\nGROUP BY db_name, table_name, region_id\n) tabinfo\nGROUP BY db_name, table_name;"
+    "template": "SELECT \n    db_name, \n    table_name, \n    ROUND(SUM(total_size / cnt), 2) AS Approximate_Size,\n    ROUND(SUM(total_size / cnt / (\n        SELECT ROUND(AVG(value), 2)\n        FROM METRICS_SCHEMA.store_size_amplification\n        WHERE value > 0\n    )), 2) AS Disk_Size\nFROM (\n    SELECT \n        db_name, \n        table_name, \n        region_id, \n        SUM(Approximate_Size) AS total_size, \n        COUNT(*) AS cnt\n    FROM information_schema.TIKV_REGION_STATUS\n    WHERE db_name = @dbname\n        AND table_name IN (@table_name)\n    GROUP BY db_name, table_name, region_id\n) tabinfo\nGROUP BY db_name, table_name;"
   }
 ]

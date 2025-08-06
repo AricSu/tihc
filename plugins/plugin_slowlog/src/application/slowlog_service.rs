@@ -119,11 +119,12 @@ impl SlowLogService for SlowLogServiceImpl {
                     .with_context(|| format!("Failed to open file: {}", file_path))?;
                 let mut reader = io::BufReader::with_capacity(64 * 1024, file);
                 let mut batch_idx = 0;
+                let mut total_rows_processed = 0;
                 loop {
                     let batch = self.get_batch_log_from_reader(&mut reader, self.batch_size)?;
                     tracing::debug!(target: "slowlog_api", "[parse_and_import] batch_idx={}, batch_size={}", batch_idx, batch.len());
                     if batch.is_empty() {
-                        tracing::info!(target: "slowlog_api", "[parse_and_import] File {} finished, total batches: {}", file_path, batch_idx);
+                        tracing::info!(target: "slowlog_api", "[parse_and_import] File {} completed: {} batches, {} total rows processed", file_path, batch_idx, total_rows_processed);
                         break;
                     }
                     batch_idx += 1;
@@ -140,7 +141,14 @@ impl SlowLogService for SlowLogServiceImpl {
                             {
                                 tracing::error!(target: "slowlog_api", "[parse_and_import] Failed to write rows to MySQL: {:?}", e);
                             } else {
-                                tracing::info!(target: "slowlog_api", "[parse_and_import] Successfully wrote {} rows to MySQL (batch {} in file {})", rows.len(), batch_idx, file_path);
+                                total_rows_processed += rows.len();
+                                tracing::debug!(target: "slowlog_api", "[parse_and_import] Batch {} processed: {} rows", batch_idx, rows.len());
+                                
+                                // Dynamic progress reporting frequency based on file size
+                                let report_frequency = if batch_idx > 1000 { 500 } else { 100 };
+                                if batch_idx % report_frequency == 0 {
+                                    tracing::info!(target: "slowlog_api", "[parse_and_import] Progress: {} batches processed, {} total rows for file {}", batch_idx, total_rows_processed, file_path);
+                                }
                             }
                         }
                         Err(e) => {
@@ -149,7 +157,7 @@ impl SlowLogService for SlowLogServiceImpl {
                     }
                 }
             }
-            tracing::info!(target: "slowlog_api", "[parse_and_import] All files processed.");
+            tracing::info!(target: "slowlog_api", "[parse_and_import] All {} files processed successfully.", files.len());
             Ok(())
         })
     }

@@ -9,7 +9,7 @@
         </n-button>
       </n-space>
     </div>
-    <n-modal v-model:show="showTemplateModal" preset="card" :title="t('sqlEditor.templates')" class="sidebar-modal">
+    <n-modal v-model:show="showTemplateModal" preset="card" :title="t('sqlEditor.templates')" class="sidebar-modal" :style="{ width: 'min(90vw, 1350px)', maxWidth: '1400px' }">
       <div class="sidebar-modal-main">
         <div class="sidebar-modal-categories">
           <n-space vertical size="small">
@@ -139,16 +139,19 @@ function handleCopyToClipboard(text: string) {
   text-align: left;
 }
 .sidebar-modal {
-  width: 900px;
-  max-height: 80vh;
+  width: min(90vw, 1350px) !important;
+  max-width: 1400px !important;
+  max-height: min(75vh, 550px) !important;
 }
 .sidebar-modal-main {
   display: flex;
-  gap: 18px;
-  min-height: 400px;
+  gap: 16px;
+  min-height: min(35vh, 280px);
+  max-height: min(65vh, 450px);
 }
 .sidebar-modal-categories {
-  min-width: 180px;
+  min-width: min(160px, 25vw);
+  max-width: 200px;
   border-right: 1px solid #eee;
   padding-right: 12px;
 }
@@ -158,7 +161,9 @@ function handleCopyToClipboard(text: string) {
 .sidebar-modal-templates {
   flex: 1;
   overflow-y: auto;
-  max-height: 60vh;
+  overflow-x: hidden;
+  max-height: min(55vh, 400px);
+  box-sizing: border-box;
 }
 .sidebar-modal-template-item {
   background: #f7f7fa;
@@ -166,6 +171,10 @@ function handleCopyToClipboard(text: string) {
   padding: 12px 14px 10px 14px;
   box-shadow: 0 1px 2px 0 rgba(60,60,60,0.03);
   margin-bottom: 8px;
+  overflow: hidden;
+  word-wrap: break-word;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .sidebar-modal-template-header {
   display: flex;
@@ -184,7 +193,54 @@ function handleCopyToClipboard(text: string) {
 }
 .sidebar-modal-template-code {
   max-width: 100%;
+  width: 100%;
   white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-top: 4px;
+  box-sizing: border-box;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .sidebar-modal {
+    width: min(90vw, 1000px) !important;
+    max-height: min(80vh, 450px) !important;
+  }
+  .sidebar-modal-main {
+    gap: 12px;
+    min-height: min(30vh, 250px);
+  }
+  .sidebar-modal-categories {
+    min-width: min(130px, 18vw);
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar-modal {
+    width: 95vw !important;
+    max-height: 85vh !important;
+  }
+  .sidebar-modal-main {
+    flex-direction: column;
+    gap: 12px;
+    min-height: auto;
+  }
+  .sidebar-modal-categories {
+    min-width: auto;
+    max-width: none;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+    padding-right: 0;
+    padding-bottom: 12px;
+  }
+  .sidebar-modal-templates {
+    max-height: 55vh;
+  }
 }
 </style>
