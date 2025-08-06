@@ -8,20 +8,20 @@
     :trap-focus="false"
     :block-scroll="false"
   >
-    <n-drawer-content title="Slowlog Tools" closable>
+<n-drawer-content :title="t('sqlEditor.slowlogTools')" closable>
       <!-- Help -->
-      <n-card title="Tips" size="small" embedded style="margin-top: 12px;margin-bottom: 12px;">
+      <n-card :title="t('sqlEditor.tips')" size="small" embedded style="margin-top: 12px;margin-bottom: 12px;">
         <n-text depth="3" style="font-size: 11px;">
-          <div><strong>How to use:</strong></div>
-          <div>• Enter directory path in "Log Directory" field</div>
-          <div>• Enter regex pattern in "File Pattern" field to match filenames</div>
-          <div>• Example patterns: .*slow.*.log, .*.log, tidb-slow-.*</div>
-          <div>• Large files may take time to process</div>
-          <div>• Ensure server has read access to log files</div>
+          <div><strong>{{ t('sqlEditor.howToUse') }}</strong></div>
+          <div>• {{ t('sqlEditor.enterLogDir') }}</div>
+          <div>• {{ t('sqlEditor.enterPattern') }}</div>
+          <div>• {{ t('sqlEditor.examplePatterns') }}</div>
+          <div>• {{ t('sqlEditor.largeFilesTip') }}</div>
+          <div>• {{ t('sqlEditor.ensureReadAccess') }}</div>
         </n-text>
       </n-card>
       <!-- Parse Form -->
-      <n-card title="Parse Slowlog Files" size="small" embedded>
+      <n-card :title="t('sqlEditor.parseSlowlogFiles')" size="small" embedded>
         <n-form 
           ref="formRef"
           :model="form"
@@ -29,27 +29,26 @@
           label-placement="top"
           size="small"
         >
-          <n-form-item label="Log Directory" path="logDir">
+          <n-form-item :label="t('sqlEditor.logDir')" path="logDir">
             <n-input
               v-model:value="form.logDir"
-              placeholder="/Users/aric/Downloads or /var/log/tidb"
+              :placeholder="t('sqlEditor.logDirPlaceholder')"
             />
             <template #feedback>
               <n-text depth="3" style="font-size: 11px;">
-                Directory to search for log files
+                {{ t('sqlEditor.logDirFeedback') }}
               </n-text>
             </template>
           </n-form-item>
-          <n-form-item label="File Pattern (Regex)" path="pattern">
+          <n-form-item :label="t('sqlEditor.filePattern')" path="pattern">
             <n-input
               v-model:value="form.pattern"
-              placeholder=".*slow.*.log or cl-.*-tidb-.*slowlog.log"
+              :placeholder="t('sqlEditor.patternPlaceholder')"
               type="text"
             />
             <template #feedback>
               <n-text depth="3" style="font-size: 11px;">
-                Regex pattern to match file names (not full paths)<br/>
-                Examples: <code>.*slow.*.log</code>, <code>tidb-slow-.*.log</code>, <code>cl-.*slowlog.log</code>
+                {{ t('sqlEditor.patternFeedback') }}
               </n-text>
             </template>
           </n-form-item>
@@ -62,7 +61,7 @@
                 secondary
                 block
               >
-                Scan Files
+                {{ t('sqlEditor.scanFiles') }}
               </n-button>
               <n-button 
                 @click="processFiles" 
@@ -71,13 +70,13 @@
                 type="primary"
                 block
               >
-                Parse & Import
+                {{ t('sqlEditor.parseImport') }}
               </n-button>
             </n-space>
           </n-form-item>
           <n-form-item v-if="!hasConnection">
-            <n-alert type="warning" title="Not Connected" style="margin-top: 8px;">
-              Please select a valid connection before using slowlog tools.
+            <n-alert type="warning" :title="t('sqlEditor.notConnected')" style="margin-top: 8px;">
+              {{ t('sqlEditor.selectConnectionTip') }}
             </n-alert>
           </n-form-item>
         </n-form>
@@ -88,34 +87,34 @@
           <n-space align="center">
             <n-text v-if="scannedFiles.length > 0" style="color: #18a058;">✅</n-text>
             <n-text v-else style="color: #f0a020;">⚠️</n-text>
-            <n-text>Scan Results</n-text>
+            <n-text>{{ t('sqlEditor.scanResults') }}</n-text>
           </n-space>
         </template>
         <div v-if="scannedFiles.length === 0">
-          <n-alert type="warning" title="No Files Found" style="margin-bottom: 12px;">
-            No files matching pattern "{{ form.pattern }}" were found in "{{ form.logDir }}".
+          <n-alert type="warning" :title="t('sqlEditor.noFilesFound')" style="margin-bottom: 12px;">
+            {{ t('sqlEditor.noFilesFoundMsg', { pattern: form.pattern, dir: form.logDir }) }}
           </n-alert>
           <n-space style="margin-bottom: 12px;">
             <n-button secondary size="small" @click="scanFiles" :loading="scanning">
               <template #icon>
                 <n-text>🔄</n-text>
               </template>
-              Rescan
+              {{ t('sqlEditor.rescan') }}
             </n-button>
           </n-space>
           <n-text depth="3" style="font-size: 12px;">
-            <strong>Suggestions:</strong>
+            <strong>{{ t('sqlEditor.suggestions') }}</strong>
             <ul style="margin: 8px 0; padding-left: 16px;">
-              <li>Check if the directory exists and is accessible</li>
-              <li>Try broader patterns like: <n-code>.*slow.*.log</n-code> or <n-code>.*.log</n-code></li>
-              <li>Make sure file names match the regex pattern</li>
-              <li>Verify the directory path is correct</li>
+              <li>{{ t('sqlEditor.suggestionCheckDir') }}</li>
+              <li>{{ t('sqlEditor.suggestionBroaderPattern') }} <n-code>.*slow.*.log</n-code> {{ t('sqlEditor.or') }} <n-code>.*.log</n-code></li>
+              <li>{{ t('sqlEditor.suggestionMatchRegex') }}</li>
+              <li>{{ t('sqlEditor.suggestionVerifyPath') }}</li>
             </ul>
           </n-text>
         </div>
         <div v-else>
           <n-alert type="success" style="margin-bottom: 12px;">
-            Found {{ scannedFiles.length }} matching file{{ scannedFiles.length > 1 ? 's' : '' }}
+            {{ scannedFiles.length === 1 ? t('sqlEditor.foundFilesOne', { count: scannedFiles.length }) : t('sqlEditor.foundFilesMany', { count: scannedFiles.length }) }}
           </n-alert>
           <n-list bordered size="small">
             <n-list-item v-for="file in scannedFiles" :key="file">
@@ -125,7 +124,7 @@
         </div>
       </n-card>
       <!-- Processing Status -->
-      <n-card v-if="processStatus" title="Processing Status" size="small" embedded style="margin-top: 12px;">
+      <n-card v-if="processStatus" :title="t('sqlEditor.processingStatus')" size="small" embedded style="margin-top: 12px;">
         <n-progress
           type="line"
           :percentage="processStatus.progress"
@@ -148,6 +147,8 @@ import { ref, reactive, watch, computed } from 'vue'
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 import { NDrawer, NDrawerContent, NCard, NForm, NFormItem, NInput, NButton, NSpace, NText, NAlert, NList, NListItem, NThing, NProgress, NCode } from 'naive-ui'
 import { getSlowlogFiles, processSlowlogFiles } from '@/api/slowlog'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -174,20 +175,20 @@ const form = reactive({
 })
 const rules = {
   logDir: [
-    { required: true, message: 'Please input log directory', trigger: 'blur' }
+    { required: true, message: t('sqlEditor.inputLogDir'), trigger: 'blur' }
   ],
   pattern: [
-    { required: true, message: 'Please input pattern', trigger: 'blur' },
+    { required: true, message: t('sqlEditor.inputPattern'), trigger: 'blur' },
     { validator: (_rule: any, value: string) => {
-      if (!value || value.trim() === '') return new Error('Pattern is required')
-      try { new RegExp(value); return true } catch { return new Error('Invalid regex pattern') }
+      if (!value || value.trim() === '') return new Error(t('sqlEditor.patternRequired'))
+      try { new RegExp(value); return true } catch { return new Error(t('sqlEditor.invalidRegex')) }
     }, trigger: ['blur', 'change'] }
   ]
 }
 
 const processFiles = async () => {
   if (!hasConnection.value || scannedFiles.value.length === 0) {
-    window.$message?.warning('请先选择连接并扫描到慢日志文件')
+    window.$message?.warning(t('sqlEditor.selectConnectionAndScan'))
     return
   }
   processing.value = true
@@ -201,27 +202,27 @@ const processFiles = async () => {
       processStatus.value = {
         status: 'success',
         progress: 100,
-        message: `慢日志导入成功`,
-        details: res.processed ? `已处理文件: ${res.processed.join(', ')}` : ''
+        message: t('sqlEditor.importSuccess'),
+        details: res.processed ? t('sqlEditor.processedFiles', { files: res.processed.join(', ') }) : ''
       }
-      window.$message?.success('慢日志导入成功')
+      window.$message?.success(t('sqlEditor.importSuccess'))
     } else {
       processStatus.value = {
         status: 'error',
         progress: 0,
-        message: res?.error || '慢日志导入失败',
+        message: res?.error || t('sqlEditor.importFailed'),
         details: res?.result ? JSON.stringify(res.result) : ''
       }
-      window.$message?.error('慢日志导入失败：' + (res?.error || '未知错误'))
+      window.$message?.error(t('sqlEditor.importFailed') + '：' + (res?.error || t('sqlEditor.unknownError')))
     }
   } catch (err) {
     processStatus.value = {
       status: 'error',
       progress: 0,
-      message: err?.message || '慢日志导入异常',
+      message: err?.message || t('sqlEditor.importException'),
       details: err ? JSON.stringify(err) : ''
     }
-    window.$message?.error('慢日志导入异常：' + (err?.message || err))
+    window.$message?.error(t('sqlEditor.importException') + '：' + (err?.message || err))
   } finally {
     processing.value = false
   }
@@ -237,11 +238,11 @@ const scanFiles = async () => {
     if (res?.code && res.code !== 200) {
       let msg = ''
       switch (res.reason) {
-        case 'not_found': msg = `目录不存在：${form.logDir}`; break
-        case 'permission': msg = `没有权限访问目录：${form.logDir}`; break
-        case 'fs_error': msg = `文件系统错误：${res.error}`; break
-        case 'internal': msg = `服务异常：${res.error}`; break
-        default: msg = res.error || '未知错误';
+        case 'not_found': msg = t('sqlEditor.noFilesFoundMsg', { pattern: form.pattern, dir: form.logDir }); break
+        case 'permission': msg = t('sqlEditor.suggestionCheckDir'); break
+        case 'fs_error': msg = t('sqlEditor.suggestionVerifyPath') + ': ' + res.error; break
+        case 'internal': msg = t('sqlEditor.unknownError') + ': ' + res.error; break
+        default: msg = res.error || t('sqlEditor.unknownError');
       }
       window.$message?.error(msg)
       scannedFiles.value = []
@@ -271,7 +272,8 @@ const scanFiles = async () => {
     scanCompleted.value = true
   } catch (err) {
     console.error('[SlowlogDrawer] scanFiles error:', err)
-    window.$message?.error('慢日志扫描失败：' + (err?.message || err))
+    window.$message?.error(t('sqlEditor.scanFailed') + '：' + (err?.message || err))
+
     scannedFiles.value = []
     scanCompleted.value = true
   } finally {

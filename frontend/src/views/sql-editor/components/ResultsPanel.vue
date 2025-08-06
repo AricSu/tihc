@@ -18,13 +18,13 @@
       >
         <div class="result-tab-pane-content">
           <div class="result-header">
-            <n-tag :type="result.error ? 'error' : 'success'" size="small">{{ result.error ? 'Error' : 'Success' }}</n-tag>
-            <n-text depth="3">{{ pagedCount(result) }} rows returned in {{ result.executionTime ?? result.latency_ms ?? 0 }}ms</n-text>
+            <n-tag :type="result.error ? 'error' : 'success'" size="small">{{ result.error ? t('sqlEditor.error') : t('sqlEditor.success') }}</n-tag>
+            <n-text depth="3">{{ pagedCount(result) }} {{ t('sqlEditor.rowsReturned', { count: pagedCount(result), time: result.executionTime ?? result.latency_ms ?? 0 }) }}</n-text>
             <div class="result-actions">
-              <n-button size="small" @click="handleExport(result, 'csv')">Export CSV</n-button>
-              <n-button size="small" @click="handleExport(result, 'json')">Export JSON</n-button>
-              <n-button size="small" @click="handleCopy(result)">Copy</n-button>
-              <n-button size="small" type="error" ghost @click="$emit('delete-result', result.id)">Delete</n-button>
+              <n-button size="small" @click="handleExport(result, 'csv')">{{ t('sqlEditor.copyCsv') }}</n-button>
+              <n-button size="small" @click="handleExport(result, 'json')">{{ t('sqlEditor.copyJson') }}</n-button>
+              <n-button size="small" @click="handleCopy(result)">{{ t('sqlEditor.copy') }}</n-button>
+              <n-button size="small" type="error" ghost @click="$emit('delete-result', result.id)">{{ t('sqlEditor.delete') }}</n-button>
             </div>
           </div>
           <div class="result-table-wrapper">
@@ -40,7 +40,7 @@
                 class="result-table"
               />
             </div>
-            <n-empty v-else description="No data returned" class="result-empty" />
+            <n-empty v-else :description="t('sqlEditor.noDataReturned')" class="result-empty" />
           </div>
           <div v-if="hasRows(result)" class="result-pagination-wrapper">
             <n-pagination
@@ -59,13 +59,13 @@
     </n-tabs>
     <n-empty
       v-else
-      description="No results to display. Run a query to see results here."
+      :description="t('sqlEditor.noResultsToDisplay')"
       class="results-empty"
     >
       <template #extra>
         <div class="results-empty-extra">
-          <div>💡 Shortcuts:</div>
-          <div>• {{ isMac ? '⌘' : 'Ctrl' }}+Enter: Execute query</div>
+          <div>💡 {{ t('sqlEditor.shortcuts') }}</div>
+          <div>• {{ isMac ? '⌘' : 'Ctrl' }}+Enter: {{ t('sqlEditor.executeQuery') }}</div>
         </div>
       </template>
     </n-empty>
@@ -74,6 +74,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 const pageMap = ref<Record<string, number>>({})
 const pageSizeMap = ref<Record<string, number>>({})
 const defaultPageSize = 50
@@ -152,31 +154,33 @@ function pagedCount(result) {
   return getData(result).length
 }
 function formatTabLabel(result, index) {
-  const queryNum = `Q${index + 1}`
-  const time = `${result.executionTime ?? result.latency_ms ?? 0}ms`
+  const queryNum = t('sqlEditor.queryNum', { num: index + 1 })
+  const time = `${result.executionTime ?? result.latency_ms ?? 0}${t('sqlEditor.ms')}`
   const rowCount = Array.isArray(result.rows) ? result.rows.length : 0
-  const status = result.error ? '✗ Error' : `✓ ${rowCount.toLocaleString()} row${rowCount !== 1 ? 's' : ''}`
+  const status = result.error
+    ? `✗ ${t('sqlEditor.error')}`
+    : `✓ ${t('sqlEditor.row', { count: rowCount })}`
   return `${queryNum} • ${status} • ${time}`
 }
 function handleExport(result, type: 'csv' | 'json') {
   const cols = getColumns(result)
   const data = getData(result)
-  if (!data.length) return window.$message?.warning('无数据可导出')
+  if (!data.length) return window.$message?.warning(t('sqlEditor.noDataToExport'))
   if (type === 'csv') {
     const header = cols.map(c => c.title).join(',')
     const rows = data.map(row => cols.map(c => JSON.stringify(row[c.key] ?? '')).join(','))
     copyToClipboard([header, ...rows].join('\n'))
-    window.$message?.success('CSV 已复制到剪贴板')
+    window.$message?.success(t('sqlEditor.csvCopied'))
   } else {
     copyToClipboard(JSON.stringify(data, null, 2))
-    window.$message?.success('JSON 已复制到剪贴板')
+    window.$message?.success(t('sqlEditor.jsonCopied'))
   }
 }
 function handleCopy(result) {
   const data = getData(result)
-  if (!data.length) return window.$message?.warning('无数据可复制')
+  if (!data.length) return window.$message?.warning(t('sqlEditor.noDataToCopy'))
   copyToClipboard(JSON.stringify(data, null, 2))
-  window.$message?.success('结果已复制到剪贴板')
+  window.$message?.success(t('sqlEditor.resultCopied'))
 }
 function copyToClipboard(text: string) {
   if (navigator.clipboard) navigator.clipboard.writeText(text)

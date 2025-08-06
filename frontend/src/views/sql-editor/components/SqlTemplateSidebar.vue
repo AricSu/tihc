@@ -1,6 +1,5 @@
 <template>
   <div class="sql-template-sidebar-col">
-    <div class="sidebar-title">{{ t('sqlEditor.templates') }}</div>
     <n-button block type="primary" ghost size="small" class="sidebar-browse-btn" @click="showTemplateModal = true">{{ t('sqlEditor.browseTemplates') }}</n-button>
     <div class="sidebar-quick">
       <div class="sidebar-quick-label">{{ t('sqlEditor.quickInsert') }}</div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, h, resolveComponent } from 'vue'
-import { NIcon, NTree, NPopover } from 'naive-ui'
-import { RefreshOutline, ListOutline, ServerOutline, GridOutline, FolderOutline, DocumentTextOutline, KeyOutline } from '@vicons/ionicons5'
+import { NTree, NPopover } from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'
 import { DatabaseAPI, TableAPI } from '@/api/sql-editor'
 import { useSqlEditorStore } from '@/store/modules/sqlEditor'
@@ -15,41 +15,50 @@ const schemaError = ref('')
 const sqlEditor = useSqlEditorStore()
 
 const getColumnIcon = (col) => {
-  // 主键列用KeyOutline，普通列用DocumentTextOutline
+  // 主键列用 key，普通列用 file-text
   if (col.column_key === 'PRI') {
-    return h(NIcon, { size: 18, color: '#e6a23c', style: { marginRight: '4px' } }, () => h(KeyOutline))
+    return h(Icon, { icon: 'mdi:key', width: 18, height: 18, style: { color: '#e6a23c', marginRight: '4px' } })
   }
-  return h(NIcon, { size: 18, color: '#409eff', style: { marginRight: '4px' } }, () => h(DocumentTextOutline))
+  return h(Icon, { icon: 'mdi:file-document-outline', width: 18, height: 18, style: { color: '#409eff', marginRight: '4px' } })
 }
-const getIndexIcon = () => h('span', { style: 'color: #f56c6c; marginRight: 4px;' }, [
-  h(NIcon, { size: 18, color: '#f56c6c', style: { marginRight: '4px' } }, () => h(KeyOutline))
-])
-const getTableIcon = () => h('span', { style: 'color: #67c23a; marginRight: 4px;' }, [
-  h(NIcon, { size: 18, color: '#67c23a', style: { marginRight: '4px' } }, () => h(GridOutline))
-])
-const getFolderIcon = () => h('span', { style: 'color: #909399; marginRight: 4px;' }, [
-  h(NIcon, { size: 18, color: '#909399', style: { marginRight: '4px' } }, () => h(FolderOutline))
-])
+const getIndexIcon = () => h(Icon, { icon: 'mdi:format-list-numbered', width: 18, height: 18, style: { color: '#f56c6c', marginRight: '4px' } })
+const getTableIcon = () => h(Icon, { icon: 'mdi:table', width: 18, height: 18, style: { color: '#67c23a', marginRight: '4px' } })
+const getFolderIcon = () => h(Icon, { icon: 'mdi:folder-outline', width: 18, height: 18, style: { color: '#909399', marginRight: '6px' } })
 
 const renderLabel = ({ option: node }) => {
   try {
     // 分组节点（列/索引文件夹）
     if (/columns$/.test(node.key) || /indexes$/.test(node.key)) {
-      return h('span', [
+      return h('span', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '16px',
+          background: '#fafbfc',
+          borderRadius: '4px',
+          margin: '2px 0',
+        }
+      }, [
         getFolderIcon(),
-        h('span', { style: 'font-weight: 600; color: #606266; marginLeft: ' + '4px' }, node.label)
+        h('span', { style: 'font-weight: 600; color: #606266; font-size: 13px;' }, node.label)
       ])
     }
     // 表节点
     if (/^db-[^\-]+-table-[^\-]+$/.test(node.key)) {
-      return h('span', [
+      return h('span', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+        }
+      }, [
         h(NPopover, {
           trigger: 'hover',
           placement: 'right-start',
           style: 'min-width: 320px;'
         }, {
           default: () => h('div', {
-            style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+            style: 'display: flex; flex-direction: column; gap: 4px; min-width: 320px; text-align: left;'
           }, [
             h('div', [h('b', '表名: '), node.label]),
             node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
@@ -58,7 +67,7 @@ const renderLabel = ({ option: node }) => {
           ].filter(Boolean)),
           trigger: () => getTableIcon()
         }),
-        h('span', { style: 'font-weight: 500; color: #333; marginLeft: ' + '4px' }, node.label)
+        h('span', { style: 'font-weight: 600; color: #222; font-size: 14px;' }, node.label)
       ])
     }
     // 列节点
@@ -72,7 +81,7 @@ const renderLabel = ({ option: node }) => {
         style: 'min-width: 320px;'
       }, {
         default: () => h('div', {
-          style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+          style: 'display: flex; flex-direction: column; gap: 4px; min-width: 320px; text-align: left;'
         }, [
           h('div', [h('b', '字段名: '), node.label]),
           node.data_type && h('div', [h('b', '类型: '), node.data_type]),
@@ -86,9 +95,15 @@ const renderLabel = ({ option: node }) => {
           node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
           node.table_name && h('div', [h('b', '表名: '), node.table_name])
         ].filter(Boolean)),
-        trigger: () => h('span', [
+        trigger: () => h('span', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }
+        }, [
           getColumnIcon(node),
-          h('span', { style: { fontWeight: 400, color: '#333', fontSize: '13px' } }, [
+          h('span', { style: { fontWeight: 500, color: '#333', fontSize: '13px' } }, [
             node.label,
             infoArr.length > 0 ? h('span', { style: { marginLeft: '6px', color: '#999', fontSize: '11px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' } }, infoArr[0]) : null
           ])
@@ -107,7 +122,7 @@ const renderLabel = ({ option: node }) => {
         style: 'min-width: 320px;'
       }, {
         default: () => h('div', {
-          style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
+          style: 'display: flex; flex-direction: column; gap: 4px; min-width: 320px; text-align: left;'
         }, [
           h('div', [h('b', '索引名: '), node.key_name ?? node.label]),
           node.column_name && h('div', [h('b', '字段: '), node.column_name]),
@@ -117,9 +132,15 @@ const renderLabel = ({ option: node }) => {
           node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
           node.table_name && h('div', [h('b', '表名: '), node.table_name])
         ].filter(Boolean)),
-        trigger: () => h('span', [
+        trigger: () => h('span', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }
+        }, [
           getIndexIcon(),
-          h('span', { style: 'font-weight: 400; color: #333;' }, [
+          h('span', { style: { fontWeight: 500, color: '#333', fontSize: '13px' } }, [
             node.label,
             infoArr.length > 0 ? h('span', { style: { marginLeft: '8px', color: '#999', fontSize: '12px' } }, infoArr.join(' | ')) : null
           ])
@@ -128,7 +149,13 @@ const renderLabel = ({ option: node }) => {
     }
     // schema节点
     if (/^db-[^\-]+$/.test(node.key)) {
-      return h('span', [
+      const isSelected = sqlEditor.currentConnection?.database === node.label
+      return h('span', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+        }
+      }, [
         h(NPopover, {
           trigger: 'hover',
           placement: 'right-start',
@@ -137,13 +164,30 @@ const renderLabel = ({ option: node }) => {
           default: () => h('div', {
             style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
           }, [
-            h('div', [h('b', 'Schema: '), node.label]),
+            h('div', { style: 'font-weight: 600; margin-bottom: 2px;' }, [h('b', 'Schema: '), node.label]),
             node.default_character_set_name && h('div', [h('b', '字符集: '), node.default_character_set_name]),
             node.default_collation_name && h('div', [h('b', '排序规则: '), node.default_collation_name])
           ].filter(Boolean)),
-          trigger: () => h(NIcon, { size: 18, color: '#909399', style: { marginRight: '4px' } }, () => h(ServerOutline))
+          trigger: () => h(Icon, {
+            icon: isSelected ? 'mdi:database' : 'mdi:database-outline',
+            width: 18,
+            height: 18,
+            style: {
+              color: isSelected ? '#409eff' : '#909399',
+              marginRight: '4px',
+              transition: 'color 0.2s',
+            }
+          })
         }),
-        h('span', { style: 'color: #333; marginLeft: ' + '4px' }, node.label)
+        h('span', {
+          style: {
+            color: isSelected ? '#409eff' : '#333',
+            marginLeft: '4px',
+            fontWeight: isSelected ? 600 : 400,
+            fontSize: '14px',
+            transition: 'color 0.2s',
+          }
+        }, node.label)
       ])
     }
     // 其他节点
@@ -277,17 +321,17 @@ const handleLoad = async (node) => {
   >
     <n-space vertical size="large" style="height: 100%;">
       <n-card size="small" :bordered="false">
-        <n-space align="center" justify="space-between">
-          <n-text strong>
-            <n-icon size="18"><ListOutline /></n-icon>
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="display: flex; align-items: center; font-weight: 600; font-size: 15px; color: #222;">
+            <Icon icon="mdi:database-outline" width="18" height="18" style="vertical-align: middle; margin-right: 6px;" />
             数据库列表
-          </n-text>
+          </span>
           <n-button @click="handleRefresh" size="tiny" text circle>
             <template #icon>
-              <n-icon><RefreshOutline /></n-icon>
+              <Icon icon="mdi:refresh" width="18" height="18" />
             </template>
           </n-button>
-        </n-space>
+        </div>
         <n-divider style="margin: 8px 0;" />
         <n-space vertical size="small" style="margin-top: 8px;">
           <template v-if="loadingSchema">
@@ -319,12 +363,12 @@ const handleLoad = async (node) => {
         </n-space>
       </n-card>
       <n-card size="small" :bordered="false">
-        <n-text strong>
-          <n-icon size="18"><ListOutline /></n-icon>
-          SQL Templates
-        </n-text>
+        <span style="display: flex; align-items: center; font-weight: 600; font-size: 15px; color: #222;">
+          <Icon icon="mdi:database-search" width="18" height="18" style="vertical-align: middle; margin-right: 6px;" />
+          SQL 模板
+        </span>
         <n-divider style="margin: 8px 0;" />
-        <SqlTemplateSidebar :showSidebar="props.showSidebar" @insert-template="(sql) => emit('insert-template', sql)" />
+        <SqlTemplateSidebar :showSidebar="props.showSidebar" @insert-template="(sql) => emit('insert-template', sql)" hide-title />
       </n-card>
     </n-space>
   </n-layout-sider>

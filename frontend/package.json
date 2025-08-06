@@ -14,7 +14,6 @@
   "dependencies": {
     "@arco-design/color": "^0.4.0",
     "@iconify/vue": "^5.0.0",
-    "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "^13.3.0",
     "add": "^2.0.6",
     "axios": "^1.10.0",

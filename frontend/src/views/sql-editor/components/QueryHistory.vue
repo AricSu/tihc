@@ -13,13 +13,13 @@
             <template #icon>
               <Icon icon="mdi:restore" width="18" height="18" />
             </template>
-            <span class="restore-text">恢复</span>
+            <span class="restore-text">{{ t('sqlEditor.restore') }}</span>
           </n-button>
         </div>
       </div>
     </n-list-item>
     <template v-if="!historySafe.length">
-      <n-empty description="暂无历史记录" />
+      <n-empty :description="t('sqlEditor.noHistory')" />
     </template>
   </n-list>
 </template>
@@ -28,6 +28,8 @@
 import { computed } from 'vue'
 import { useSqlEditorStore } from '../../../store/modules/sqlEditor'
 import { Icon } from '@iconify/vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const sqlEditor = useSqlEditorStore()
 const historySafe = computed(() => Array.isArray(sqlEditor.history) ? sqlEditor.history : [])
 </script>
