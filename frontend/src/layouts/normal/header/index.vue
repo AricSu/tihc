@@ -1,12 +1,13 @@
 <template>
   <AppCard class="flex items-center px-12" border-b="1px solid light_border dark:dark_border">
     <MenuCollapse />
-    <AppTab class="w-0 flex-1 px-12" />
+    <!-- <AppTab class="w-0 flex-1 px-12" /> -->
+    <div class="flex-1"></div>
     <span class="mx-6 opacity-20">|</span>
     <div class="flex items-center px-12 text-18">
       <Icon icon="mdi:file-document-outline" class="mr-16 cursor-pointer" @click="open(locale === 'zh' ? 'https://www.askaric.com/zh/tihc/' : 'https://www.askaric.com/en/tihc/')" />
       <!-- <BeginnerGuide /> -->
-      <ToggleTheme />
+      <!-- <ToggleTheme /> -->
       <Fullscreen />
       <Icon icon="mdi:github" class="mr-16 cursor-pointer" @click="open('https://github.com/aricSu/tihc')" />
       <Icon icon="mdi:account-group-outline" class="mr-16 cursor-pointer" @click="open('https://github.com/AricSu/aricsu.github.io/discussions/categories/askaric-tihc')" />
