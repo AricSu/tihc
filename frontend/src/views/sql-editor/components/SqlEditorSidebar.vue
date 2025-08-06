@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, h, resolveComponent } from 'vue'
+import { ref, onMounted, watch, h, getCurrentInstance } from 'vue'
 import { NTree, NPopover } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import SqlTemplateSidebar from './SqlTemplateSidebar.vue'
@@ -8,6 +8,8 @@ import { useSqlEditorStore } from '@/store/modules/sqlEditor'
 
 const props = defineProps({ showSidebar: Boolean })
 const emit = defineEmits(['update:showSidebar', 'insert-template'])
+const { proxy } = getCurrentInstance()
+const $t = proxy?.$t || ((s) => s)
 
 const treeData = ref([])
 const loadingSchema = ref(false)
@@ -40,7 +42,7 @@ const renderLabel = ({ option: node }) => {
         }
       }, [
         getFolderIcon(),
-        h('span', { style: 'font-weight: 600; color: #606266; font-size: 13px;' }, node.label)
+        h('span', { style: 'font-weight: 600; color: #606266; font-size: 13px;' }, $t('sqlEditor.' + node.label))
       ])
     }
     // 表节点
@@ -60,10 +62,10 @@ const renderLabel = ({ option: node }) => {
           default: () => h('div', {
             style: 'display: flex; flex-direction: column; gap: 4px; min-width: 320px; text-align: left;'
           }, [
-            h('div', [h('b', '表名: '), node.label]),
-            node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
-            node.create_time && h('div', [h('b', '创建时间: '), node.create_time]),
-            node.table_comment && h('div', [h('b', '注释: '), node.table_comment])
+            h('div', [h('b', $t('sqlEditor.tableName') + ': '), node.label]),
+            node.table_schema && h('div', [h('b', $t('sqlEditor.schema') + ': '), node.table_schema]),
+            node.create_time && h('div', [h('b', $t('sqlEditor.createTime') + ': '), node.create_time]),
+            node.table_comment && h('div', [h('b', $t('sqlEditor.comment') + ': '), node.table_comment])
           ].filter(Boolean)),
           trigger: () => getTableIcon()
         }),
@@ -83,17 +85,17 @@ const renderLabel = ({ option: node }) => {
         default: () => h('div', {
           style: 'display: flex; flex-direction: column; gap: 4px; min-width: 320px; text-align: left;'
         }, [
-          h('div', [h('b', '字段名: '), node.label]),
-          node.data_type && h('div', [h('b', '类型: '), node.data_type]),
-          node.column_type && h('div', [h('b', '类型定义: '), node.column_type]),
-          node.column_key && h('div', [h('b', '主键: '), node.column_key]),
-          node.column_default !== undefined && h('div', [h('b', '默认值: '), node.column_default ?? '']),
-          node.is_nullable !== undefined && h('div', [h('b', '可空: '), node.is_nullable === 'YES' || node.is_nullable === true ? '✔️' : '❌']),
-          node.character_set_name && h('div', [h('b', '字符集: '), node.character_set_name]),
-          node.collation_name && h('div', [h('b', '排序规则: '), node.collation_name]),
-          node.character_octet_length !== undefined && h('div', [h('b', '长度: '), node.character_octet_length]),
-          node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
-          node.table_name && h('div', [h('b', '表名: '), node.table_name])
+          h('div', [h('b', $t('sqlEditor.columnName') + ': '), node.label]),
+          node.data_type && h('div', [h('b', $t('sqlEditor.type') + ': '), node.data_type]),
+          node.column_type && h('div', [h('b', $t('sqlEditor.columnType') + ': '), node.column_type]),
+          node.column_key && h('div', [h('b', $t('sqlEditor.primaryKey') + ': '), node.column_key]),
+          node.column_default !== undefined && h('div', [h('b', $t('sqlEditor.defaultValue') + ': '), node.column_default ?? '']),
+          node.is_nullable !== undefined && h('div', [h('b', $t('sqlEditor.nullable') + ': '), node.is_nullable === 'YES' || node.is_nullable === true ? '✔️' : '❌']),
+          node.character_set_name && h('div', [h('b', $t('sqlEditor.charset') + ': '), node.character_set_name]),
+          node.collation_name && h('div', [h('b', $t('sqlEditor.collation') + ': '), node.collation_name]),
+          node.character_octet_length !== undefined && h('div', [h('b', $t('sqlEditor.length') + ': '), node.character_octet_length]),
+          node.table_schema && h('div', [h('b', $t('sqlEditor.schema') + ': '), node.table_schema]),
+          node.table_name && h('div', [h('b', $t('sqlEditor.tableName') + ': '), node.table_name])
         ].filter(Boolean)),
         trigger: () => h('span', {
           style: {
@@ -124,13 +126,13 @@ const renderLabel = ({ option: node }) => {
         default: () => h('div', {
           style: 'display: flex; flex-direction: column; gap: 4px; min-width: 320px; text-align: left;'
         }, [
-          h('div', [h('b', '索引名: '), node.key_name ?? node.label]),
-          node.column_name && h('div', [h('b', '字段: '), node.column_name]),
-          node.index_type && h('div', [h('b', '类型: '), node.index_type]),
-          node.non_unique !== undefined && h('div', [h('b', '是否唯一: '), node.non_unique === 0 ? '是' : '否']),
-          node.index_comment && h('div', [h('b', '注释: '), node.index_comment]),
-          node.table_schema && h('div', [h('b', 'Schema: '), node.table_schema]),
-          node.table_name && h('div', [h('b', '表名: '), node.table_name])
+          h('div', [h('b', $t('sqlEditor.indexName') + ': '), node.key_name ?? node.label]),
+          node.column_name && h('div', [h('b', $t('sqlEditor.column') + ': '), node.column_name]),
+          node.index_type && h('div', [h('b', $t('sqlEditor.type') + ': '), node.index_type]),
+          node.non_unique !== undefined && h('div', [h('b', $t('sqlEditor.unique') + ': '), node.non_unique === 0 ? $t('sqlEditor.yes') : $t('sqlEditor.no')]),
+          node.index_comment && h('div', [h('b', $t('sqlEditor.comment') + ': '), node.index_comment]),
+          node.table_schema && h('div', [h('b', $t('sqlEditor.schema') + ': '), node.table_schema]),
+          node.table_name && h('div', [h('b', $t('sqlEditor.tableName') + ': '), node.table_name])
         ].filter(Boolean)),
         trigger: () => h('span', {
           style: {
@@ -164,9 +166,9 @@ const renderLabel = ({ option: node }) => {
           default: () => h('div', {
             style: 'display: flex; flex-direction: column; gap: 8px; min-width: 320px;'
           }, [
-            h('div', { style: 'font-weight: 600; margin-bottom: 2px;' }, [h('b', 'Schema: '), node.label]),
-            node.default_character_set_name && h('div', [h('b', '字符集: '), node.default_character_set_name]),
-            node.default_collation_name && h('div', [h('b', '排序规则: '), node.default_collation_name])
+            h('div', { style: 'font-weight: 600; margin-bottom: 2px;' }, [h('b', $t('sqlEditor.schema') + ': '), node.label]),
+            node.default_character_set_name && h('div', [h('b', $t('sqlEditor.charset') + ': '), node.default_character_set_name]),
+            node.default_collation_name && h('div', [h('b', $t('sqlEditor.collation') + ': '), node.default_collation_name])
           ].filter(Boolean)),
           trigger: () => h(Icon, {
             icon: isSelected ? 'mdi:database' : 'mdi:database-outline',
@@ -203,7 +205,7 @@ const fetchSchema = async () => {
   schemaError.value = ''
   const connectionId = sqlEditor.currentConnection?.id
   if (!connectionId) {
-    schemaError.value = '请先选择连接'
+    schemaError.value = $t('sqlEditor.selectConnectionFirst')
     treeData.value = []
     loadingSchema.value = false
     return
@@ -219,7 +221,7 @@ const fetchSchema = async () => {
       default_collation_name: db.default_collation_name
     }))
   } catch (err) {
-    schemaError.value = err?.response?.data?.message || err?.message || 'Schema load failed'
+    schemaError.value = err?.response?.data?.message || err?.message || $t('sqlEditor.schemaLoadFailed')
     treeData.value = []
   }
   loadingSchema.value = false
@@ -279,7 +281,7 @@ const handleLoad = async (node) => {
       node.children = [
         {
           key: node.key + '-columns',
-          label: '列',
+          label: 'columns', // will be translated with sqlEditor.columns
           isLeaf: false,
           children: columnList.map(col => ({
             key: node.key + '-column-' + col.column_name,
@@ -290,7 +292,7 @@ const handleLoad = async (node) => {
         },
         {
           key: node.key + '-indexes',
-          label: '索引',
+          label: 'indexes', // will be translated with sqlEditor.indexes
           isLeaf: false,
           children: indexList.map(idx => ({
             key: node.key + '-index-' + idx.key_name,
@@ -322,10 +324,10 @@ const handleLoad = async (node) => {
     <n-space vertical size="large" style="height: 100%;">
       <n-card size="small" :bordered="false">
         <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span style="display: flex; align-items: center; font-weight: 600; font-size: 15px; color: #222;">
-            <Icon icon="mdi:database-outline" width="18" height="18" style="vertical-align: middle; margin-right: 6px;" />
-            数据库列表
-          </span>
+            <span style="display: flex; align-items: center; font-weight: 600; font-size: 15px; color: #222;">
+              <Icon icon="mdi:database-outline" width="18" height="18" style="vertical-align: middle; margin-right: 6px;" />
+              {{ $t('sqlEditor.databaseList') }}
+            </span>
           <n-button @click="handleRefresh" size="tiny" text circle>
             <template #icon>
               <Icon icon="mdi:refresh" width="18" height="18" />
@@ -337,7 +339,7 @@ const handleLoad = async (node) => {
           <template v-if="loadingSchema">
             <n-space align="center">
               <n-spin size="small" />
-              <n-text depth="3">Loading...</n-text>
+              <n-text depth="3">{{ $t('sqlEditor.loading') }}</n-text>
             </n-space>
           </template>
           <template v-else-if="schemaError">
@@ -358,14 +360,14 @@ const handleLoad = async (node) => {
             </div>
           </template>
           <template v-else>
-            <n-empty description="暂无数据库信息" size="small" />
+            <n-empty :description="$t('sqlEditor.noDatabaseInfo')" size="small" />
           </template>
         </n-space>
       </n-card>
       <n-card size="small" :bordered="false">
         <span style="display: flex; align-items: center; font-weight: 600; font-size: 15px; color: #222;">
           <Icon icon="mdi:database-search" width="18" height="18" style="vertical-align: middle; margin-right: 6px;" />
-          SQL 模板
+          {{ $t('sqlEditor.sqlTemplates') }}
         </span>
         <n-divider style="margin: 8px 0;" />
         <SqlTemplateSidebar :showSidebar="props.showSidebar" @insert-template="(sql) => emit('insert-template', sql)" hide-title />

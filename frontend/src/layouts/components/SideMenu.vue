@@ -16,36 +16,38 @@
 <script setup>
 import { useAppStore } from '@/store'
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const appStore = useAppStore()
-const staticMenus = [
+const { t } = useI18n()
+const staticMenus = computed(() => [
   {
-    label: '首页',
+    label: t('navigation.home'),
     key: 'home',
-    path: '/',
+    path: '/home',
     icon: () => h('i', { class: 'i-mdi-home text-16' }),
   },
   {
-    label: 'SQL 编辑器',
+    label: t('navigation.sqlEditor'),
     key: 'sql-editor',
     path: '/sql-editor',
     icon: () => h('i', { class: 'i-mdi-database-search text-16' }),
   },
   // {
-  //   label: 'DDL 检查',
+  //   label: t('navigation.ddlCheck'),
   //   key: 'ddl',
   //   path: '/ddl',
   //   icon: () => h('i', { class: 'i-mdi-table-edit text-16' }),
   // },
-]
+])
 
 // 根据当前 hash 路由自动设置高亮菜单 key
 const activeKey = ref(getActiveKeyByHash())
 
 function getActiveKeyByHash() {
   const hash = window.location.hash.replace(/^#/, '')
-  const found = staticMenus.find(m => m.path === hash)
-  return found ? found.key : staticMenus[0].key
+  const found = staticMenus.value.find(m => m.path === hash)
+  return found ? found.key : staticMenus.value[0].key
 }
 
 window.addEventListener('hashchange', () => {

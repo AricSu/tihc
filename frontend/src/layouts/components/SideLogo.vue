@@ -1,7 +1,7 @@
 <template>
   <router-link
     class="h-60 f-c-c cursor-pointer"
-    to="/login"
+    to="/"
     @click.native="refreshIfLogin"
   >
     <TheLogo />
@@ -22,7 +22,7 @@ const appStore = useAppStore()
 import { useRouter } from 'vue-router'
 const router = useRouter()
 function refreshIfLogin(e) {
-  if (router.currentRoute.value.path === '/login') {
+  if (router.currentRoute.value.path === '/') {
     e.preventDefault()
     window.location.reload()
   }

@@ -1,4 +1,9 @@
 {
+    "navigation": {
+        "home": "首页",
+        "sqlEditor": "SQL 编辑器",
+        "ddlCheck": "DDL 检查"
+    },
     "sqlEditor": {
         "rowOne": "行",
         "rowMany": "行",
@@ -74,7 +79,7 @@
         "quickInsert": "快速插入",
         "insert": "插入",
         "templateNotFound": "未找到模板",
-        "hideSlowlog": "隐藏慢日志工具",
+        "hideSlowlog": "隐藏慢日志导入工具",
         "databaseConnection": "数据库连接",
         "savedConnections": "已保存连接",
         "connectionName": "连接名称",
@@ -109,7 +114,7 @@
         "portRange": "端口必须在 1 到 65535 之间",
         "usernameRequired": "用户名不能为空",
         "connectionNameExists": "连接名称已存在，请使用唯一名称",
-        "showSlowlog": "显示慢日志工具",
+        "showSlowlog": "显示慢日志导入工具",
         "lines": "行数",
         "length": "长度",
         "ConnectionSaved": "连接保存成功。",
@@ -131,9 +136,11 @@
         "createTime": "创建时间",
         "comment": "注释",
         "columnName": "字段名",
+        "columnType": "类型定义",
         "type": "类型",
         "typeDef": "类型定义",
         "primaryKey": "主键",
+        "defaultValue": "默认值",
         "default": "默认值",
         "nullable": "可空",
         "yes": "是",
@@ -147,6 +154,7 @@
         "refresh": "刷新",
         "loading": "加载中...",
         "sqlTemplates": "SQL模板",
+        "templates": "SQL模板",
         "noDatabaseInfo": "暂无数据库信息",
         "selectConnectionFirst": "请先选择连接",
         "schemaLoadFailed": "Schema 加载失败",
@@ -155,7 +163,8 @@
         "ms": "毫秒",
         "error": "错误",
         "success": "成功",
-        "row": "行{count, plural, =1 {} other {s}}",
+        "rowSingle": "行",
+        "rowPlural": "行",
         "rowsReturned": "{count} 行已返回，用时 {time}毫秒",
         "copyCsv": "复制 CSV",
         "copyJson": "复制 JSON",
@@ -170,6 +179,69 @@
         "jsonCopied": "JSON 已复制到剪贴板",
         "noDataToCopy": "无数据可复制",
         "resultCopied": "结果已复制到剪贴板"
+    },
+    "home": {
+        "whyTihc": "为什么选择 TiHC",
+        "welcomeTitle": "欢迎使用 TiHC 1.1.0",
+        "description": "专为 TiDB 打造的问题诊断工具，采用 {techStack} 架构设计。零依赖部署，开箱即用；前后端分离开发，单文件自包含构建；轻量高效，安全可靠。",
+        "techStack": "Rust + Vue",
+        "authorIntro": "作者简介",
+        "codeRepo": "代码仓库",
+        "motto": "让问题解决高效，留更多时间给生活。",
+        "mottoAuthor": "—— Aric",
+        "roadmapTitle": "TiHC Roadmap & 特性",
+        "techStackTitle": "技术栈",
+        "trendTitle": "趋势",
+        "statusImplemented": "已实现",
+        "statusInProgress": "制作中",
+        "statusPlanned": "规划中",
+        "featurePlugin": {
+            "title": "TiHC 整体插件化",
+            "description": "基于 微内核 & DDD 设计模式重构代码，支持功能模块化扩展"
+        },
+        "featureCli": {
+            "title": "TiHC CLI 工具",
+            "description": "基于 Rust Clap 构建 CLI，所有功能自包含，无需下载任何依赖"
+        },
+        "featureFrontend": {
+            "title": "现代化前端",
+            "description": "基于 Vue Naive Admin + NativeUI 构建可交互界面，提供优雅的用户体验"
+        },
+        "featureSqlEditor": {
+            "title": "WEB SQL 编辑器",
+            "description": "基于 Monaco Editor 实现，支持语法高亮，快捷键执行和结果展示，对慢日志高效分析"
+        },
+        "featureSlowlog": {
+            "title": "慢日志解析与导入",
+            "description": "Slowlog 导入与可视化，帮助识别性能瓶颈"
+        },
+        "featureBugTrack": {
+            "title": "BUG 修复信息追踪",
+            "description": "基于 TiDB GitHub Issue 信息，实现对某一具体 BUG 的修复版本查询"
+        },
+        "featureDdlCheck": {
+            "title": "有损 DDL 检查",
+            "description": "智能 DDL 语句检查，预防有损 DDL 导致统计信息丢失的潜在数据库风险"
+        },
+        "featureReport": {
+            "title": "巡检报告生成",
+            "description": "数据库健康状态监控，提供关键指标展示及 PDF 导出"
+        },
+        "visitDoc": "访问 TiHC Doc 了解更多 TiHC 进展，持续开发中...",
+        "chartLabels": {
+            "githubStars": "GitHub Stars",
+            "monthlyCommits": "月度提交数",
+            "commits": "提交数",
+            "stars": "Stars"
+        }
+    },
+    "login": {
+        "title": "TiHC 登录",
+        "oneClickExperience": "一键体验",
+        "verifying": "正在验证，请稍后...",
+        "loggingIn": "登录中...",
+        "loginSuccess": "登录成功",
+        "welcome": "欢迎使用 TiHC"
     },
     "common": {
         "language": "语言切换",

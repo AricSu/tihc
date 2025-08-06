@@ -157,9 +157,16 @@ function formatTabLabel(result, index) {
   const queryNum = t('sqlEditor.queryNum', { num: index + 1 })
   const time = `${result.executionTime ?? result.latency_ms ?? 0}${t('sqlEditor.ms')}`
   const rowCount = Array.isArray(result.rows) ? result.rows.length : 0
-  const status = result.error
-    ? `✗ ${t('sqlEditor.error')}`
-    : `✓ ${t('sqlEditor.row', { count: rowCount })}`
+  
+  let status
+  if (result.error) {
+    status = `✗ ${t('sqlEditor.error')}`
+  } else {
+    // 使用国际化的单复数文本
+    const rowText = rowCount === 1 ? t('sqlEditor.rowSingle') : t('sqlEditor.rowPlural')
+    status = `✓ ${rowCount} ${rowText}`
+  }
+  
   return `${queryNum} • ${status} • ${time}`
 }
 function handleExport(result, type: 'csv' | 'json') {

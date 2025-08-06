@@ -1,4 +1,9 @@
 {
+    "navigation": {
+        "home": "Home",
+        "sqlEditor": "SQL Editor",
+        "ddlCheck": "DDL Check"
+    },
     "sqlEditor": {
         "rowOne": "row",
         "rowMany": "rows",
@@ -74,8 +79,8 @@
         "quickInsert": "Quick Insert",
         "insert": "Insert",
         "templateNotFound": "Template not found",
-        "hideSlowlog": "Hide Slowlog Tools",
-        "showSlowlog": "Show Slowlog Tools",
+        "hideSlowlog": "Hide Slowlog Import Tools",
+        "showSlowlog": "Show Slowlog Import Tools",
         "lines": "Lines",
         "length": "Length",
         "ConnectionSaved": "Connection saved successfully.",
@@ -130,9 +135,11 @@
         "createTime": "Created At",
         "comment": "Comment",
         "columnName": "Column Name",
+        "columnType": "Column Type",
         "type": "Type",
         "typeDef": "Type Definition",
         "primaryKey": "Primary Key",
+        "defaultValue": "Default Value",
         "default": "Default",
         "nullable": "Nullable",
         "yes": "Yes",
@@ -146,6 +153,7 @@
         "refresh": "Refresh",
         "loading": "Loading...",
         "sqlTemplates": "SQL Templates",
+        "templates": "SQL Templates",
         "noDatabaseInfo": "No database information",
         "selectConnectionFirst": "Please select a connection first",
         "schemaLoadFailed": "Schema load failed",
@@ -155,7 +163,8 @@
         "ms": "ms",
         "error": "Error",
         "success": "Success",
-        "row": "row{count, plural, =1 {} other {s}}",
+        "rowSingle": "row",
+        "rowPlural": "rows",
         "rowsReturned": "{count} rows returned in {time}ms",
         "copyCsv": "Copy CSV",
         "copyJson": "Copy JSON",
@@ -170,6 +179,69 @@
         "jsonCopied": "JSON copied to clipboard",
         "noDataToCopy": "No data to copy",
         "resultCopied": "Result copied to clipboard"
+    },
+    "home": {
+        "whyTihc": "Why TiHC",
+        "welcomeTitle": "Welcome to TiHC 1.1.0",
+        "description": "A professional TiDB diagnostic tool built with {techStack} architecture. Zero dependency deployment, ready to use out of the box; complete frontend-backend separated development, single-file self-contained; lightweight, efficient, and secure.",
+        "techStack": "Rust + Vue",
+        "authorIntro": "About Author",
+        "codeRepo": "Code Repository",
+        "motto": "Solve problems efficiently and leave more time for life.",
+        "mottoAuthor": "—— Aric",
+        "roadmapTitle": "TiHC Roadmap & Features",
+        "techStackTitle": "Tech Stack",
+        "trendTitle": "Trends",
+        "statusImplemented": "Implemented",
+        "statusInProgress": "In Progress",
+        "statusPlanned": "Planned",
+        "featurePlugin": {
+            "title": "TiHC Plugin Architecture",
+            "description": "Code refactoring based on microkernel & DDD design patterns, supporting modular functional extensions"
+        },
+        "featureCli": {
+            "title": "TiHC CLI Tool",
+            "description": "Built with Rust Clap CLI, all features self-contained, no dependencies required"
+        },
+        "featureFrontend": {
+            "title": "Modern Frontend",
+            "description": "Interactive interface built with Vue Naive Admin + NativeUI, providing elegant user experience"
+        },
+        "featureSqlEditor": {
+            "title": "WEB SQL Editor",
+            "description": "Monaco Editor implementation with syntax highlighting, keyboard shortcuts execution and result display, efficient slowlog analysis"
+        },
+        "featureSlowlog": {
+            "title": "Slowlog Parsing & Import",
+            "description": "Slowlog import and visualization to help identify performance bottlenecks"
+        },
+        "featureBugTrack": {
+            "title": "Bug Fix Information Tracking",
+            "description": "Based on TiDB GitHub Issue information, enabling specific bug fix version queries"
+        },
+        "featureDdlCheck": {
+            "title": "Lossy DDL Check",
+            "description": "Intelligent DDL statement checking to prevent potential database risks from lossy DDL causing statistics loss"
+        },
+        "featureReport": {
+            "title": "Inspection Report Generation",
+            "description": "Database health monitoring with key metrics display and PDF export"
+        },
+        "visitDoc": "Visit TiHC Doc to learn more about TiHC progress, under continuous development...",
+        "chartLabels": {
+            "githubStars": "GitHub Stars",
+            "monthlyCommits": "Monthly Commits",
+            "commits": "Commits",
+            "stars": "Stars"
+        }
+    },
+    "login": {
+        "title": "TiHC Login",
+        "oneClickExperience": "Quick Start",
+        "verifying": "Verifying, please wait...",
+        "loggingIn": "Logging in...",
+        "loginSuccess": "Login successful",
+        "welcome": "Welcome to TiHC"
     },
     "common": {
         "language": "Language",
