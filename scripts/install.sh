@@ -95,6 +95,84 @@ get_system_info() {
     echo "${os}:${arch}"
 }
 
+# 检查已安装的版本
+check_installed_version() {
+    local binary_path="${INSTALL_DIR}/${BINARY_NAME}"
+    
+    if [[ -f "${binary_path}" && -x "${binary_path}" ]]; then
+        local installed_version=""
+        installed_version=$(${binary_path} --version 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 || echo "")
+        
+        if [[ -n "${installed_version}" ]]; then
+            echo "${installed_version}"
+        else
+            echo ""
+        fi
+    else
+        echo ""
+    fi
+}
+
+# 清理旧版本安装
+cleanup_old_installations() {
+    log_info "Checking for existing installations..."
+    
+    local old_locations=(
+        "/usr/local/bin/${BINARY_NAME}"
+        "/usr/bin/${BINARY_NAME}"
+        "${HOME}/bin/${BINARY_NAME}"
+    )
+    
+    local found_old=false
+    
+    for old_path in "${old_locations[@]}"; do
+        if [[ -f "${old_path}" ]]; then
+            log_warning "Found existing installation at ${old_path}"
+            found_old=true
+            
+            # 尝试删除，可能需要sudo权限
+            if [[ "${old_path}" == "/usr/local/bin/"* || "${old_path}" == "/usr/bin/"* ]]; then
+                if command -v sudo &> /dev/null; then
+                    log_info "Removing old installation at ${old_path} (requires admin privileges)..."
+                    if sudo rm -f "${old_path}"; then
+                        log_success "Removed old installation from ${old_path}"
+                    else
+                        log_warning "Failed to remove ${old_path}, you may need to remove it manually"
+                    fi
+                else
+                    log_warning "Cannot remove ${old_path} (no sudo available), you may need to remove it manually"
+                fi
+            else
+                log_info "Removing old installation at ${old_path}..."
+                if rm -f "${old_path}"; then
+                    log_success "Removed old installation from ${old_path}"
+                else
+                    log_warning "Failed to remove ${old_path}"
+                fi
+            fi
+        fi
+    done
+    
+    if ! $found_old; then
+        log_info "No conflicting installations found"
+    fi
+}
+
+# 比较版本号 (version1 > version2 返回 0)
+version_greater_than() {
+    local version1="$1"
+    local version2="$2"
+    
+    # 使用sort -V进行版本比较
+    if command -v sort &> /dev/null; then
+        local highest=$(printf '%s\n%s\n' "$version1" "$version2" | sort -V | tail -1)
+        [[ "$version1" == "$highest" && "$version1" != "$version2" ]]
+    else
+        # 如果没有sort -V，使用简单的字符串比较
+        [[ "$version1" > "$version2" ]]
+    fi
+}
+
 # 获取最新版本
 get_latest_version() {
     local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
@@ -304,12 +382,36 @@ main() {
     
     check_prerequisites
     
+    # 清理旧版本安装
+    cleanup_old_installations
+    
     local system_info
     system_info=$(get_system_info)
+    
+    # 检查已安装的版本
+    local installed_version
+    installed_version=$(check_installed_version)
     
     log_info "Fetching latest version information..."
     local version
     version=$(get_latest_version)
+    
+    # 版本比较和决策
+    if [[ -n "${installed_version}" ]]; then
+        log_info "Found existing installation: v${installed_version}"
+        log_info "Latest available version: v${version}"
+        
+        if [[ "${installed_version}" == "${version}" ]]; then
+            log_info "Already running the latest version (v${version})"
+            log_info "Reinstalling to ensure clean installation..."
+        elif version_greater_than "${version}" "${installed_version}"; then
+            log_info "Upgrading from v${installed_version} to v${version}..."
+        else
+            log_info "Downgrading from v${installed_version} to v${version}..."
+        fi
+    else
+        log_info "Installing ${BINARY_NAME} v${version}..."
+    fi
     
     local package_file
     package_file=$(download_release "${system_info}" "${version}")
