@@ -7,3 +7,5 @@ tihc.log
 /frontend/dist
 
 /releases
+/plugins/plugin_lossy_ddl/go/libschematracker.a
+/plugins/plugin_lossy_ddl/go/libschematracker.h
