@@ -1,58 +1,96 @@
-// package main
+package main
 
-// /*
-// #include <stdlib.h>
-// */
-// import "C"
-// import (
-// 	"context"
+import "C"
 
-// 	"github.com/pingcap/tidb/pkg/ddl/schematracker"
-// 	"github.com/pingcap/tidb/pkg/parser"
-// 	"github.com/pingcap/tidb/pkg/parser/ast"
-// 	_ "github.com/pingcap/tidb/pkg/planner/core"
-// 	_ "github.com/pingcap/tidb/pkg/types/parser_driver"
-// 	"github.com/pingcap/tidb/pkg/util/collate"
-// 	"github.com/pingcap/tidb/pkg/util/mock"
-// )
+import (
+	"context"
+	"fmt"
 
-// //export PrecheckSQL
-// func PrecheckSQL(sql *C.char, collationEnabled C.int, verbose C.int) C.int {
-// 	content := C.GoString(sql)
-// 	stmts, _, err := parser.New().Parse(content, "", "")
-// 	if err != nil || len(stmts) == 0 {
-// 		return -1
-// 	}
-// 	collate.SetNewCollationEnabledForTest(collationEnabled != 0)
-// 	tracker := schematracker.NewSchemaTracker(0)
-// 	sessCtx := mock.NewContext()
-// 	isLossyChange := false
-// 	for _, stmt := range stmts {
-// 		switch v := stmt.(type) {
-// 		case *ast.CreateDatabaseStmt:
-// 			err := tracker.CreateSchema(sessCtx, v)
-// 			if err != nil {
-// 				return -2
-// 			}
-// 		case *ast.CreateTableStmt:
-// 			err := tracker.CreateTable(sessCtx, v)
-// 			if err != nil {
-// 				return -3
-// 			}
-// 		case *ast.AlterTableStmt:
-// 			err := tracker.AlterTable(context.Background(), sessCtx, v)
-// 			if err != nil {
-// 				return -4
-// 			}
-// 			isLossyChange = tracker.Job.CtxVars[0].(bool)
-// 		default:
-// 			return -5
-// 		}
-// 	}
-// 	if isLossyChange {
-// 		return 1
-// 	}
-// 	return 0
-// }
+	"github.com/pingcap/tidb/pkg/ddl/schematracker"
+	"github.com/pingcap/tidb/pkg/parser"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	_ "github.com/pingcap/tidb/pkg/planner/core"
+	_ "github.com/pingcap/tidb/pkg/types/parser_driver"
+	"github.com/pingcap/tidb/pkg/util/collate"
+	"github.com/pingcap/tidb/pkg/util/mock"
+)
 
-// func main() {}
+// go build -buildmode=c-archive -o libschematracker.a libschematracker.go
+func main() {
+	// Empty main function required for c-archive build
+}
+
+//export precheck_sql_with_collation
+func precheck_sql_with_collation(sql_ptr *C.char, collation_enabled C.int) C.int {
+	sql := C.GoString(sql_ptr)
+	collationEnabled := collation_enabled != 0
+	isLossy, err := PrecheckSQL(sql, collationEnabled)
+	if err != nil {
+		return -1 // 错误情况
+	}
+	if isLossy {
+		return 1 // 有损
+	}
+	return 0 // 安全
+}
+
+// PrecheckSQL 检查 SQL 是否包含有损 DDL 变更
+func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
+	// 解析 SQL
+	stmts, _, err := parser.New().Parse(sql, "", "")
+	if err != nil {
+		return false, fmt.Errorf("failed to parse SQL: %w", err)
+	}
+	if len(stmts) == 0 {
+		return false, fmt.Errorf("no statements found")
+	}
+
+	// 设置 TiDB 组件 - 根据参数启用 collation 功能
+	collate.SetNewCollationEnabledForTest(collationEnabled)
+	tracker := schematracker.NewSchemaTracker(0)
+	sessCtx := mock.NewContext()
+
+	// 处理每个语句
+	for _, stmt := range stmts {
+		switch v := stmt.(type) {
+		case *ast.CreateDatabaseStmt:
+			err := tracker.CreateSchema(sessCtx, v)
+			if err != nil {
+				return false, fmt.Errorf("failed to create schema: %w", err)
+			}
+		case *ast.CreateTableStmt:
+			err := tracker.CreateTable(sessCtx, v)
+			if err != nil {
+				return false, fmt.Errorf("failed to create table: %w", err)
+			}
+		case *ast.AlterTableStmt:
+			err := tracker.AlterTable(context.Background(), sessCtx, v)
+			if err != nil {
+				return false, fmt.Errorf("failed to alter table: %w", err)
+			}
+
+			// 检查是否有损变更 - 只有 ALTER TABLE 才检查
+			if tracker.Job == nil {
+				return false, fmt.Errorf("tracker job is nil after alter table operation")
+			}
+			if tracker.Job.CtxVars == nil || len(tracker.Job.CtxVars) == 0 {
+				return false, fmt.Errorf("tracker job context variables is empty")
+			}
+
+			lossy, ok := tracker.Job.CtxVars[0].(bool)
+			if !ok {
+				return false, fmt.Errorf("failed to get lossy value from tracker job context")
+			}
+
+			if lossy {
+				return true, nil
+			}
+		default:
+			// 不支持的语句类型，返回错误
+			return false, fmt.Errorf("unsupported statement type: %T", v)
+		}
+	}
+
+	// 如果没有 ALTER TABLE 语句，则认为是安全的
+	return false, nil
+}

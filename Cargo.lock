@@ -1472,7 +1472,13 @@ dependencies = [
 name = "plugin_lossy_ddl"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "microkernel",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
