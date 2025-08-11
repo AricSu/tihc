@@ -21,9 +21,6 @@ pub struct AnalysisResult {
     pub analyzed_patterns: Vec<String>,
 }
 
-/// Legacy alias for backward compatibility
-pub type PrecheckResult = AnalysisResult;
-
 /// Risk level classification for DDL operations
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RiskLevel {
@@ -37,13 +34,8 @@ pub enum RiskLevel {
 }
 
 impl RiskLevel {
-    /// Check if this risk level represents a lossy operation
-    pub fn is_lossy(&self) -> bool {
-        matches!(self, RiskLevel::High)
-    }
-    
     /// Get a human-readable description of the risk level
-    pub fn description(&self) -> &'static str {
+    pub(crate) fn description(&self) -> &'static str {
         match self {
             RiskLevel::Safe => "Safe - Confirmed no stats loss risk",
             RiskLevel::High => "High - Will cause stats loss or requires manual review",
@@ -51,7 +43,7 @@ impl RiskLevel {
     }
     
     /// Get emoji representation for UI display
-    pub fn emoji(&self) -> &'static str {
+    pub(crate) fn emoji(&self) -> &'static str {
         match self {
             RiskLevel::Safe => "✅",
             RiskLevel::High => "🔴",

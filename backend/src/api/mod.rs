@@ -6,6 +6,7 @@ pub mod editor_table;
 pub mod healthz;
 pub mod slowlog;
 pub mod static_routes;
+pub mod ddl_precheck;
 use crate::middleware;
 use axum::{Extension, Router};
 use microkernel::platform::ServiceRegistry;
@@ -21,6 +22,7 @@ pub fn create_router(registry: Arc<ServiceRegistry>) -> Router {
         .merge(editor_notifications::routes())
         .merge(healthz::routes())
         .merge(slowlog::routes())
+        .merge(ddl_precheck::routes())
         .merge(static_routes::static_routes())
         .fallback(static_routes::not_found_handler)
         .layer(Extension(registry))

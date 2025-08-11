@@ -23,7 +23,11 @@ extern "C" {
 /// 
 /// # Returns
 /// * `AnalysisResult` - Complete analysis result
-pub fn analyze_sql(sql: &str, collation_enabled: bool) -> AnalysisResult {
+pub(crate) fn analyze_sql(
+    sql: &str, 
+    #[cfg(feature = "tidb-engine")] collation_enabled: bool,
+    #[cfg(not(feature = "tidb-engine"))] _collation_enabled: bool,
+) -> AnalysisResult {
     // Input validation
     if let Err(error) = validate_input(sql) {
         return create_validation_error_result(error);

@@ -4,7 +4,7 @@ use microkernel::plugin_api::traits::{Plugin, PluginContext};
 use std::sync::Arc;
 use tracing::info;
 
-use crate::{precheck_sql_with_collation, AnalysisResult, RiskLevel};
+use crate::{precheck_sql_with_collation, AnalysisResult};
 
 /// Handler for DDL analysis commands
 pub struct DDLAnalysisHandler;
@@ -22,32 +22,20 @@ impl DDLAnalysisHandler {
 
 /// Implementation for command handling interface if needed
 #[async_trait::async_trait]
-impl microkernel::plugin_api::traits::CommandHandler for DDLAnalysisHandler {
-    async fn handle(&self, request: serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
-        // Parse request to get SQL and collation settings
-        let sql = request.get("sql")
-            .and_then(|v| v.as_str())
-            .ok_or("Missing 'sql' parameter")?;
+impl microkernel::platform::command_registry::CommandHandler for DDLAnalysisHandler {
+    async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
+        // Parse arguments: expect at least SQL and optionally collation setting
+        if args.is_empty() {
+            return Err(anyhow::anyhow!("Missing SQL parameter"));
+        }
         
-        let collation_enabled = request.get("collation_enabled")
-            .and_then(|v| v.as_bool())
+        let sql = &args[0];
+        let collation_enabled = args.get(1)
+            .map(|v| v.parse().unwrap_or(true))
             .unwrap_or(true);
         
-        let command_type = request.get("command")
-            .and_then(|v| v.as_str())
-            .unwrap_or("analyze");
-        
-        let response = match command_type {
-            "analyze" => {
-                let result = self.analyze_sql(sql, collation_enabled);
-                serde_json::to_value(result)?
-            }
-            _ => {
-                return Err(format!("Unknown command: {}", command_type).into());
-            }
-        };
-        
-        Ok(response)
+        let result = self.analyze_sql(sql, collation_enabled);
+        Ok(serde_json::to_value(result)?)
     }
 }
 

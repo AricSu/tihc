@@ -21,14 +21,13 @@
 //! assert_eq!(result.risk_level, RiskLevel::High);
 //! ```
 
-pub mod error;
-pub mod types;
-pub mod analyzer;
+pub(crate) mod error;
+pub(crate) mod types;
+pub(crate) mod analyzer;
 pub mod plugin;
 
-// Re-exports for convenience
-pub use types::{AnalysisResult, PrecheckResult, RiskLevel};
-pub use error::{DDLError, DDLResult};
+// Re-exports for convenience - only keep what's needed for plugin interface
+pub use types::{AnalysisResult, RiskLevel};
 pub use plugin::{LossyDDLPlugin, DDLAnalysisHandler};
 
 /// Analyze SQL with collation setting - the only supported analysis function
