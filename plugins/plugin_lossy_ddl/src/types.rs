@@ -44,6 +44,12 @@ impl Default for LossyStatus {
     }
 }
 
+impl std::fmt::Display for LossyStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.emoji(), self.description())
+    }
+}
+
 /// Comprehensive result of DDL analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisResult {

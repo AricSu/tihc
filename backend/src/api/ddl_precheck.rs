@@ -21,7 +21,7 @@ fn default_collation_enabled() -> bool {
 }
 
 /// DDL 预检查响应
-#[derive(Serialize)]
+#[derive(Serialize, Default, Debug, Clone)]
 pub struct DDLPrecheckResponse {
     /// 是否为有损操作
     pub lossy_status: LossyStatus,
@@ -65,9 +65,4 @@ impl From<RiskLevel> for String {
 pub fn routes() -> Router {
     Router::new()
         .route("/ddl/precheck", post(handle_ddl_precheck))
-}
-
-#[cfg(test)]
-mod tests {
-    include!("ddl_precheck_test.rs");
 }

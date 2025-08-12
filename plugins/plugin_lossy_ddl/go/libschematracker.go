@@ -1,11 +1,16 @@
 package main
 
+/*
+#include <stdlib.h>
+*/
 import "C"
 
 import (
 	"context"
 	"fmt"
+	"unsafe"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/pkg/ddl/schematracker"
 	"github.com/pingcap/tidb/pkg/parser"
 	"github.com/pingcap/tidb/pkg/parser/ast"
@@ -20,22 +25,44 @@ func main() {
 	// Empty main function required for c-archive build
 }
 
-//export precheck_sql_with_collation
-func precheck_sql_with_collation(sql_ptr *C.char, collation_enabled C.int) C.int {
-	sql := C.GoString(sql_ptr)
-	collationEnabled := collation_enabled != 0
-	isLossy, err := PrecheckSQL(sql, collationEnabled)
-	if err != nil {
-		return -1 // 错误情况
+// 屏蔽 TiDB 日志输出（只显示 error 及以上）
+func supressLogOutput() {
+	conf := new(log.Config)
+	conf.Level = "error"
+	lg, p, err := log.InitLogger(conf)
+	if err == nil {
+		log.ReplaceGlobals(lg, p)
 	}
-	if isLossy {
-		return 1 // 有损
-	}
-	return 0 // 安全
 }
 
-// PrecheckSQL 检查 SQL 是否包含有损 DDL 变更
-func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
+//export precheck_sql_c
+func precheck_sql_c(sql_ptr *C.char, collation_enabled C.int, verbose_enabled C.int, error_msg **C.char) C.int {
+	supressLogOutput() // 确保每次 FFI 调用都屏蔽日志
+	sql := C.GoString(sql_ptr)
+	collationEnabled := collation_enabled != 0
+	isLossy, err := PrecheckSQL(sql, collationEnabled, verbose_enabled != 0)
+
+	if err != nil {
+		*error_msg = C.CString(err.Error())
+		return -1 // error
+	}
+
+	*error_msg = nil // no error
+	if isLossy {
+		return 1 // lossy
+	}
+	return 0 // safe
+}
+
+//export free_error_message
+func free_error_message(msg *C.char) {
+	if msg != nil {
+		C.free(unsafe.Pointer(msg))
+	}
+}
+
+// PrecheckSQL 检查 SQL 是否包含有损 DDL 变更 (原生 Go 函数)
+func PrecheckSQL(sql string, collationEnabled bool, verbose bool) (bool, error) {
 	// 解析 SQL
 	stmts, _, err := parser.New().Parse(sql, "", "")
 	if err != nil {
@@ -81,7 +108,7 @@ func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
 			if tracker.Job == nil {
 				return false, fmt.Errorf("tracker job is nil after alter table operation")
 			}
-			if tracker.Job.CtxVars == nil || len(tracker.Job.CtxVars) == 0 {
+			if len(tracker.Job.CtxVars) == 0 {
 				return false, fmt.Errorf("tracker job context variables is empty")
 			}
 
@@ -98,6 +125,9 @@ func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
 			// 不支持的语句类型，返回错误
 			return false, fmt.Errorf("unsupported statement type: %T", v)
 		}
+
+		// verbose 输出现在由 Rust 端的日志系统处理，这里不再直接打印
+		// Go 端专注于计算逻辑，日志输出交给 Rust 端统一管理
 	}
 
 	// 返回累积的有损变更结果

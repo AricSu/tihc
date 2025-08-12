@@ -17,6 +17,7 @@ async-trait = "0.1"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 sqlparser = "0.58"
+libc = "0.2"
 
 # Path dependencies (assuming these exist in the workspace)
 microkernel = { path = "../../microkernel" }

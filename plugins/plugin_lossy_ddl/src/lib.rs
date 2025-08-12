@@ -23,11 +23,8 @@
 //! assert_eq!(result.risk_level, RiskLevel::High);
 //! ```
 
-#[cfg(feature = "tidb-engine")]
-use std::ffi::CString;
-#[cfg(feature = "tidb-engine")]
-use std::os::raw::c_char;
 
+use tracing;
 pub(crate) mod error;
 pub(crate) mod types;
 pub mod plugin;
@@ -38,9 +35,16 @@ pub use plugin::{LossyDDLPlugin, DDLAnalysisHandler};
 pub use error::DDLError;
 
 #[cfg(feature = "tidb-engine")]
+use std::ffi::{CString, CStr};
+#[cfg(feature = "tidb-engine")]
+use std::os::raw::c_char;
+
+#[cfg(feature = "tidb-engine")]
 extern "C" {
-    #[link_name = "precheck_sql_with_collation"]
-    fn tidb_precheck_sql_with_collation(sql_ptr: *const c_char, collation_enabled: i32) -> i32;
+    #[link_name = "precheck_sql_c"]
+    fn tidb_precheck_sql_c(sql_ptr: *const c_char, collation_enabled: i32, verbose: i32, error_msg: *mut *mut c_char) -> i32;
+    #[link_name = "free_error_message"]
+    fn tidb_free_error_message(msg: *mut c_char);
 }
 
 /// Create an error result from DDLError
@@ -48,7 +52,7 @@ fn create_error_result_from_error(error: error::DDLError) -> AnalysisResult {
     AnalysisResult {
         lossy_status: types::LossyStatus::Unknown,
         risk_level: RiskLevel::High,
-        warnings: vec![format!("❌ {}", error)],
+        warnings: vec![],
         error: Some(error.to_string()),
     }
 }
@@ -77,21 +81,56 @@ fn validate_sql(sql: &str) -> Result<(), error::DDLError> {
 }
 
 #[cfg(feature = "tidb-engine")]
-/// Analyze SQL using TiDB engine
+/// Analyze SQL using TiDB engine with verbose output
 fn analyze_with_tidb(sql: &str, collation_enabled: bool) -> Result<AnalysisResult, error::DDLError> {
     let c_sql = CString::new(sql)
         .map_err(|_| error::DDLError::InvalidInput("Failed to convert SQL to C string".to_string()))?;
     
-    let result = unsafe {
-        tidb_precheck_sql_with_collation(c_sql.as_ptr(), if collation_enabled { 1 } else { 0 })
+    let mut error_msg: *mut c_char = std::ptr::null_mut();
+    
+    // 调用 Go 的 precheck_sql_c 函数
+    let status = unsafe {
+        tidb_precheck_sql_c(
+            c_sql.as_ptr(), 
+            if collation_enabled { 1 } else { 0 },
+            0,  // verbose enabled
+            &mut error_msg
+        )
     };
     
-    match result {
-        0 => Ok(create_success_result(types::LossyStatus::Safe, "✅ Safe operation")),
-        1 => Ok(create_success_result(types::LossyStatus::Lossy, "⚠️ Lossy operation detected")),
-        -1 => Err(error::DDLError::TiDBError("TiDB analysis failed".to_string())),
-        _ => Err(error::DDLError::TiDBError(format!("Unknown TiDB result: {}", result))),
+    // 始终释放 error_msg 内存，避免泄漏
+    let result = match status {
+        0 => {
+            tracing::info!("✅ DDL analysis completed: Safe operation");
+            Ok(create_success_result(types::LossyStatus::Safe, "✅ Safe operation"))
+        },
+        1 => {
+            tracing::warn!("⚠️ DDL analysis completed: Lossy operation detected");
+            Ok(create_success_result(types::LossyStatus::Lossy, "⚠️ Lossy operation detected"))
+        },
+        -1 => {
+            // 获取详细错误信息
+            let error_string = if error_msg.is_null() {
+                "Unknown TiDB error".to_string()
+            } else {
+                unsafe {
+                    let c_str = CStr::from_ptr(error_msg);
+                    let error_str = c_str.to_string_lossy().to_string();
+                    error_str
+                }
+            };
+            tracing::error!("❌ DDL analysis failed: {}", error_string);
+            Err(error::DDLError::TiDBError(error_string))
+        },
+        _ => {
+            tracing::error!("❌ DDL analysis failed: Unknown status code {}", status);
+            Err(error::DDLError::TiDBError(format!("Unknown status code: {}", status)))
+        },
+    };
+    if !error_msg.is_null() {
+        unsafe { tidb_free_error_message(error_msg); }
     }
+    result
 }
 
 /// Analyze SQL with collation setting - the main API function
