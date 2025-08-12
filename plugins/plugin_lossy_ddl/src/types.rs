@@ -2,11 +2,53 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Status of lossy operation detection
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LossyStatus {
+    /// Operation is confirmed safe - no data loss will occur
+    Safe,
+    /// Operation will cause data loss - confirmed lossy
+    Lossy,
+    /// Cannot determine if operation is lossy - requires manual review
+    Unknown,
+}
+
+impl LossyStatus {
+    /// Get human-readable description
+    pub fn description(&self) -> &'static str {
+        match self {
+            LossyStatus::Safe => "Safe - No data loss",
+            LossyStatus::Lossy => "Lossy - Will cause data loss",
+            LossyStatus::Unknown => "Unknown - Manual review required",
+        }
+    }
+    
+    /// Get emoji representation
+    pub fn emoji(&self) -> &'static str {
+        match self {
+            LossyStatus::Safe => "✅",
+            LossyStatus::Lossy => "⚠️",
+            LossyStatus::Unknown => "❓",
+        }
+    }
+    
+    /// Check if this is a risky status (Lossy or Unknown)
+    pub fn is_risky(&self) -> bool {
+        matches!(self, LossyStatus::Lossy | LossyStatus::Unknown)
+    }
+}
+
+impl Default for LossyStatus {
+    fn default() -> Self {
+        LossyStatus::Unknown
+    }
+}
+
 /// Comprehensive result of DDL analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisResult {
-    /// Whether the DDL operation may cause data loss
-    pub is_lossy: bool,
+    /// Status of lossy operation detection
+    pub lossy_status: LossyStatus,
     
     /// Risk level of the operation
     pub risk_level: RiskLevel,
@@ -16,9 +58,6 @@ pub struct AnalysisResult {
     
     /// Error message if analysis failed
     pub error: Option<String>,
-    
-    /// List of detected risky patterns
-    pub analyzed_patterns: Vec<String>,
 }
 
 /// Risk level classification for DDL operations
@@ -53,7 +92,7 @@ impl RiskLevel {
 
 impl Default for RiskLevel {
     fn default() -> Self {
-        RiskLevel::Safe
+        RiskLevel::High
     }
 }
 

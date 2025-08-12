@@ -34,12 +34,12 @@ const staticMenus = computed(() => [
     path: '/sql-editor',
     icon: () => h('i', { class: 'i-mdi-database-search text-16' }),
   },
-  // {
-  //   label: t('menu.ddlCheck'),
-  //   key: 'ddl',
-  //   path: '/ddl',
-  //   icon: () => h('i', { class: 'i-mdi-table-edit text-16' }),
-  // },
+  {
+    label: t('menu.ddlCheck'),
+    key: 'ddl-check',
+    path: '/ddl-check',
+    icon: () => h('i', { class: 'i-mdi-table-edit text-16' }),
+  },
 ])
 
 // 根据当前 hash 路由自动设置高亮菜单 key

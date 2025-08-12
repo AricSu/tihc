@@ -4,7 +4,7 @@ use thiserror::Error;
 
 /// Errors that can occur during DDL analysis
 #[derive(Debug, Error, Clone)]
-pub(crate) enum DDLError {
+pub enum DDLError {
     /// Input validation failed
     #[error("Invalid input: {0}")]
     InvalidInput(String),

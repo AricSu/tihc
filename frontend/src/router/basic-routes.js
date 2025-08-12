@@ -25,6 +25,14 @@ export const basicRoutes = [
     },
   },
   {
+    name: 'LossyDDLChecker',
+    path: '/ddl-check',
+    component: () => import('@/views/ddl-precheck/index.vue'),
+    meta: {
+      title: '有损DDL检查',
+    },
+  },
+  {
     name: '404',
     path: '/404',
     component: () => import('@/views/error-page/404.vue'),

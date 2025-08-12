@@ -2,6 +2,7 @@ use axum::{
     Router,
     routing::post,
 };
+use plugin_lossy_ddl::LossyStatus;
 use serde::{Deserialize, Serialize};
 use crate::handlers::ddl_precheck::handle_ddl_precheck;
 
@@ -23,7 +24,7 @@ fn default_collation_enabled() -> bool {
 #[derive(Serialize)]
 pub struct DDLPrecheckResponse {
     /// 是否为有损操作
-    pub is_lossy: bool,
+    pub lossy_status: LossyStatus,
     /// 风险级别（Safe 或 High）
     pub risk_level: String,
     /// 检测到的问题描述

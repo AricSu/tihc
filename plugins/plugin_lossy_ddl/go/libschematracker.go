@@ -45,10 +45,18 @@ func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
 		return false, fmt.Errorf("no statements found")
 	}
 
+	// 检查最后一个语句必须是 ALTER TABLE（遵循原始 cmd 逻辑）
+	if _, ok := stmts[len(stmts)-1].(*ast.AlterTableStmt); !ok {
+		return false, fmt.Errorf("the last statement must be an ALTER TABLE statement")
+	}
+
 	// 设置 TiDB 组件 - 根据参数启用 collation 功能
 	collate.SetNewCollationEnabledForTest(collationEnabled)
 	tracker := schematracker.NewSchemaTracker(0)
 	sessCtx := mock.NewContext()
+
+	// 跟踪是否发现任何有损变更
+	hasLossyChange := false
 
 	// 处理每个语句
 	for _, stmt := range stmts {
@@ -82,8 +90,9 @@ func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
 				return false, fmt.Errorf("failed to get lossy value from tracker job context")
 			}
 
+			// 累积有损变更信息，而不是立即返回
 			if lossy {
-				return true, nil
+				hasLossyChange = true
 			}
 		default:
 			// 不支持的语句类型，返回错误
@@ -91,6 +100,6 @@ func PrecheckSQL(sql string, collationEnabled bool) (bool, error) {
 		}
 	}
 
-	// 如果没有 ALTER TABLE 语句，则认为是安全的
-	return false, nil
+	// 返回累积的有损变更结果
+	return hasLossyChange, nil
 }
