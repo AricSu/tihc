@@ -12,7 +12,7 @@ fn generate_recommendations(lossy_status: &LossyStatus) -> Vec<String> {
         ],
         LossyStatus::Safe => vec![], // 安全操作无需特别建议
         LossyStatus::Unknown => vec![
-            "请给予提示，检查 SQL 语法输入".to_string()
+            "请基于提示，检查 SQL 语法输入".to_string()
         ],
     }
 }
