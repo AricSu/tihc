@@ -8,7 +8,7 @@ use crate::api::ddl_precheck::{DDLPrecheckRequest, DDLPrecheckResponse, RiskLeve
 fn generate_recommendations(lossy_status: &LossyStatus) -> Vec<String> {
     match lossy_status {
         LossyStatus::Lossy => vec![
-            "执行完 DDL 后快速执行 ANALYZE TABLE 语句，以防止统计信息丢失影响 SQL 执行性能".to_string()
+            "请确保数据不会因截断而丢失，并且执行完 DDL 后快速执行 ANALYZE TABLE 语句，以防止统计信息丢失影响 SQL 执行性能".to_string()
         ],
         LossyStatus::Safe => vec![], // 安全操作无需特别建议
         LossyStatus::Unknown => vec![

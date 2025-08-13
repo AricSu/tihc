@@ -3,14 +3,14 @@
     <n-card embedded class="result-card output-scroll-card">
       <div class="result-header">
       <n-tag :type="statusTagType" size="large" class="result-status-tag">
-        {{ statusText }}
+        {{ t(statusText) }}
       </n-tag>
-      <div class="result-title">{{ statusTitle }}</div>
-      <div class="result-desc">{{ statusDescription }}</div>
+      <div class="result-title">{{ t(statusTitle) }}</div>
+      <div class="result-desc">{{ t(statusDescription) }}</div>
     </div>
     <div class="result-meta">
       <div v-if="result && result.checkDuration !== undefined && result.checkDuration !== null" class="custom-statistic">
-        <span class="stat-label">耗时</span>
+        <span class="stat-label">{{ t('ddlCheck.output.duration') }}</span>
         <span class="stat-value">{{ Number(result.checkDuration) }}<span class="stat-unit">ms</span></span>
       </div>
     </div>
@@ -19,7 +19,7 @@
       {{ result.error }}
     </n-alert>
     <div v-if="result && result.issues && result.issues.length" class="result-section">
-      <div class="result-section-title">问题</div>
+      <div class="result-section-title">{{ t('ddlCheck.output.issues') }}</div>
       <ul class="result-list">
         <li v-for="(issue, idx) in result.issues" :key="idx">
           <n-icon size="16" color="#faad14" style="vertical-align: middle;"><Icon icon="mdi:alert-circle-outline" /></n-icon>
@@ -28,7 +28,7 @@
       </ul>
     </div>
     <div v-if="result && result.recommendations && result.recommendations.length" class="result-section">
-      <div class="result-section-title">建议</div>
+      <div class="result-section-title">{{ t('ddlCheck.output.recommendations') }}</div>
       <ul class="result-list">
         <li v-for="(rec, idx) in result.recommendations" :key="idx">
           <n-icon size="16" color="#36cfc9" style="vertical-align: middle;"><Icon icon="mdi:lightbulb-on-outline" /></n-icon>
@@ -37,9 +37,9 @@
       </ul>
     </div>
     <div v-if="result && result.lossy_status === 'Lossy'" class="result-section">
-      <div class="result-section-title">执行建议</div>
+      <div class="result-section-title">{{ t('ddlCheck.output.executionAdvice') }}</div>
       <div class="result-code-block">
-        <n-button size="small" @click="copyExecutionExample" style="margin-bottom:8px;">复制代码</n-button>
+        <n-button size="small" @click="copyExecutionExample" style="margin-bottom:8px;">{{ t('ddlCheck.output.copyCode') }}</n-button>
         <n-code language="sql" :code="generateExecutionExample()" show-line-numbers />
       </div>
     </div>
@@ -47,8 +47,11 @@
   </div>
 </template>
 
+
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps<{ result: any }>()
 
 const statusTagType = computed(() => {
@@ -61,30 +64,30 @@ const statusTagType = computed(() => {
   }
 })
 const statusText = computed(() => {
-  if (!props.result) return ''
+  if (!props.result) return 'ddlCheck.output.status.unknown'
   switch (props.result.lossy_status) {
-    case 'Safe': return '安全操作'
-    case 'Lossy': return '有损操作'
-    case 'Unknown': return '状态未知'
-    default: return props.result.lossy_status
+    case 'Safe': return 'ddlCheck.output.status.safe'
+    case 'Lossy': return 'ddlCheck.output.status.lossy'
+    case 'Unknown': return 'ddlCheck.output.status.unknown'
+    default: return 'ddlCheck.output.status.unknown'
   }
 })
 const statusTitle = computed(() => {
-  if (!props.result) return 'DDL 安全检查'
+  if (!props.result) return 'ddlCheck.output.title.default'
   switch (props.result.lossy_status) {
-    case 'Safe': return 'DDL 操作安全'
-    case 'Lossy': return '检测到有损操作'
-    case 'Unknown': return '操作状态未知'
-    default: return 'DDL 检查完成'
+    case 'Safe': return 'ddlCheck.output.title.safe'
+    case 'Lossy': return 'ddlCheck.output.title.lossy'
+    case 'Unknown': return 'ddlCheck.output.title.unknown'
+    default: return 'ddlCheck.output.title.default'
   }
 })
 const statusDescription = computed(() => {
-  if (!props.result) return '正在进行安全性分析...'
+  if (!props.result) return 'ddlCheck.output.desc.default'
   switch (props.result.lossy_status) {
-    case 'Safe': return '您的DDL操作不会造成数据丢失，可以安全执行'
-    case 'Lossy': return '警告：检测到可能导致数据丢失的操作，请谨慎执行'
-    case 'Unknown': return '无法确定操作的安全性，建议进一步检查SQL语法'
-    default: return '检查已完成，请查看详细结果'
+    case 'Safe': return 'ddlCheck.output.desc.safe'
+    case 'Lossy': return 'ddlCheck.output.desc.lossy'
+    case 'Unknown': return 'ddlCheck.output.desc.unknown'
+    default: return 'ddlCheck.output.desc.default'
   }
 })
 
@@ -105,9 +108,9 @@ function generateExecutionExample() {
 async function copyExecutionExample() {
   try {
     await navigator.clipboard.writeText(generateExecutionExample())
-    window.$message.success('执行示例已复制到剪贴板')
+    window.$message.success(t('ddlCheck.output.copySuccess'))
   } catch (e) {
-    window.$message.error('复制失败，请手动选择复制')
+    window.$message.error(t('ddlCheck.output.copyFail'))
   }
 }
 </script>

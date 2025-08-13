@@ -4,8 +4,8 @@
     <div class="ddl-header-bar header-card">
       <Icon icon="mdi:database-check" class="header-icon" />
       <div class="header-title-group">
-        <div class="header-title">DDL 预检查</div>
-        <div class="header-subtitle">检查 DDL 语句是否会造成 “数据” 或 “统计信息” 丢失，提供安全建议</div>
+      <div class="header-title">{{ t('ddlCheck.pageTitle') }}</div>
+      <div class="header-subtitle">{{ t('ddlCheck.pageSubtitle') }}</div>
       </div>
     </div>
     <n-grid :cols="24" :x-gap="18" responsive="screen" class="ddl-main-grid">
@@ -20,12 +20,15 @@
 
 </template>
 
+
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import InputArea from './input.vue'
 import OutputArea from './output.vue'
 
+const { t } = useI18n()
 const result = ref(null)
 const showResults = ref(false)
 function onResult(res) {

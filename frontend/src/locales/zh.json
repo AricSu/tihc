@@ -250,6 +250,66 @@
         "copySuccess": "已复制到剪贴板",
         "copyFail": "复制失败",
         "success": "操作成功",
-        "fail": "操作失败"
+        "fail": "操作失败",
+        "clear": "清空"
+    },
+    "ddlCheck": {
+        "pageTitle": "DDL 预检查",
+        "pageSubtitle": "检查 DDL 语句是否会造成“数据”或“统计信息”丢失，提供安全建议",
+        "createDatabaseLabel": "建库语句",
+        "createDatabaseTip": "必须以 <b>CREATE DATABASE</b> 开头，必须以分号结尾，只能输入一个语句",
+        "createDatabasePlaceholder": "例如：CREATE DATABASE testdb DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+        "createDatabaseErrorStart": "建库语句必须以 CREATE DATABASE 开头",
+        "createTableLabel": "建表语句",
+        "createTableTip": "必须以 <b>CREATE TABLE</b> 开头，必须包含列定义（使用括号包围），必须以分号结尾，只能输入一个语句",
+        "createTablePlaceholder": "例如：CREATE TABLE testdb.users (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(50) NOT NULL);",
+        "createTableErrorStart": "建表语句必须以 CREATE TABLE 开头",
+        "createTableErrorColumns": "建表语句必须包含列定义，使用括号包围",
+        "alterTableLabel": "修改表语句",
+        "alterTableTip": "必须以 <b>ALTER TABLE</b> 开头，必须以分号结尾，只能输入一个语句",
+        "alterTablePlaceholder": "例如：ALTER TABLE testdb.users MODIFY COLUMN name VARCHAR(100) NOT NULL;",
+        "alterTableErrorStart": "修改表语句必须以 ALTER TABLE 开头",
+        "sqlEndWithSemicolon": "SQL语句必须以分号(;)结尾",
+        "onlyOneSQL": "每个输入框只能输入一个SQL语句",
+        "collationLabel": "排序规则",
+        "collationTip": "默认启用新的排序规则",
+        "collationOn": "启用",
+        "collationOff": "关闭",
+        "checking": "检查中...",
+        "startCheck": "开始检查",
+        "errorStart": "{label}必须以 {start} 开头",
+        "errorEndWithSemicolon": "{label}必须以分号结尾",
+        "errorOnlyOneSQL": "{label}输入框只能包含一个SQL语句",
+        "inputAtLeastOneSQL": "请至少输入一个 SQL 语句",
+        "sqlFormatError": "SQL 格式错误：{msg}",
+        "cleared": "已清空所有内容",
+        "checkSuccess": "DDL 检查完成",
+        "checkFailed": "检查失败: {msg}",
+        "output": {
+            "duration": "耗时",
+            "issues": "问题",
+            "recommendations": "建议",
+            "executionAdvice": "执行建议",
+            "copyCode": "复制代码",
+            "copySuccess": "执行示例已复制到剪贴板",
+            "copyFail": "复制失败，请手动选择复制",
+            "status": {
+                "safe": "安全操作",
+                "lossy": "有损操作",
+                "unknown": "状态未知"
+            },
+            "title": {
+                "safe": "DDL 操作安全",
+                "lossy": "检测到有损操作",
+                "unknown": "操作状态未知",
+                "default": "DDL 安全检查"
+            },
+            "desc": {
+                "safe": "您的DDL操作不会造成“数据”或“统计信息”丢失，可以安全执行",
+                "lossy": "警告：检测到可能导致“数据”或“统计信息”丢失的操作，请谨慎执行",
+                "unknown": "无法确定操作的安全性，建议进一步检查SQL语法",
+                "default": "检查已完成，请查看详细结果"
+            }
+        }
     }
 }

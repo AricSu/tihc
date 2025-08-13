@@ -250,6 +250,66 @@
         "copySuccess": "Copied to clipboard",
         "copyFail": "Copy failed",
         "success": "Success",
-        "fail": "Failed"
+        "fail": "Failed",
+        "clear": "Clear"
+    },
+    "ddlCheck": {
+        "pageTitle": "DDL Precheck",
+        "pageSubtitle": "Check if DDL statements may cause data or statistics loss and provide safety advice",
+        "createDatabaseLabel": "Create Database SQL",
+        "createDatabaseTip": "Must start with <b>CREATE DATABASE</b>, end with a semicolon, and only one statement allowed",
+        "createDatabasePlaceholder": "e.g.: CREATE DATABASE testdb DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+        "createDatabaseErrorStart": "Create Database SQL must start with CREATE DATABASE",
+        "createTableLabel": "Create Table SQL",
+        "createTableTip": "Must start with <b>CREATE TABLE</b>, include column definitions (in parentheses), end with a semicolon, and only one statement allowed",
+        "createTablePlaceholder": "e.g.: CREATE TABLE testdb.users (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(50) NOT NULL);",
+        "createTableErrorStart": "Create Table SQL must start with CREATE TABLE",
+        "createTableErrorColumns": "Create Table SQL must include column definitions in parentheses",
+        "alterTableLabel": "Alter Table SQL",
+        "alterTableTip": "Must start with <b>ALTER TABLE</b>, end with a semicolon, and only one statement allowed",
+        "alterTablePlaceholder": "e.g.: ALTER TABLE testdb.users MODIFY COLUMN name VARCHAR(100) NOT NULL;",
+        "alterTableErrorStart": "Alter Table SQL must start with ALTER TABLE",
+        "sqlEndWithSemicolon": "SQL must end with a semicolon (;)",
+        "onlyOneSQL": "Only one SQL statement allowed per input",
+        "collationLabel": "Collation",
+        "collationTip": "New collation is enabled by default",
+        "collationOn": "On",
+        "collationOff": "Off",
+        "checking": "Checking...",
+        "startCheck": "Start Check",
+        "errorStart": "{label} must start with {start}",
+        "errorEndWithSemicolon": "{label} must end with a semicolon",
+        "errorOnlyOneSQL": "Only one SQL statement allowed in {label}",
+        "inputAtLeastOneSQL": "Please input at least one SQL statement",
+        "sqlFormatError": "SQL format error: {msg}",
+        "cleared": "All content cleared",
+        "checkSuccess": "DDL check completed",
+        "checkFailed": "Check failed: {msg}",
+        "output": {
+            "duration": "Duration",
+            "issues": "Issues",
+            "recommendations": "Recommendations",
+            "executionAdvice": "Execution Advice",
+            "copyCode": "Copy Code",
+            "copySuccess": "Execution example copied to clipboard",
+            "copyFail": "Copy failed, please copy manually",
+            "status": {
+                "safe": "Safe Operation",
+                "lossy": "Lossy Operation",
+                "unknown": "Unknown Status"
+            },
+            "title": {
+                "safe": "DDL Operation Safe",
+                "lossy": "Lossy Operation Detected",
+                "unknown": "Operation Status Unknown",
+                "default": "DDL Safety Check"
+            },
+            "desc": {
+                "safe": "Your DDL operation will not cause data or statistics loss and can be executed safely.",
+                "lossy": "Warning: Detected operations may cause data or statistics loss. Please proceed with caution.",
+                "unknown": "Unable to determine operation safety. Please further check SQL syntax.",
+                "default": "Check completed. Please review the detailed results."
+            }
+        }
     }
 }

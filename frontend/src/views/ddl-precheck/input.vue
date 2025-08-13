@@ -5,39 +5,67 @@
       <n-form ref="formRef" :model="formData" :rules="rules" label-placement="top" class="ddl-precheck-form">
         <n-form-item
           v-for="item in inputItems"
-          :key="item.key"
-          :path="item.key"
+            :key="item.key"
+            :path="item.key"
           style="width:100%;"
         >
           <template #label>
             <span class="form-label-inline">
-              <Icon :icon="item.icon" :class="item.iconClass" />{{ item.label }}
+              <Icon :icon="item.icon" :class="item.iconClass" />
+              {{ item.label }}
               <span class="editor-tip" v-if="item.tip" v-html="item.tip"></span>
             </span>
           </template>
-          <n-input
-            v-model:value="formData[item.key]"
-            type="textarea"
-            :rows="item.rows"
-            :disabled="loading"
-            :placeholder="item.placeholder"
-            @input="clearResults"
-            class="ddl-input-textarea"
-          />
+          <div
+            class="ddl-input-textarea textarea-resizable codemirror-textarea"
+            :style="{
+              minHeight: (item.rows * 24 + 24) + 'px',
+              resize: 'vertical',
+              width: '100%',
+              overflow: 'visible',
+              padding: 0,
+              position: 'relative',
+              border: '1px solid #d9d9d9',
+              borderRadius: '6px',
+              background: '#fff',
+            }"
+          >
+<Codemirror
+  :model-value="formData[item.key]"
+  @update:modelValue="val => { formData[item.key] = val; clearResults(); }"
+  :placeholder="item.placeholder"
+  :extensions="[sql({ dialect: MySQL })]"
+  :disabled="loading"
+  :style="{
+    minHeight: (item.rows * 24 + 24) + 'px',
+    resize: 'vertical',
+    width: '100%',
+    fontSize: '15px',
+    lineHeight: 1.6,
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
+    padding: '8px 12px',
+    color: '#222',
+    boxSizing: 'border-box',
+  }"
+/>
+          </div>
         </n-form-item>
         <n-form-item class="checkbox-item">
           <template #label>
             <span class="form-label-inline">
-              <Icon icon="mdi:sort-variant" class="icon-collation" />排序规则
-              <span class="editor-tip">默认启用新的排序规则</span>
+              <Icon icon="mdi:sort-variant" class="icon-collation" />
+              {{ t('ddlCheck.collationLabel') }}
+              <span class="editor-tip">{{ t('ddlCheck.collationTip') }}</span>
             </span>
           </template>
           <n-switch v-model:value="formData.collationEnabled">
             <template #checked>
-              <Icon icon="mdi:sort-variant" class="checkbox-icon" /> 启用
+              <Icon icon="mdi:sort-variant" class="checkbox-icon" /> {{ t('ddlCheck.collationOn') }}
             </template>
             <template #unchecked>
-              <Icon icon="mdi:sort-variant" class="checkbox-icon" /> 关闭
+              <Icon icon="mdi:sort-variant" class="checkbox-icon" /> {{ t('ddlCheck.collationOff') }}
             </template>
           </n-switch>
         </n-form-item>
@@ -48,13 +76,13 @@
                 <template #icon>
                   <n-icon><Icon icon="mdi:play" /></n-icon>
                 </template>
-                {{ loading ? '检查中...' : '开始检查' }}
+                {{ loading ? t('ddlCheck.checking') : t('ddlCheck.startCheck') }}
               </n-button>
               <n-button @click="clearAll">
                 <template #icon>
                   <n-icon><Icon icon="mdi:close" /></n-icon>
                 </template>
-                清空
+                {{ t('common.clear') }}
               </n-button>
             </n-button-group>
           </div>
@@ -66,97 +94,102 @@
 
 
 
+
+
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-
+import { Codemirror } from 'vue-codemirror'
+import { sql, MySQL } from '@codemirror/lang-sql'
 import { ddlPrecheckAPI, type DDLPrecheckRequest } from '@/api/ddl-precheck'
 import { useDdlPrecheckStore } from '@/store/modules/ddlPrecheck'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 
 const emit = defineEmits(['result'])
-
 const formRef = ref()
 const loading = ref(false)
 const store = useDdlPrecheckStore()
 const formData = store
 
-const inputItems = [
+const inputItems = computed(() => [
   {
     key: 'createDatabase',
-    label: '建库语句',
+    label: t('ddlCheck.createDatabaseLabel'),
     icon: 'mdi:database-plus',
     iconClass: 'icon-base icon-db',
-    tip: '必须以 <b>CREATE DATABASE</b> 开头，必须以分号结尾，只能输入一个语句',
-    placeholder: '例如：CREATE DATABASE testdb DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;',
+    tip: t('ddlCheck.createDatabaseTip'),
+    placeholder: t('ddlCheck.createDatabasePlaceholder'),
     rows: 4,
     validator: (value: string) => {
       if (!value.trim()) return true
       const trimmedValue = value.trim().toUpperCase()
       if (!trimmedValue.startsWith('CREATE DATABASE')) {
-        return new Error('建库语句必须以 CREATE DATABASE 开头')
+        return new Error(t('ddlCheck.createDatabaseErrorStart'))
       }
       if (!value.trim().endsWith(';')) {
-        return new Error('SQL语句必须以分号(;)结尾')
+        return new Error(t('ddlCheck.sqlEndWithSemicolon'))
       }
       if (countSQLStatements(value.trim()) > 1) {
-        return new Error('每个输入框只能输入一个SQL语句')
+        return new Error(t('ddlCheck.onlyOneSQL'))
       }
       return true
     }
   },
   {
     key: 'createTable',
-    label: '建表语句',
+    label: t('ddlCheck.createTableLabel'),
     icon: 'mdi:table-plus',
     iconClass: 'icon-base icon-table',
-    tip: '必须以 <b>CREATE TABLE</b> 开头，必须包含列定义（使用括号包围），必须以分号结尾，只能输入一个语句',
-    placeholder: '例如：CREATE TABLE testdb.users (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(50) NOT NULL);',
+    tip: t('ddlCheck.createTableTip'),
+    placeholder: t('ddlCheck.createTablePlaceholder'),
     rows: 8,
     validator: (value: string) => {
       if (!value.trim()) return true
       const trimmedValue = value.trim().toUpperCase()
       if (!trimmedValue.startsWith('CREATE TABLE')) {
-        return new Error('建表语句必须以 CREATE TABLE 开头')
+        return new Error(t('ddlCheck.createTableErrorStart'))
       }
       if (!value.trim().endsWith(';')) {
-        return new Error('SQL语句必须以分号(;)结尾')
+        return new Error(t('ddlCheck.sqlEndWithSemicolon'))
       }
       if (!value.includes('(') || !value.includes(')')) {
-        return new Error('建表语句必须包含列定义，使用括号包围')
+        return new Error(t('ddlCheck.createTableErrorColumns'))
       }
       if (countSQLStatements(value.trim()) > 1) {
-        return new Error('每个输入框只能输入一个SQL语句')
+        return new Error(t('ddlCheck.onlyOneSQL'))
       }
       return true
     }
   },
   {
     key: 'alterTable',
-    label: '修改表语句',
+    label: t('ddlCheck.alterTableLabel'),
     icon: 'mdi:table-edit',
     iconClass: 'icon-base icon-alter',
-    tip: '必须以 <b>ALTER TABLE</b> 开头，必须以分号结尾，只能输入一个语句',
-    placeholder: '例如：ALTER TABLE testdb.users MODIFY COLUMN name VARCHAR(100) NOT NULL;',
+    tip: t('ddlCheck.alterTableTip'),
+    placeholder: t('ddlCheck.alterTablePlaceholder'),
     rows: 6,
     validator: (value: string) => {
       if (!value.trim()) return true
       const trimmedValue = value.trim().toUpperCase()
       if (!trimmedValue.startsWith('ALTER TABLE')) {
-        return new Error('修改表语句必须以 ALTER TABLE 开头')
+        return new Error(t('ddlCheck.alterTableErrorStart'))
       }
       if (!value.trim().endsWith(';')) {
-        return new Error('SQL语句必须以分号(;)结尾')
+        return new Error(t('ddlCheck.sqlEndWithSemicolon'))
       }
       if (countSQLStatements(value.trim()) > 1) {
-        return new Error('每个输入框只能输入一个SQL语句')
+        return new Error(t('ddlCheck.onlyOneSQL'))
       }
       return true
     }
   }
-]
+])
 
 const rules = Object.fromEntries(
-  inputItems.map(item => [
+  inputItems.value.map(item => [
     item.key,
     {
       required: false,
@@ -196,26 +229,26 @@ function clearResults() {
 function clearAll() {
   store.clearForm()
   clearResults()
-  window.$message.success('已清空所有内容')
+  window.$message.success(t('ddlCheck.cleared'))
 }
 
 function validateSQLStatements() {
   const configs = [
     {
       key: 'createDatabase',
-      label: '建库语句',
+      label: t('ddlCheck.createDatabaseLabel'),
       start: 'CREATE DATABASE',
       extra: null
     },
     {
       key: 'createTable',
-      label: '建表语句',
+      label: t('ddlCheck.createTableLabel'),
       start: 'CREATE TABLE',
-      extra: (val: string) => (!val.includes('(') || !val.includes(')')) ? '建表语句必须包含列定义，使用括号包围' : null
+      extra: (val: string) => (!val.includes('(') || !val.includes(')')) ? t('ddlCheck.createTableErrorColumns') : null
     },
     {
       key: 'alterTable',
-      label: '修改表语句',
+      label: t('ddlCheck.alterTableLabel'),
       start: 'ALTER TABLE',
       extra: null
     }
@@ -225,9 +258,9 @@ function validateSQLStatements() {
     const val = formData[cfg.key]?.trim()
     if (!val) continue
     const upper = val.toUpperCase()
-    if (!upper.startsWith(cfg.start)) errors.push(`${cfg.label}必须以 ${cfg.start} 开头`)
-    if (!val.endsWith(';')) errors.push(`${cfg.label}必须以分号结尾`)
-    if (countSQLStatements(val) > 1) errors.push(`${cfg.label}输入框只能包含一个SQL语句`)
+    if (!upper.startsWith(cfg.start)) errors.push(t('ddlCheck.errorStart', { label: cfg.label, start: cfg.start }))
+    if (!val.endsWith(';')) errors.push(t('ddlCheck.errorEndWithSemicolon', { label: cfg.label }))
+    if (countSQLStatements(val) > 1) errors.push(t('ddlCheck.errorOnlyOneSQL', { label: cfg.label }))
     if (cfg.extra) {
       const extraMsg = cfg.extra(val)
       if (extraMsg) errors.push(extraMsg)
@@ -244,12 +277,12 @@ async function runPrecheck() {
   ].filter(sql => sql.length > 0)
   const sqlToCheck = sqls.join('\n\n')
   if (!sqlToCheck) {
-    window.$message.warning('请至少输入一个 SQL 语句')
+    window.$message.warning(t('ddlCheck.inputAtLeastOneSQL'))
     return
   }
   const validationErrors = validateSQLStatements()
   if (validationErrors.length > 0) {
-    window.$message.error(`SQL 格式错误：${validationErrors[0]}`)
+    window.$message.error(t('ddlCheck.sqlFormatError', { msg: validationErrors[0] }))
     return
   }
   try {
@@ -272,11 +305,11 @@ async function runPrecheck() {
       checkDuration
     }
     emit('result', resultObj)
-    window.$message.success('DDL 检查完成')
+    window.$message.success(t('ddlCheck.checkSuccess'))
   } catch (error: any) {
     const checkDuration = Date.now() - checkStartTime
     emit('result', { error: error.response?.data?.message || error.message, sql: sqlToCheck, checkDuration })
-    window.$message.error(`检查失败: ${error.response?.data?.message || error.message}`)
+    window.$message.error(t('ddlCheck.checkFailed', { msg: error.response?.data?.message || error.message }))
   } finally {
     loading.value = false
   }
@@ -287,7 +320,11 @@ async function runPrecheck() {
 
 
 <style scoped>
-
+.cm-sql-placeholder {
+  color: #bfbfbf !important;
+  font-style: italic;
+  opacity: 1 !important;
+}
 /* 对齐 sql editor 风格的 DDL precheck 样式 */
 .form-label-inline {
   display: inline-flex;
@@ -368,9 +405,29 @@ async function runPrecheck() {
 /* Unified textarea style */
 .ddl-input-textarea :deep(textarea) {
   border-radius: 6px;
-  background: #fff;
+  background: transparent;
+  border: none;
   resize: none;
   min-height: 60px;
+}
+
+/* Codemirror main surface border and background */
+.codemirror-textarea {
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.codemirror-textarea :deep(.cm-editor) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* 去除 Codemirror 当前行的蓝色高亮背景 */
+.codemirror-textarea :deep(.cm-activeLine) {
+  background: transparent !important;
 }
 
 .editor-action-bar {
