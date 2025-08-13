@@ -8,10 +8,8 @@ pub enum DDLError {
     /// Input validation failed
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    
+
     /// TiDB engine error
     #[error("TiDB engine error: {0}")]
     TiDBError(String),
 }
-
-

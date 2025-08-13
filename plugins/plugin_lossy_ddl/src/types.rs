@@ -22,7 +22,7 @@ impl LossyStatus {
             LossyStatus::Unknown => "Unknown - Manual review required",
         }
     }
-    
+
     /// Get emoji representation
     pub fn emoji(&self) -> &'static str {
         match self {
@@ -31,7 +31,7 @@ impl LossyStatus {
             LossyStatus::Unknown => "❓",
         }
     }
-    
+
     /// Check if this is a risky status (Lossy or Unknown)
     pub fn is_risky(&self) -> bool {
         matches!(self, LossyStatus::Lossy | LossyStatus::Unknown)
@@ -55,13 +55,13 @@ impl std::fmt::Display for LossyStatus {
 pub struct AnalysisResult {
     /// Status of lossy operation detection
     pub lossy_status: LossyStatus,
-    
+
     /// Risk level of the operation
     pub risk_level: RiskLevel,
-    
+
     /// Warning messages and recommendations
     pub warnings: Vec<String>,
-    
+
     /// Error message if analysis failed
     pub error: Option<String>,
 }
@@ -72,7 +72,7 @@ pub enum RiskLevel {
     /// Safe operations - confirmed no data loss risk
     /// Only assigned when analysis confirms the operation is definitely safe
     Safe,
-    
+
     /// High risk operations - will cause permanent data loss or analysis failed
     /// Examples: DROP TABLE, DROP COLUMN, TRUNCATE TABLE, or when analysis cannot be completed
     High,
@@ -86,7 +86,7 @@ impl RiskLevel {
             RiskLevel::High => "High - Will cause stats loss or requires manual review",
         }
     }
-    
+
     /// Get emoji representation for UI display
     pub(crate) fn emoji(&self) -> &'static str {
         match self {
@@ -107,5 +107,3 @@ impl std::fmt::Display for RiskLevel {
         write!(f, "{} {}", self.emoji(), self.description())
     }
 }
-
-

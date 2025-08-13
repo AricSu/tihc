@@ -21,3 +21,4 @@ libc = "0.2"
 
 # Path dependencies (assuming these exist in the workspace)
 microkernel = { path = "../../microkernel" }
+regex = "1.11.1"
