@@ -79,10 +79,30 @@ const languageOptions = computed(() => [
   }
 ])
 
+import { fetchLang, setLang } from '@/api/lang'
+import { onMounted } from 'vue'
+// 初始化时自动同步后端语言
+onMounted(async () => {
+  try {
+    const lang = await fetchLang()
+    if (['zh', 'en'].includes(lang)) {
+      locale.value = lang
+      localStorage.setItem('language', lang)
+    }
+  } catch (e) {
+    // ignore
+  }
+})
+
 // 语言切换处理
-function handleLanguageChange(key) {
+async function handleLanguageChange(key) {
   locale.value = key
   localStorage.setItem('language', key)
+  try {
+    await setLang(key)
+  } catch (e) {
+    // ignore
+  }
 }
 
 async function handleLogin() {

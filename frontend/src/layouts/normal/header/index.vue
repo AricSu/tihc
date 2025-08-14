@@ -34,17 +34,36 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/vue'
 import { ToggleTheme } from '@/components'
 import { AppTab, BeginnerGuide, Fullscreen, MenuCollapse } from '@/layouts/components'
+import { fetchLang, setLang } from '@/api/lang'
+
 const open = (url) => window.open(url)
 const { locale, t } = useI18n()
 const langs = ['zh', 'en']
 const showLangDrawer = ref(false)
-function switchLang(lang) {
-  locale.value = lang
+
+// 初始化时从后端获取语言
+onMounted(async () => {
+  try {
+    const lang = await fetchLang()
+    if (langs.includes(lang)) locale.value = lang
+  } catch (e) {
+    // ignore
+  }
+})
+
+// 切换语言时调用后端
+async function switchLang(lang) {
+  try {
+    await setLang(lang)
+    locale.value = lang
+  } catch (e) {
+    // ignore
+  }
   showLangDrawer.value = false
 }
 </script>
