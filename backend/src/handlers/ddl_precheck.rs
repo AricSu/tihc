@@ -1,6 +1,6 @@
-use axum::{http::StatusCode, Json};
-use tracing::{info, warn};
+use axum::{Json, http::StatusCode};
 use plugin_lossy_ddl::LossyStatus;
+use tracing::{info, warn};
 
 use crate::api::ddl_precheck::{DDLPrecheckRequest, DDLPrecheckResponse, RiskLevel};
 
@@ -8,11 +8,11 @@ use crate::api::ddl_precheck::{DDLPrecheckRequest, DDLPrecheckResponse, RiskLeve
 fn generate_recommendations(lossy_status: &LossyStatus) -> Vec<String> {
     match lossy_status {
         LossyStatus::Lossy => vec![
-            "请确保数据不会因截断而丢失，并且执行完 DDL 后快速执行 ANALYZE TABLE 语句，以防止统计信息丢失影响 SQL 执行性能".to_string()
+            "Ensure no data is lost due to truncation, and run ANALYZE TABLE immediately after DDL to avoid statistics loss impacting SQL performance.".to_string()
         ],
-        LossyStatus::Safe => vec![], // 安全操作无需特别建议
+        LossyStatus::Safe => vec![], // No special recommendation for safe operation
         LossyStatus::Unknown => vec![
-            "请基于提示，检查 SQL 语法输入".to_string()
+            "Please check your SQL syntax based on the provided hints.".to_string()
         ],
     }
 }
@@ -24,10 +24,8 @@ pub async fn handle_ddl_precheck(
     info!("Received DDL precheck request for SQL: {}", request.sql);
 
     // 调用 lossy DDL 检测插件
-    let analysis_result = plugin_lossy_ddl::precheck_sql_with_collation(
-        &request.sql,
-        request.collation_enabled,
-    );
+    let analysis_result =
+        plugin_lossy_ddl::precheck_sql_with_collation(&request.sql, request.collation_enabled);
 
     // 处理分析结果 - 根据 lossy_status 提供相应建议
     let response = if let Some(error_msg) = analysis_result.error {
@@ -41,7 +39,7 @@ pub async fn handle_ddl_precheck(
         }
     } else {
         let risk_level: RiskLevel = analysis_result.risk_level.into();
-        
+
         DDLPrecheckResponse {
             lossy_status: analysis_result.lossy_status.clone(),
             risk_level: risk_level.into(),

@@ -36,8 +36,8 @@ impl ConnectionStore {
 
     /// 添加连接
     pub fn add(&self, mut conn: DatabaseConnection) -> Result<(), StoreError> {
-        tracing::info!(target: "connection_store", "Adding connection: id={}, engine={}, host={}:{}, db={}", 
-            conn.id, conn.engine, conn.host, conn.port, 
+        tracing::info!(target: "connection_store", "Adding connection: id={}, engine={}, host={}:{}, db={}",
+            conn.id, conn.engine, conn.host, conn.port,
             conn.database.as_deref().unwrap_or("(none)")
         );
         if conn.engine == "mysql" || conn.engine == "tidb" {

@@ -62,6 +62,7 @@
         }
     },
     "sqlEditor": {
+        "copySuccess": "已复制字段到剪贴板",
         "rowOne": "行",
         "rowMany": "行",
         "restore": "恢复",

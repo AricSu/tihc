@@ -1,4 +1,5 @@
 //! API module: registers all HTTP routes and middleware.
+pub mod ddl_precheck;
 pub mod editor_database;
 pub mod editor_notifications;
 pub mod editor_sql;
@@ -6,7 +7,6 @@ pub mod editor_table;
 pub mod healthz;
 pub mod slowlog;
 pub mod static_routes;
-pub mod ddl_precheck;
 use crate::middleware;
 use axum::{Extension, Router};
 use microkernel::platform::ServiceRegistry;

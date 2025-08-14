@@ -188,35 +188,35 @@ impl DatabaseBackend for MySqlBackend {
         result.latency_ms = Some(elapsed.as_millis() as u64);
         result.rows_count = Some(row_count as u64);
         result.statement = Some(sql.to_string());
-        
+
         // Performance monitoring
         let elapsed_ms = elapsed.as_millis();
         if elapsed_ms > 5000 {
-            tracing::warn!(target: "sql_editor_backend", 
-                "Slow query detected: {}ms | rows={} | sql={}", 
+            tracing::warn!(target: "sql_editor_backend",
+                "Slow query detected: {}ms | rows={} | sql={}",
                 elapsed_ms, row_count, sql_preview
             );
         } else if elapsed_ms > 1000 {
-            tracing::info!(target: "sql_editor_backend", 
-                "Query completed: rows={}, columns={}, time={}ms | sql={}", 
-                row_count, 
+            tracing::info!(target: "sql_editor_backend",
+                "Query completed: rows={}, columns={}, time={}ms | sql={}",
+                row_count,
                 result.column_names.len(),
                 elapsed_ms,
                 sql_preview
             );
         } else {
-            tracing::info!(target: "sql_editor_backend", 
-                "Query completed: rows={}, columns={}, time={}ms", 
-                row_count, 
+            tracing::info!(target: "sql_editor_backend",
+                "Query completed: rows={}, columns={}, time={}ms",
+                row_count,
                 result.column_names.len(),
                 elapsed_ms
             );
         }
-        
+
         // Large result set warning
         if row_count > 50000 {
-            tracing::warn!(target: "sql_editor_backend", 
-                "Very large result set returned: {} rows, {} columns. Consider using LIMIT clause.", 
+            tracing::warn!(target: "sql_editor_backend",
+                "Very large result set returned: {} rows, {} columns. Consider using LIMIT clause.",
                 row_count, result.column_names.len()
             );
         }

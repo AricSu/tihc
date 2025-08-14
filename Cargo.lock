@@ -1624,6 +1624,7 @@ dependencies = [
  "async-trait",
  "libc",
  "microkernel",
+ "regex",
  "serde",
  "serde_json",
  "sqlparser",

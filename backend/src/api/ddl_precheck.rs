@@ -1,10 +1,7 @@
-use axum::{
-    Router,
-    routing::post,
-};
+use crate::handlers::ddl_precheck::handle_ddl_precheck;
+use axum::{Router, routing::post};
 use plugin_lossy_ddl::LossyStatus;
 use serde::{Deserialize, Serialize};
-use crate::handlers::ddl_precheck::handle_ddl_precheck;
 
 /// DDL 预检查请求体
 #[derive(Deserialize)]
@@ -63,6 +60,5 @@ impl From<RiskLevel> for String {
 
 /// 创建 DDL 预检查相关的路由
 pub fn routes() -> Router {
-    Router::new()
-        .route("/ddl/precheck", post(handle_ddl_precheck))
+    Router::new().route("/ddl/precheck", post(handle_ddl_precheck))
 }

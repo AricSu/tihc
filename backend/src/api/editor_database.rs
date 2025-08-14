@@ -233,15 +233,9 @@ pub async fn list_databases(
 pub fn routes(registry: Arc<ServiceRegistry>) -> Router {
     Router::new()
         // 连接管理
-        .route(
-            "/sql_editor/connections/create",
-            post(create_connection),
-        )
+        .route("/sql_editor/connections/create", post(create_connection))
         .route("/sql_editor/connections/list", get(list_connections))
-        .route(
-            "/sql_editor/connections/{id}",
-            delete(delete_connection),
-        )
+        .route("/sql_editor/connections/{id}", delete(delete_connection))
         .route(
             "/sql_editor/connections/{id}",
             get(get_connection).put(update_connection),

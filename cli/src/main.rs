@@ -160,46 +160,61 @@ async fn main() -> Result<()> {
                     let mut args = Vec::new();
                     args.push(opts.log_dir.clone());
                     args.push(opts.pattern.clone());
-                    
+
                     // 解析host中的端口信息
                     let (host, port) = if opts.host.contains(':') {
                         let parts: Vec<&str> = opts.host.split(':').collect();
                         if parts.len() == 2 {
-                            (parts[0].to_string(), parts[1].parse::<u16>().unwrap_or(4000))
+                            (
+                                parts[0].to_string(),
+                                parts[1].parse::<u16>().unwrap_or(4000),
+                            )
                         } else {
                             (opts.host.clone(), 4000)
                         }
                     } else {
                         (opts.host.clone(), 4000)
                     };
-                    
+
                     // 手动构造数据库连接信息JSON字符串
-                    let password_val = if opts.password.is_empty() { "null".to_string() } else { format!("\"{}\"", opts.password) };
-                    let database_val = if opts.database == "tihc" { "null".to_string() } else { format!("\"{}\"", opts.database) };
-                    
+                    let password_val = if opts.password.is_empty() {
+                        "null".to_string()
+                    } else {
+                        format!("\"{}\"", opts.password)
+                    };
+                    let database_val = if opts.database == "tihc" {
+                        "null".to_string()
+                    } else {
+                        format!("\"{}\"", opts.database)
+                    };
+
                     let conn_json = format!(
                         r#"{{"id":0,"name":"cli-connection","engine":"tidb","host":"{}","port":{},"username":"{}","password":{},"database":{},"use_tls":false,"ca_cert_path":null}}"#,
                         host, port, opts.user, password_val, database_val
                     );
                     args.push(conn_json);
-                    
+
                     ("slowlog-import", args)
                 }
             };
-            
+
             info!(target: "tihc", "🚀 About to execute command: {} with {} args", cmd, args.len());
             for (i, arg) in args.iter().enumerate() {
                 info!(target: "tihc", "  Arg[{}]: {}", i, if i == 2 { "[JSON Connection Data]" } else { arg });
             }
-            
+
             let result = command_registry.execute(cmd, &args).await;
             match &result {
                 Ok(value) => {
                     info!(target: "tihc", "✅ Command executed successfully: {}", value);
                     // 解析结果并打印到控制台
-                    if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(value.as_str().unwrap_or("{}")) {
+                    if let Ok(json_value) =
+                        serde_json::from_str::<serde_json::Value>(value.as_str().unwrap_or("{}"))
+                    {
                         if cmd == "slowlog-scan" {
-                            if let Some(files) = json_value.get("matched_files").and_then(|f| f.as_array()) {
+                            if let Some(files) =
+                                json_value.get("matched_files").and_then(|f| f.as_array())
+                            {
                                 println!("📂 Found {} slow log file(s):", files.len());
                                 for file in files {
                                     if let Some(file_path) = file.as_str() {
@@ -209,7 +224,10 @@ async fn main() -> Result<()> {
                             }
                         } else if cmd == "slowlog-import" {
                             if let Some(imported_count) = json_value.get("imported_count") {
-                                println!("✅ Successfully imported {} slow query records to database", imported_count);
+                                println!(
+                                    "✅ Successfully imported {} slow query records to database",
+                                    imported_count
+                                );
                             }
                             if let Some(processed_files) = json_value.get("processed_files") {
                                 println!("📊 Processed files: {}", processed_files);
@@ -217,7 +235,7 @@ async fn main() -> Result<()> {
                         }
                     }
                     println!("🎉 Slowlog operation completed successfully!");
-                },
+                }
                 Err(e) => {
                     info!(target: "tihc", "❌ Command execution failed: {}", e);
                     println!("❌ Error: {}", e);
@@ -229,11 +247,14 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Server(web_opts)) => {
             let shutdown_rx = core_services.subscribe_shutdown();
-            
+
             println!();
             println!("🎯 TiDB Health Check (tihc) Server");
             println!("==============================================");
-            println!("🚀 Starting web server on {}:{}", web_opts.host, web_opts.port);
+            println!(
+                "🚀 Starting web server on {}:{}",
+                web_opts.host, web_opts.port
+            );
             println!("🌐 Server URL: http://{}:{}", web_opts.host, web_opts.port);
             println!("📝 Log Level: {}", cli.log_level);
             if !merged.log_file.is_empty() {
@@ -256,15 +277,10 @@ async fn main() -> Result<()> {
             println!("==============================================");
             println!("✅ Server is ready to accept connections");
             println!();
-            
+
             tracing::info!(target: "tihc", "Starting web server on {}:{}", web_opts.host, web_opts.port);
 
-            commands::web::start_web_service(
-                web_opts,
-                command_registry,
-                shutdown_rx,
-            )
-            .await?;
+            commands::web::start_web_service(web_opts, command_registry, shutdown_rx).await?;
         }
         None => {
             Cli::command().print_help()?;

@@ -85,17 +85,17 @@
             </div>
           </li>
           <li class="py-4 flex items-start">
+            <n-tag type="success" size="small" class="mr-3 mt-1">✅</n-tag>
+            <div>
+              <b>{{ $t('home.featureDdlCheck.title') }}</b>：
+              <span>{{ $t('home.featureDdlCheck.description') }}</span>
+            </div>
+          </li>
+          <li class="py-4 flex items-start">
             <n-tag type="info" size="small" class="mr-3 mt-1">🔨</n-tag>
             <div>
               <b>{{ $t('home.featureBugTrack.title') }}</b>：
               <span>{{ $t('home.featureBugTrack.description') }}</span>
-            </div>
-          </li>
-          <li class="py-4 flex items-start">
-            <n-tag type="warning" size="small" class="mr-3 mt-1">🚧</n-tag>
-            <div>
-              <b>{{ $t('home.featureDdlCheck.title') }}</b>：
-              <span>{{ $t('home.featureDdlCheck.description') }}</span>
             </div>
           </li>
           <li class="py-4 flex items-start">

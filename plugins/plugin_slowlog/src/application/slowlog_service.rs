@@ -143,7 +143,7 @@ impl SlowLogService for SlowLogServiceImpl {
                             } else {
                                 total_rows_processed += rows.len();
                                 tracing::debug!(target: "slowlog_api", "[parse_and_import] Batch {} processed: {} rows", batch_idx, rows.len());
-                                
+
                                 // Dynamic progress reporting frequency based on file size
                                 let report_frequency = if batch_idx > 1000 { 500 } else { 100 };
                                 if batch_idx % report_frequency == 0 {

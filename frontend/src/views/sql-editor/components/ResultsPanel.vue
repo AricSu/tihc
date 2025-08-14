@@ -37,7 +37,7 @@
                 bordered
                 striped
                 :row-key="(row) => String(row._rowIndex)"
-                class="result-table"
+                class="result-table no-col-ellipsis"
               />
             </div>
             <n-empty v-else :description="t('sqlEditor.noDataReturned')" class="result-empty" />
@@ -75,6 +75,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { h } from 'vue'
 const { t } = useI18n();
 const pageMap = ref<Record<string, number>>({})
 const pageSizeMap = ref<Record<string, number>>({})
@@ -110,9 +111,36 @@ function setPage(id: string, page: number) {
 function setPageSize(id: string, size: number) {
   pageSizeMap.value[id] = size
 }
+
+
 function getColumns(result) {
   const columns = Array.isArray(result.column_names)
-    ? result.column_names.map((col, idx) => ({ title: col, key: col, type: result.column_type_names?.[idx] ?? '' }))
+    ? result.column_names.map((col, idx) => ({
+        title: col,
+        key: col,
+        type: result.column_type_names?.[idx] ?? '',
+        minWidth: 120,
+        render: (row) => {
+          const val = row[col]
+          if (val == null) return ''
+          const str = String(val)
+          const maxLen = 60
+          const display = str.length > maxLen ? str.slice(0, maxLen) + '...' : str
+          return h(
+            'span',
+            {
+              class: 'cell-ellipsis copy-cell',
+              title: str,
+              ondblclick: (e) => {
+                copyToClipboard(str)
+                window.$message?.success(t('sqlEditor.copySuccess'))
+                e.stopPropagation()
+              }
+            },
+            display
+          )
+        },
+      }))
     : []
 
   const rowNumColumn = {
@@ -208,9 +236,21 @@ function copyToClipboard(text: string) {
     document.body.removeChild(textarea)
   }
 }
+
 </script>
 
+
+
 <style scoped>
+.copy-cell {
+  cursor: pointer;
+  user-select: all;
+  transition: background 0.2s;
+}
+.copy-cell:active {
+  background: #e6f7ff;
+}
+
 .results-panel {
   height: 100%;
   display: flex;
@@ -239,6 +279,15 @@ function copyToClipboard(text: string) {
   flex-direction: column;
   min-height: 0;
   height: 100%;
+}
+
+/* 只让表头（字段名）不折叠，内容单元格可省略 */
+::v-deep(.no-col-ellipsis .n-data-table-th) {
+  white-space: pre;
+  text-overflow: initial !important;
+  overflow: visible !important;
+  word-break: break-all;
+  max-width: none;
 }
 
 .result-tab-pane-content {
@@ -276,7 +325,10 @@ function copyToClipboard(text: string) {
 .result-table-scroll-wrapper {
   width: 100%;
   height: 100%;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  /* 让内容宽度撑满，横向滚动条可拖到最右 */
+  box-sizing: border-box;
 }
 
 .result-table {
