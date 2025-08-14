@@ -1,13 +1,10 @@
-use axum::{Json, response::IntoResponse, http::StatusCode, routing::{get}, Router};
+use axum::{Json, Router, http::StatusCode, response::IntoResponse, routing::get};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
-
 
 const SUPPORTED_LANGS: [&str; 2] = ["zh", "en"];
 static LANG: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new("en".to_string()));
-
-
 
 #[derive(Serialize)]
 struct LangResp {
@@ -32,6 +29,5 @@ pub async fn set_lang(Json(payload): Json<LangSet>) -> impl IntoResponse {
 }
 
 pub fn lang_router() -> Router {
-    Router::new()
-        .route("/lang", get(get_lang).post(set_lang))
+    Router::new().route("/lang", get(get_lang).post(set_lang))
 }

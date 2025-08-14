@@ -17,3 +17,4 @@ plugin_slowlog = { path = "../plugins/plugin_slowlog" }
 plugin_sql_editor = { path = "../plugins/plugin_sql_editor" }
 backend = { path = "../backend" }
 serde_json = "1.0.142"
+plugin_lossy_ddl = { path = "../plugins/plugin_lossy_ddl" }

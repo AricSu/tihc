@@ -180,18 +180,27 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
         let line = line.trim();
         let line_lower = line.to_lowercase();
         // 只检测小写
-        let re = regex::Regex::new(r"^alter\s+table\s+([\w.]+)\s+rename\s+column\s+([\w`]+)\s+to\s+([\w`]+)").unwrap();
+        let re = regex::Regex::new(
+            r"^alter\s+table\s+([\w.]+)\s+rename\s+column\s+([\w`]+)\s+to\s+([\w`]+)",
+        )
+        .unwrap();
         if let Some(_caps) = re.captures(&line_lower) {
             // 由于原始表名/字段名可能有大小写/反引号，需从原始 line 再提取
-            let orig_re = regex::Regex::new(r"(?i)^ALTER\s+TABLE\s+([\w.]+)\s+RENAME\s+COLUMN\s+([\w`]+)\s+TO\s+([\w`]+)").unwrap();
+            let orig_re = regex::Regex::new(
+                r"(?i)^ALTER\s+TABLE\s+([\w.]+)\s+RENAME\s+COLUMN\s+([\w`]+)\s+TO\s+([\w`]+)",
+            )
+            .unwrap();
             if let Some(orig_caps) = orig_re.captures(line) {
                 let table = orig_caps.get(1).map(|m| m.as_str()).unwrap_or("");
                 let old = orig_caps.get(2).map(|m| m.as_str()).unwrap_or("");
                 let new = orig_caps.get(3).map(|m| m.as_str()).unwrap_or("");
-                let warn1 = "Detected unsupported RENAME COLUMN syntax in TiHC DDL Precheck.".to_string();
+                let warn1 =
+                    "Detected unsupported RENAME COLUMN syntax in TiHC DDL Precheck.".to_string();
                 let warn2 = format!(
                     "Recommended: ALTER TABLE {table} CHANGE {old} {new} <column_type>; ",
-                    table=table, old=old, new=new
+                    table = table,
+                    old = old,
+                    new = new
                 );
                 rename_column_warnings.push(warn1);
                 rename_column_warnings.push(warn2);

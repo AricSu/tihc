@@ -5,6 +5,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use microkernel::infrastructure::{config, logging};
 use microkernel::platform::command_registry::CommandRegistry;
 mod commands;
+use plugin_lossy_ddl::LossyDDLPlugin;
 use plugin_slowlog::SlowLogPlugin;
 use plugin_sql_editor::SqlEditorPlugin;
 use tracing::info;
@@ -76,6 +77,8 @@ enum Commands {
 pub enum ToolsCommands {
     #[clap(about = "Parse TiDB slow log file and import to database")]
     Slowlog(SlowlogOptions),
+    #[clap(about = "Check DDL SQL for lossy operations")]
+    Ddlcheck(commands::precheck::DDLCheckOptions),
     // #[clap(about = "Get issue info from GitHub")]
     // BugInfo(BugInfoOptions),
 }
@@ -99,6 +102,9 @@ fn register_all_plugins(
     kernel
         .plugin_manager
         .register_plugin(Box::new(SqlEditorPlugin::new()), &mut ctx);
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(LossyDDLPlugin::new()), &mut ctx);
 }
 
 /// Main entry point for TiDB Intelligent Health Check (tihc) CLI/Web.
@@ -196,21 +202,33 @@ async fn main() -> Result<()> {
 
                     ("slowlog-import", args)
                 }
+                ToolsCommands::Ddlcheck(opts) => {
+                    let mut args = Vec::new();
+                    let sql = match opts.read_sql_file() {
+                        Ok(content) => content,
+                        Err(e) => {
+                            println!("❌ Failed to read SQL file: {}", e);
+                            std::process::exit(1);
+                        }
+                    };
+                    args.push(sql);
+                    args.push(opts.collation.to_string());
+                    ("ddl-precheck", args)
+                }
             };
 
             info!(target: "tihc", "🚀 About to execute command: {} with {} args", cmd, args.len());
             for (i, arg) in args.iter().enumerate() {
-                info!(target: "tihc", "  Arg[{}]: {}", i, if i == 2 { "[JSON Connection Data]" } else { arg });
+                info!(target: "tihc", "  Arg[{}]: {}", i, if cmd == "slowlog-import" && i == 2 { "[JSON Connection Data]" } else { arg });
             }
 
             let result = command_registry.execute(cmd, &args).await;
             match &result {
                 Ok(value) => {
                     info!(target: "tihc", "✅ Command executed successfully: {}", value);
-                    // 解析结果并打印到控制台
-                    if let Ok(json_value) =
-                        serde_json::from_str::<serde_json::Value>(value.as_str().unwrap_or("{}"))
-                    {
+                    // Parse and print result to console
+                    let json_owned = value.to_string();
+                    if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&json_owned) {
                         if cmd == "slowlog-scan" {
                             if let Some(files) =
                                 json_value.get("matched_files").and_then(|f| f.as_array())
@@ -232,9 +250,50 @@ async fn main() -> Result<()> {
                             if let Some(processed_files) = json_value.get("processed_files") {
                                 println!("📊 Processed files: {}", processed_files);
                             }
+                            println!("🎉 Slowlog operation completed successfully!");
+                        } else if cmd == "ddl-precheck" {
+                            println!("\nDDL Precheck Result:");
+                            if let Some(lossy_status) =
+                                json_value.get("lossy_status").and_then(|v| v.as_str())
+                            {
+                                println!("  Lossy Status: {}", lossy_status);
+                            } else {
+                                println!("  Lossy Status: <none>");
+                            }
+                            if let Some(risk_level) =
+                                json_value.get("risk_level").and_then(|v| v.as_str())
+                            {
+                                println!("  Risk Level: {}", risk_level);
+                            } else {
+                                println!("  Risk Level: <none>");
+                            }
+                            if let Some(warnings) =
+                                json_value.get("warnings").and_then(|v| v.as_array())
+                            {
+                                let warnings_str = warnings
+                                    .iter()
+                                    .map(|w| w.as_str().unwrap_or(""))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                println!(
+                                    "  Warnings: {}",
+                                    if warnings_str.is_empty() {
+                                        "<none>"
+                                    } else {
+                                        &warnings_str
+                                    }
+                                );
+                            } else {
+                                println!("  Warnings: <none>");
+                            }
+                            if let Some(error) = json_value.get("error").and_then(|v| v.as_str()) {
+                                println!("  Error: {}", error);
+                            } else {
+                                println!("  Error: <none>");
+                            }
+                            println!("🎉 DDL precheck completed!");
                         }
                     }
-                    println!("🎉 Slowlog operation completed successfully!");
                 }
                 Err(e) => {
                     info!(target: "tihc", "❌ Command execution failed: {}", e);

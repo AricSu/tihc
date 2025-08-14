@@ -467,6 +467,7 @@ dependencies = [
  "chrono",
  "clap",
  "microkernel",
+ "plugin_lossy_ddl",
  "plugin_slowlog",
  "plugin_sql_editor",
  "serde_json",

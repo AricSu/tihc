@@ -178,7 +178,7 @@ impl DatabaseBackend for MySqlBackend {
             tracing::trace!(target: "sql_editor_backend", "execute_sql: processed row {}", row_count);
             result.rows.push(row_vec);
             row_count += 1;
-            
+
             // Warn about large result sets
             if row_count % 10000 == 0 {
                 tracing::warn!(target: "sql_editor_backend", "Large result set detected: {} rows processed", row_count);
