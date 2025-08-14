@@ -1,4 +1,4 @@
-name: Build tihc (macOS & Windows)
+name: Build tihc (macOS, Windows & Linux)
 
 on:
   push:
@@ -7,6 +7,35 @@ on:
     branches: [ main ]
 
 jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Set yarn registry to taobao
+        run: yarn config set registry https://registry.npmmirror.com
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Install Rust targets (if needed)
+        run: rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
+      - name: Download Go modules
+        run: cd plugins/plugin_lossy_ddl/go && go mod download
+      - name: Build all (Linux)
+        run: make all
+
   build-macos:
     runs-on: macos-latest
     steps:
@@ -27,6 +56,12 @@ jobs:
           override: true
       - name: Install Rust targets (if needed)
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
+      - name: Download Go modules
+        run: cd plugins/plugin_lossy_ddl/go && go mod download
       - name: Build all (macOS)
         run: make all
 
@@ -50,5 +85,11 @@ jobs:
           override: true
       - name: Install Rust targets (if needed)
         run: rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
+      - name: Download Go modules
+        run: cd plugins/plugin_lossy_ddl/go && go mod download
       - name: Build all (Windows)
         run: make all
