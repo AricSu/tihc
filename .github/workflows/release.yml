@@ -1,0 +1,48 @@
+name: Build tihc (macOS & Windows)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust targets (if needed)
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Build all (macOS)
+        run: make all
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Rust targets (if needed)
+        run: rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+      - name: Build all (Windows)
+        run: make all
