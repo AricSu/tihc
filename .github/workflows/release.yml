@@ -17,6 +17,8 @@ jobs:
           node-version: '18'
       - name: Install yarn
         run: npm install -g yarn
+      - name: Set yarn registry to taobao
+        run: yarn config set registry https://registry.npmmirror.com
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -37,6 +39,8 @@ jobs:
           node-version: '18'
       - name: Install yarn
         run: npm install -g yarn
+      - name: Set yarn registry to taobao
+        run: yarn config set registry https://registry.npmmirror.com
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
