@@ -14,7 +14,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 'lts/*'
       - name: Install yarn
         run: npm install -g yarn
       - name: Set yarn registry to taobao
@@ -23,6 +23,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
           override: true
       - name: Install Rust targets (if needed)
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -36,7 +37,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 'lts/*'
       - name: Install yarn
         run: npm install -g yarn
       - name: Set yarn registry to taobao
@@ -45,6 +46,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
           override: true
       - name: Install Rust targets (if needed)
         run: rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc
