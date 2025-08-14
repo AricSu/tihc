@@ -138,7 +138,7 @@ jobs:
           profile: minimal
           override: true
       - name: Install Rust targets (if needed)
-        run: rustup target add x86_64-pc-windows-gnu aarch64-pc-windows-gnu
+        run: rustup target add x86_64-pc-windows-gnu
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
