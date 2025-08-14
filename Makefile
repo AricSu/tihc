@@ -22,9 +22,9 @@ server: plugin-go
 	@echo "\033[1;36m[BUILD] Building Rust backend ...\033[0m"
 	rm -rf $(BIN_DIR)
 	rm -rf $(LOG_PATH)
-	$(CARGO) build --release
+	$(CARGO) build --release -p tihc
 	mkdir -p $(BIN_DIR)
-	cp target/release/cli $(BIN_DIR)/tihc
+	cp target/release/tihc $(BIN_DIR)/tihc
 	@echo "\033[1;32m[SUCCESS] Rust backend built.\033[0m"
 
 # Build frontend

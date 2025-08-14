@@ -1,15 +1,17 @@
 name: Build tihc (macOS, Windows & Linux)
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+      - name: Get tihc version
+        id: get_version
+        run: |
+          ver=$(grep '^version' cli/Cargo.toml | head -n1 | cut -d '"' -f2)
+          echo "version=$ver" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -35,10 +37,36 @@ jobs:
         run: cd plugins/plugin_lossy_ddl/go && go mod download
       - name: Build all (Linux)
         run: make all
+      - name: Upload binary artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-linux-bin
+          path: bin/*
+      - name: Package binaries (Linux)
+        run: |
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz -C bin .
+      - name: Generate sha256 checksum (Linux)
+        run: |
+          shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+      - name: Upload packaged artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-linux-tarball
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+      - name: Upload sha256 checksum (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-linux-sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
 
   build-macos:
     runs-on: macos-latest
     steps:
+      - name: Get tihc version
+        id: get_version
+        run: |
+          ver=$(grep '^version' cli/Cargo.toml | head -n1 | cut -d '"' -f2)
+          echo "version=$ver" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -64,10 +92,36 @@ jobs:
         run: cd plugins/plugin_lossy_ddl/go && go mod download
       - name: Build all (macOS)
         run: make all
+      - name: Upload binary artifacts (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-macos-bin
+          path: bin/*
+      - name: Package binaries (macOS)
+        run: |
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz -C bin .
+      - name: Generate sha256 checksum (macOS)
+        run: |
+          shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
+      - name: Upload packaged artifact (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-macos-tarball
+          path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
+      - name: Upload sha256 checksum (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-macos-sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
 
   build-windows:
     runs-on: windows-latest
     steps:
+      - name: Get tihc version
+        id: get_version
+        run: |
+          $ver = Select-String -Path cli/Cargo.toml -Pattern '^version' | Select-Object -First 1 | ForEach-Object { $_.Line.Split('"')[1] }
+          echo "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -77,14 +131,14 @@ jobs:
         run: npm install -g yarn
       - name: Set yarn registry to taobao
         run: yarn config set registry https://registry.npmmirror.com
-      - name: Set up Rust
+      - name: Set up Rust (GNU)
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: stable-x86_64-pc-windows-gnu
           profile: minimal
           override: true
       - name: Install Rust targets (if needed)
-        run: rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+        run: rustup target add x86_64-pc-windows-gnu aarch64-pc-windows-gnu
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -93,3 +147,24 @@ jobs:
         run: cd plugins/plugin_lossy_ddl/go && go mod download
       - name: Build all (Windows)
         run: make all
+      - name: Upload binary artifacts (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-windows-bin
+          path: bin/*
+      - name: Package binaries (Windows)
+        run: |
+          powershell Compress-Archive -Path bin\* -DestinationPath tihc-v${{ steps.get_version.outputs.version }}-windows.zip
+      - name: Generate sha256 checksum (Windows)
+        run: |
+          certutil -hashfile tihc-v${{ steps.get_version.outputs.version }}-windows.zip SHA256 > tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
+      - name: Upload packaged artifact (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-windows-zip
+          path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
+      - name: Upload sha256 checksum (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-windows-sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256

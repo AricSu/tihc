@@ -13,7 +13,7 @@ use tracing::info;
 #[derive(Parser, Debug)]
 #[command(
     name = "tihc",
-    version = "1.3.0",
+    version = env!("CARGO_PKG_VERSION"),
     author = "Aric <ask.aric.su@gmail.com>",
     about = "TiDB Intelligent Health Check (tihc) CLI Tool",
     long_about = "A CLI for TiDB Intelligent Health Check (tihc)\nDoc: https://www.askaric.com/en/tihc",
@@ -145,7 +145,7 @@ async fn main() -> Result<()> {
     )?;
 
     // 打印通用欢迎信息到日志
-    info!(target: "tihc", "🎯 Welcome to use TiDB Health Check (tihc) v1.1.0 starting");
+    info!(target: "tihc", "🎯 Welcome to use TiDB Health Check (tihc) v{} starting", env!("CARGO_PKG_VERSION"));
     info!(target: "tihc", "📖 Documentation: https://www.askaric.com/en/tihc");
     info!(target: "tihc", "👨‍💻 Author: Aric <ask.aric.su@gmail.com>");
 
