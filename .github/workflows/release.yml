@@ -43,8 +43,9 @@ jobs:
         run: |
           cd plugins/plugin_lossy_ddl/go
           xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive .
-          ls -lh libschematracker.a
-          file libschematracker.a
+          ls -lh libschematracker*.a build/libschematracker*.a || true
+          file libschematracker*.a build/libschematracker*.a || true
+          cp libschematracker-*.a libschematracker.a 2>/dev/null || cp build/libschematracker-*.a libschematracker.a
       - name: Build frontend (dashboard)
         run: |
           rm -rf frontend/dist
