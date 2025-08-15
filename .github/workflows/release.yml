@@ -27,14 +27,9 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-      - name: Install Rust targets (if needed)
-        run: rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-unknown-linux-musl
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
-      - name: Download Go modules
-        run: cd plugins/plugin_lossy_ddl/go && go mod download
+      - name: Install Rust target (musl only)
+        run: rustup target add x86_64-unknown-linux-musl
+      # Go 相关如有 musl 依赖可保留，否则可移除
       - name: Set OpenSSL static env (Linux musl)
         run: |
           echo 'OPENSSL_STATIC=1' >> $GITHUB_ENV
