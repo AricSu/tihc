@@ -46,7 +46,8 @@ jobs:
       - name: Build plugin_lossy_ddl go c-archive (xgo musl)
         run: |
           cd plugins/plugin_lossy_ddl/go
-          xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive --build-args="-mod=vendor" .
+          export GOFLAGS="-mod=vendor"
+          xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive .
           find . -type f -print -ls
       - name: Build frontend (dashboard)
         run: |
