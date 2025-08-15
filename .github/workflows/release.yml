@@ -29,13 +29,13 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Install Node.js 20.x (musl, manual)
+      - name: Install Node.js 18.x LTS (musl, manual)
         run: |
-          wget https://nodejs.org/dist/v20.14.0/node-v20.14.0-linux-musl-x64.tar.xz
-          tar -C /usr/local -xJf node-v20.14.0-linux-musl-x64.tar.xz
-          ln -sf /usr/local/node-v20.14.0-linux-musl-x64/bin/node /usr/local/bin/node
-          ln -sf /usr/local/node-v20.14.0-linux-musl-x64/bin/npm /usr/local/bin/npm
-          export PATH="/usr/local/node-v20.14.0-linux-musl-x64/bin:$PATH"
+          wget https://nodejs.org/dist/v18.20.3/node-v18.20.3-linux-musl-x64.tar.xz
+          tar -C /usr/local -xJf node-v18.20.3-linux-musl-x64.tar.xz
+          ln -sf /usr/local/node-v18.20.3-linux-musl-x64/bin/node /usr/local/bin/node
+          ln -sf /usr/local/node-v18.20.3-linux-musl-x64/bin/npm /usr/local/bin/npm
+          export PATH="/usr/local/node-v18.20.3-linux-musl-x64/bin:$PATH"
           node -v
           npm -v
 
