@@ -48,9 +48,9 @@ jobs:
           cd plugins/plugin_lossy_ddl/go
           export GOFLAGS="-mod=vendor"
           xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive .
-          ls -lh build/
-          cp build/libschematracker-*.a libschematracker.a || true
-          cp build/libschematracker-*.h libschematracker.h || true
+          # 自动查找 .a/.h 并重命名，兼容所有 xgo 产物命名和路径
+          find . -name 'libschematracker-*.a' -exec cp {} libschematracker.a \;
+          find . -name 'libschematracker-*.h' -exec cp {} libschematracker.h \;
           ls -lh libschematracker.a libschematracker.h || true
       - name: Build frontend (dashboard)
         run: |
