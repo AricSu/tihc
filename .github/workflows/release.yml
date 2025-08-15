@@ -11,7 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build tools
-        run: apk add --no-cache build-base musl-dev go yarn nodejs npm
+        run: apk add --no-cache build-base musl-dev wget tar yarn nodejs npm
+      - name: Uninstall old go
+        run: apk del go || true
+      - name: Install Go 1.23.10
+        run: |
+          wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
+          tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
+          echo 'export PATH="/usr/local/go/bin:$PATH"' >> /etc/profile
+          export PATH="/usr/local/go/bin:$PATH"
+          go version
       - name: Install Rust musl target
         run: rustup target add x86_64-unknown-linux-musl
       - name: Get tihc version
