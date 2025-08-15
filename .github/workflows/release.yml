@@ -39,10 +39,14 @@ jobs:
           export PATH="$HOME/go/bin:$PATH"
           echo "$HOME/go/bin" >> $GITHUB_PATH
           echo "[debug] xgo version: $(xgo --help | head -n 1 || echo not found)"
+      - name: Vendor Go modules
+        run: |
+          cd plugins/plugin_lossy_ddl/go
+          go mod vendor
       - name: Build plugin_lossy_ddl go c-archive (xgo musl)
         run: |
           cd plugins/plugin_lossy_ddl/go
-          xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive .
+          xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive --build-args="-mod=vendor" .
           find . -type f -print -ls
       - name: Build frontend (dashboard)
         run: |
