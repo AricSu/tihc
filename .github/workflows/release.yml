@@ -7,22 +7,42 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: rust:1.77
-    env:
-      PATH: /usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      image: alpine:latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install build tools
-        run: apk add --no-cache build-base musl-dev wget tar yarn nodejs npm
-      - name: Uninstall old go
-        run: apk del go || true
+      - name: Install system build tools
+        run: apk add --no-cache build-base musl-dev wget tar curl
+
       - name: Install Go 1.23.10
         run: |
           wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
           tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
-          echo 'export PATH="/usr/local/go/bin:$PATH"' >> /etc/profile
           export PATH="/usr/local/go/bin:$PATH"
           go version
+
+      - name: Install Rust 1.77.2 (manual)
+        run: |
+          wget https://static.rust-lang.org/dist/rust-1.77.2-x86_64-unknown-linux-gnu.tar.gz
+          tar -xzf rust-1.77.2-x86_64-unknown-linux-gnu.tar.gz
+          ./rust-1.77.2-x86_64-unknown-linux-gnu/install.sh --prefix=/usr/local
+          export PATH="/usr/local/bin:$PATH"
+          rustc --version
+          cargo --version
+
+      - name: Install Node.js 20.x (manual)
+        run: |
+          wget https://nodejs.org/dist/v20.14.0/node-v20.14.0-linux-x64.tar.xz
+          tar -C /usr/local -xJf node-v20.14.0-linux-x64.tar.xz
+          ln -sf /usr/local/node-v20.14.0-linux-x64/bin/node /usr/local/bin/node
+          ln -sf /usr/local/node-v20.14.0-linux-x64/bin/npm /usr/local/bin/npm
+          export PATH="/usr/local/node-v20.14.0-linux-x64/bin:$PATH"
+          node -v
+          npm -v
+
+      - name: Install Yarn (manual)
+        run: |
+          npm install -g yarn
+          yarn -v
       - name: Install Rust musl target
         run: rustup target add x86_64-unknown-linux-musl
       - name: Get tihc version
