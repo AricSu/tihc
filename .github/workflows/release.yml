@@ -39,7 +39,7 @@ jobs:
           echo 'OPENSSL_VENDORED=1' >> $GITHUB_ENV
       - name: Build tihc (Linux musl static)
         run: |
-          cargo build --package tihc --release --target x86_64-unknown-linux-musl
+          cargo build --package tihc --release --target x86_64-unknown-linux-musl --features vendored
           mkdir -p bin-musl
           cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/
       - name: Upload musl static binary artifacts (Linux)
