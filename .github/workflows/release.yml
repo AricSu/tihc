@@ -6,8 +6,12 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install build tools
+        run: apk add --no-cache build-base musl-dev go rust cargo yarn nodejs npm
       - name: Get tihc version
         id: get_version
         run: |
@@ -15,45 +19,9 @@ jobs:
           ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
           echo "[debug] extracted version: $ver"
           echo "version=$ver" >> $GITHUB_OUTPUT
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-      - name: Install yarn
-        run: npm install -g yarn
-      - name: Set yarn registry to taobao
-        run: yarn config set registry https://registry.npmmirror.com
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-      - name: Install Rust target (musl only)
-        run: rustup target add x86_64-unknown-linux-musl
-      - name: Install musl-tools
-        run: sudo apt-get update && sudo apt-get install -y musl musl-dev musl-tools
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
       - name: Build plugin_lossy_ddl go c-archive (linux)
         run: |
           cd plugins/plugin_lossy_ddl/go
-          export CC="musl-gcc -nostdinc -isystem /usr/include/x86_64-linux-musl"
-          export C_INCLUDE_PATH=/usr/include/x86_64-linux-musl
-          export CPLUS_INCLUDE_PATH=/usr/include/x86_64-linux-musl
-          export OBJC_INCLUDE_PATH=/usr/include/x86_64-linux-musl
-          export LIBRARY_PATH=/usr/lib/x86_64-linux-musl
-          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-musl
-          export CGO_CFLAGS="-nostdinc -isystem /usr/include/x86_64-linux-musl"
-          export CGO_CPPFLAGS="-nostdinc -isystem /usr/include/x86_64-linux-musl"
-          export CGO_CXXFLAGS="-nostdinc -isystem /usr/include/x86_64-linux-musl"
-          export CGO_LDFLAGS="-L/usr/lib/x86_64-linux-musl"
-          export PKG_CONFIG=""
-          export CPATH=/usr/include/x86_64-linux-musl
-          export INCLUDE_PATH=/usr/include/x86_64-linux-musl
-          export GCC_INCLUDE_DIR=/usr/include/x86_64-linux-musl
           go clean -cache -modcache -work -x
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -trimpath -o libschematracker.a .
           ls -lh libschematracker.a libschematracker.h || true
@@ -65,7 +33,6 @@ jobs:
           yarn build
       - name: Build tihc (Linux musl static)
         run: |
-          export LIBRARY_PATH=/usr/lib/x86_64-linux-musl
           cargo build --package tihc --release --target x86_64-unknown-linux-musl
           mkdir -p bin-musl
           cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/
@@ -79,7 +46,7 @@ jobs:
           tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz -C bin-musl .
       - name: Generate sha256 checksum (Linux)
         run: |
-          shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
       - name: Upload packaged artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
