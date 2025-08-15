@@ -48,7 +48,10 @@ jobs:
           cd plugins/plugin_lossy_ddl/go
           export GOFLAGS="-mod=vendor"
           xgo --targets=linux/x86_64 --out libschematracker --buildmode=c-archive .
-          find . -type f -print -ls
+          ls -lh build/
+          cp build/libschematracker-*.a libschematracker.a || true
+          cp build/libschematracker-*.h libschematracker.h || true
+          ls -lh libschematracker.a libschematracker.h || true
       - name: Build frontend (dashboard)
         run: |
           rm -rf frontend/dist
