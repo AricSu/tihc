@@ -32,7 +32,7 @@ jobs:
       - name: Install Rust target (musl only)
         run: rustup target add x86_64-unknown-linux-musl
       - name: Install musl-tools
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
+        run: sudo apt-get update && sudo apt-get install -y musl musl-dev musl-tools
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -51,6 +51,7 @@ jobs:
           yarn build
       - name: Build tihc (Linux musl static)
         run: |
+          export LIBRARY_PATH=/usr/lib/x86_64-linux-musl
           cargo build --package tihc --release --target x86_64-unknown-linux-musl
           mkdir -p bin-musl
           cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/
