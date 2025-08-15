@@ -42,10 +42,19 @@ jobs:
           cd plugins/plugin_lossy_ddl/go
           export CC="musl-gcc -nostdinc -isystem /usr/include/x86_64-linux-musl"
           export C_INCLUDE_PATH=/usr/include/x86_64-linux-musl
+          export CPLUS_INCLUDE_PATH=/usr/include/x86_64-linux-musl
+          export OBJC_INCLUDE_PATH=/usr/include/x86_64-linux-musl
           export LIBRARY_PATH=/usr/lib/x86_64-linux-musl
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-musl
           export CGO_CFLAGS="-nostdinc -isystem /usr/include/x86_64-linux-musl"
+          export CGO_CPPFLAGS="-nostdinc -isystem /usr/include/x86_64-linux-musl"
+          export CGO_CXXFLAGS="-nostdinc -isystem /usr/include/x86_64-linux-musl"
           export CGO_LDFLAGS="-L/usr/lib/x86_64-linux-musl"
           export PKG_CONFIG=""
+          export CPATH=/usr/include/x86_64-linux-musl
+          export INCLUDE_PATH=/usr/include/x86_64-linux-musl
+          export GCC_INCLUDE_DIR=/usr/include/x86_64-linux-musl
+          export GOCACHE=off
           go clean -cache -modcache -work -x
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -trimpath -o libschematracker.a .
           ls -lh libschematracker.a libschematracker.h || true
