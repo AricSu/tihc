@@ -54,7 +54,6 @@ jobs:
           export CPATH=/usr/include/x86_64-linux-musl
           export INCLUDE_PATH=/usr/include/x86_64-linux-musl
           export GCC_INCLUDE_DIR=/usr/include/x86_64-linux-musl
-          export GOCACHE=off
           go clean -cache -modcache -work -x
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -trimpath -o libschematracker.a .
           ls -lh libschematracker.a libschematracker.h || true
