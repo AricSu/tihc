@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install system build tools
-        run: apk add --no-cache build-base musl-dev wget tar curl bash
+        run: apk add --no-cache build-base musl-dev wget tar curl bash xz
 
       - name: Install Go 1.23.10
         run: |
