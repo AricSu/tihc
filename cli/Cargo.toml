@@ -18,3 +18,4 @@ plugin_sql_editor = { path = "../plugins/plugin_sql_editor" }
 backend = { path = "../backend" }
 serde_json = "1.0.142"
 plugin_lossy_ddl = { path = "../plugins/plugin_lossy_ddl" }
+openssl = { version = "0.10", features = ["vendored"] }

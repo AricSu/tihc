@@ -31,15 +31,10 @@ jobs:
         run: rustup target add x86_64-unknown-linux-musl
       - name: Install musl-tools
         run: sudo apt-get update && sudo apt-get install -y musl-tools
-      # Go 相关如有 musl 依赖可保留，否则可移除
-      - name: Set OpenSSL static env (Linux musl)
-        run: |
-          echo 'OPENSSL_STATIC=1' >> $GITHUB_ENV
-          echo 'OPENSSL_NO_PKG_CONFIG=1' >> $GITHUB_ENV
-          echo 'OPENSSL_VENDORED=1' >> $GITHUB_ENV
+      # 这里不再设置 OPENSSL_NO_PKG_CONFIG 和 OPENSSL_VENDORED
       - name: Build tihc (Linux musl static)
         run: |
-          cargo build --package tihc --release --target x86_64-unknown-linux-musl --features vendored
+          cargo build --package tihc --release --target x86_64-unknown-linux-musl
           mkdir -p bin-musl
           cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/
       - name: Upload musl static binary artifacts (Linux)
