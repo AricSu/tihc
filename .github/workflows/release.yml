@@ -13,10 +13,10 @@ jobs:
       - name: Install system build tools
         run: apk add --no-cache build-base musl-dev wget tar curl bash
 
-      - name: Install Go 1.23.10 (musl)
+      - name: Install Go 1.23.10
         run: |
-          wget https://go.dev/dl/go1.23.10.linux-musl-amd64.tar.gz
-          tar -C /usr/local -xzf go1.23.10.linux-musl-amd64.tar.gz
+          wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
+          tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
           export PATH="/usr/local/go/bin:$PATH"
           go version
 
