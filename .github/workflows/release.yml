@@ -35,6 +35,11 @@ jobs:
           go-version-file: plugins/plugin_lossy_ddl/go/go.mod
       - name: Download Go modules
         run: cd plugins/plugin_lossy_ddl/go && go mod download
+      - name: Set OpenSSL static env (Linux musl)
+        run: |
+          echo 'OPENSSL_STATIC=1' >> $GITHUB_ENV
+          echo 'OPENSSL_NO_PKG_CONFIG=1' >> $GITHUB_ENV
+          echo 'OPENSSL_VENDORED=1' >> $GITHUB_ENV
       - name: Build tihc (Linux musl static)
         run: |
           cargo build --package tihc --release --target x86_64-unknown-linux-musl
