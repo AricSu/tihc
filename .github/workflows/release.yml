@@ -41,6 +41,8 @@ jobs:
         run: |
           cd plugins/plugin_lossy_ddl/go
           export CC=musl-gcc
+          export C_INCLUDE_PATH=/usr/include/x86_64-linux-musl
+          export LIBRARY_PATH=/usr/lib/x86_64-linux-musl
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -o libschematracker.a .
           ls -lh libschematracker.a libschematracker.h || true
       - name: Build frontend (dashboard)
