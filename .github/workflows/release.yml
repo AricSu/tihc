@@ -11,7 +11,7 @@ jobs:
       - name: Get tihc version
         id: get_version
         run: |
-          ver=$(grep '^version' cli/Cargo.toml | head -n1 | cut -d '"' -f2)
+          ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
           echo "version=$ver" >> $GITHUB_OUTPUT
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -31,6 +31,15 @@ jobs:
         run: rustup target add x86_64-unknown-linux-musl
       - name: Install musl-tools
         run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Build plugin_lossy_ddl go c-archive
+        run: |
+          rm -f plugins/plugin_lossy_ddl/go/libschematracker.a plugins/plugin_lossy_ddl/go/libschematracker.h
+          cd plugins/plugin_lossy_ddl/go && go build -buildmode=c-archive -o libschematracker.a libschematracker.go
+      - name: Build frontend (dashboard)
+        run: |
+          rm -rf frontend/dist
+          cd frontend && yarn install
+          cd frontend && yarn build
       - name: Build tihc (Linux musl static)
         run: |
           cargo build --package tihc --release --target x86_64-unknown-linux-musl
