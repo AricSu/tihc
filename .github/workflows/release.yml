@@ -51,24 +51,24 @@ jobs:
       - name: Upload musl static binary artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-linux-musl-bin
-          path: bin-musl/*
-      - name: Package musl binaries (Linux)
+          name: tihc-linux-bin-v${{ steps.get_version.outputs.version }}
+          path: bin-musl
+      - name: Package binaries (Linux)
         run: |
-          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux-musl.tar.gz -C bin-musl .
-      - name: Generate musl sha256 checksum (Linux)
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz -C bin-musl .
+      - name: Generate sha256 checksum (Linux)
         run: |
-          shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-linux-musl.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux-musl.tar.gz.sha256
-      - name: Upload musl packaged artifact (Linux)
+          shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+      - name: Upload packaged artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-linux-musl-tarball
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux-musl.tar.gz
-      - name: Upload musl sha256 checksum (Linux)
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+      - name: Upload sha256 checksum (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-linux-musl-sha256
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux-musl.tar.gz.sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux.sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
 
   build-macos:
     runs-on: macos-latest
@@ -108,7 +108,7 @@ jobs:
       - name: Upload binary artifacts (macOS)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-macos-bin
+          name: tihc-macos-bin-v${{ steps.get_version.outputs.version }}
           path: bin/*
       - name: Package binaries (macOS)
         run: |
@@ -119,12 +119,12 @@ jobs:
       - name: Upload packaged artifact (macOS)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-macos-tarball
+          name: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
           path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
       - name: Upload sha256 checksum (macOS)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-macos-sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-macos.sha256
           path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
 
   build-windows:
@@ -166,7 +166,7 @@ jobs:
       - name: Upload binary artifacts (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-windows-bin
+          name: tihc-windows-bin-v${{ steps.get_version.outputs.version }}
           path: bin/*
       - name: Package binaries (Windows)
         run: |
@@ -177,10 +177,10 @@ jobs:
       - name: Upload packaged artifact (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-windows-zip
+          name: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
           path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
       - name: Upload sha256 checksum (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-windows-sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-windows.sha256
           path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
