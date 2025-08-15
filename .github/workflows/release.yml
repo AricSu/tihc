@@ -33,10 +33,20 @@ jobs:
         run: rustup target add x86_64-unknown-linux-musl
       - name: Install musl-tools
         run: sudo apt-get update && sudo apt-get install -y musl-tools
-      - name: Build plugin_lossy_ddl go c-archive
+      - name: Build plugin_lossy_ddl go c-archive (musl)
         run: |
+          echo "[debug] go version: $(go version)"
+          echo "[debug] musl-gcc version: $(musl-gcc --version || echo not found)"
+          echo "[debug] env CC before: $CC"
           rm -f plugins/plugin_lossy_ddl/go/libschematracker.a plugins/plugin_lossy_ddl/go/libschematracker.h
-          cd plugins/plugin_lossy_ddl/go && go build -buildmode=c-archive -o libschematracker.a libschematracker.go
+          cd plugins/plugin_lossy_ddl/go
+          echo "[debug] go env before build:"
+          go env
+          echo "[debug] building go c-archive with musl-gcc..."
+          CC=musl-gcc go build -x -buildmode=c-archive -o libschematracker.a libschematracker.go
+          echo "[debug] go c-archive build exit code: $?"
+          file libschematracker.a || echo "[warn] libschematracker.a not found!"
+          ldd libschematracker.a || echo "[info] ldd not applicable for static archive"
       - name: Build frontend (dashboard)
         run: |
           rm -rf frontend/dist
