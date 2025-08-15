@@ -40,8 +40,9 @@ jobs:
       - name: Build frontend (dashboard)
         run: |
           rm -rf frontend/dist
-          cd frontend && yarn install
-          cd frontend && yarn build
+          cd frontend
+          yarn install
+          yarn build
       - name: Build tihc (Linux musl static)
         run: |
           cargo build --package tihc --release --target x86_64-unknown-linux-musl
