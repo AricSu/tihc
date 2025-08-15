@@ -36,9 +36,8 @@ jobs:
       - name: Install xgo (for go musl c-archive)
         run: |
           go install github.com/crazy-max/xgo@latest
-          echo "[debug] xgo version: $(xgo --version || echo not found)"
-      - name: Install xgo (for go musl c-archive)
-        run: go install github.com/crazy-max/xgo@latest
+          echo "export PATH=\"$HOME/go/bin:$PATH\"" >> $GITHUB_ENV
+          echo "[debug] xgo version: $($HOME/go/bin/xgo --version || echo not found)"
       - name: Build plugin_lossy_ddl go c-archive (xgo musl)
         run: |
           cd plugins/plugin_lossy_ddl/go
