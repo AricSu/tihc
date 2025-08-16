@@ -14,8 +14,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install system build tools
         run: |
-          apk add --no-cache build-base musl-dev wget tar curl bash xz
-          ln -sf /usr/bin/musl-gcc /usr/local/bin/musl-gcc
+          apk add --no-cache build-base musl-dev musl-tools wget tar curl bash xz
+          # musl-gcc 软链确保所有 musl 目标都能链接
+          MUSL_GCC_PATH=$(find / -name musl-gcc 2>/dev/null | head -n1)
+          if [ -n "$MUSL_GCC_PATH" ]; then
+            ln -sf "$MUSL_GCC_PATH" /usr/local/bin/musl-gcc
+          fi
+          export PATH="/usr/local/bin:/usr/bin:$PATH"
+          which musl-gcc || (echo 'musl-gcc not found!' && exit 1)
 
       - name: Install Go 1.23.10
         run: |
