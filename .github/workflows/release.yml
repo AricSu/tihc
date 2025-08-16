@@ -7,7 +7,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: alpine:3.19
+      image: alpine:latest
     env:
       PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
@@ -17,7 +17,13 @@ jobs:
           # 替换 apk 源为 archive，保证老版本包可用
           sed -i 's/dl-cdn.alpinelinux.org/archive.alpinelinux.org/g' /etc/apk/repositories
           apk update
-          apk add --no-cache build-base musl-dev wget tar curl bash xz
+          apk add --no-cache build-base wget tar curl bash xz || true
+          # musl-dev 可能因 DNS 或仓库失效无法安装，尝试手动下载解包
+          if ! apk add --no-cache musl-dev; then
+            echo 'apk add musl-dev failed, try manual download...'
+            wget -O /tmp/musl-dev.apk "https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/musl-dev-1.2.4-r1.apk" || wget -O /tmp/musl-dev.apk "https://archive.alpinelinux.org/alpine/v3.19/main/x86_64/musl-dev-1.2.4-r1.apk"
+            tar -xzvf /tmp/musl-dev.apk -C / || tar -xvf /tmp/musl-dev.apk -C /
+          fi
           # 调试 musl-gcc 安装和路径
           echo '--- apk info -L musl-dev ---'
           apk info -L musl-dev | grep musl-gcc || echo 'musl-gcc not in musl-dev'
