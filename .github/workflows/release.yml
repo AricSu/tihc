@@ -29,16 +29,9 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Install gcompat (glibc compatibility)
-        run: apk add --no-cache gcompat
-
-      - name: Install Node.js 24.x (glibc, manual)
+      - name: Install Node.js & npm (alpine musl)
         run: |
-          wget https://nodejs.org/dist/v24.6.0/node-v24.6.0-linux-x64.tar.xz
-          tar -C /usr/local -xJf node-v24.6.0-linux-x64.tar.xz
-          ln -sf /usr/local/node-v24.6.0-linux-x64/bin/node /usr/local/bin/node
-          ln -sf /usr/local/node-v24.6.0-linux-x64/bin/npm /usr/local/bin/npm
-          export PATH="/usr/local/node-v24.6.0-linux-x64/bin:$PATH"
+          apk add --no-cache nodejs npm
           node -v
           npm -v
 
