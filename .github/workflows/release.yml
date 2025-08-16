@@ -7,7 +7,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: alpine:3.20
+      image: gliderlabs/alpine:3.20
     env:
       PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
@@ -15,6 +15,11 @@ jobs:
       - name: Install system build tools
         run: |
           apk add --no-cache build-base musl-dev wget tar curl bash xz
+          # 调试 musl-gcc 安装和路径
+          echo '--- apk info -L musl-dev ---'
+          apk info -L musl-dev | grep musl-gcc || echo 'musl-gcc not in musl-dev'
+          echo '--- find / -name musl-gcc ---'
+          find / -name musl-gcc
           # musl-gcc 软链确保所有 musl 目标都能链接
           MUSL_GCC_PATH=$(find / -name musl-gcc 2>/dev/null | head -n1)
           if [ -n "$MUSL_GCC_PATH" ]; then
