@@ -15,7 +15,7 @@ jobs:
       - name: Install system build tools
         run: |
           apk update
-          apk add --no-cache build-base musl-dev wget tar curl bash xz
+          apk add --no-cache build-base musl-dev musl-tools wget tar curl bash xz
           # 调试 musl-gcc 安装和路径
           echo '--- apk info -L musl-dev ---'
           apk info -L musl-dev | grep musl-gcc || echo 'musl-gcc not in musl-dev'
