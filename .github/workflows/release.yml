@@ -35,6 +35,7 @@ jobs:
           curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
           echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /etc/profile
           export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
+          ln -sf $HOME/.cargo/bin/rustup /usr/local/bin/rustup
           rustup --version
 
       - name: Install Node.js & npm (alpine musl)
