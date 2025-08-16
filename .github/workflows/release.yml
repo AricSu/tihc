@@ -31,6 +31,11 @@ jobs:
           export PATH="/usr/local/bin:$PATH"
           rustc --version
           cargo --version
+          # 安装 rustup
+          curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+          echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /etc/profile
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustup --version
 
       - name: Install Node.js & npm (alpine musl)
         run: |
