@@ -7,13 +7,16 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: alpine:3.20
+      image: alpine:3.19
     env:
       PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
       - uses: actions/checkout@v4
       - name: Install system build tools
         run: |
+          # 替换 apk 源为 archive，保证老版本包可用
+          sed -i 's/dl-cdn.alpinelinux.org/archive.alpinelinux.org/g' /etc/apk/repositories
+          apk update
           apk add --no-cache build-base musl-dev wget tar curl bash xz
           # 调试 musl-gcc 安装和路径
           echo '--- apk info -L musl-dev ---'
