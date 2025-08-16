@@ -7,7 +7,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: gliderlabs/alpine:3.20
+      image: gliderlabs/alpine:3.22
     env:
       PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
