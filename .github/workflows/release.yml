@@ -14,12 +14,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install system build tools
         run: |
-          # 替换 apk 源为 archive，保证老版本包可用
-          sed -i 's/dl-cdn.alpinelinux.org/archive.alpinelinux.org/g' /etc/apk/repositories
+          # 仅在老版本 alpine 镜像时替换 apk 源为 archive，其余情况用默认源
+          if grep -q 'image: alpine:3.1' "$GITHUB_WORKSPACE/.github/workflows/release.yml"; then
+            sed -i 's/dl-cdn.alpinelinux.org/archive.alpinelinux.org/g' /etc/apk/repositories
+          fi
           apk update
-          apk add --no-cache build-base wget tar curl bash xz || true
-          # musl-dev 可能因 DNS 或仓库失效无法安装，尝试手动下载解包
-          if ! apk add --no-cache musl-dev; then
+          apk add --no-cache build-base musl-dev wget tar curl bash xz || true
+          # musl-dev 可能因 DNS 或仓库失效无法安装，尝试手动下载解包（仅老版本需要）
+          if ! apk info -e musl-dev; then
             echo 'apk add musl-dev failed, try manual download...'
             wget -O /tmp/musl-dev.apk "https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/musl-dev-1.2.4-r1.apk" || wget -O /tmp/musl-dev.apk "https://archive.alpinelinux.org/alpine/v3.19/main/x86_64/musl-dev-1.2.4-r1.apk"
             tar -xzvf /tmp/musl-dev.apk -C / || tar -xvf /tmp/musl-dev.apk -C /
