@@ -9,7 +9,7 @@ jobs:
     container:
       image: alpine:latest
     env:
-      PATH: /usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
       - uses: actions/checkout@v4
       - name: Install system build tools
@@ -34,7 +34,7 @@ jobs:
           # 安装 rustup
           curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
           echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /etc/profile
-          export PATH="$HOME/.cargo/bin:$PATH"
+          export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
           rustup --version
 
       - name: Install Node.js & npm (alpine musl)
