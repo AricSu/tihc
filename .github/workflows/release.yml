@@ -15,19 +15,20 @@ jobs:
       - name: Install system build tools
         run: |
           apk update
-          apk add --no-cache build-base musl-dev musl-gcc wget tar curl bash xz
-          # 调试 musl-gcc 安装和路径
-          echo '--- apk info -L musl-dev ---'
-          apk info -L musl-dev | grep musl-gcc || echo 'musl-gcc not in musl-dev'
+          apk add --no-cache build-base musl-dev clang llvm lld libc-dev wget tar curl bash xz
+          # 查找 musl-gcc 或 fallback 到 clang
           echo '--- find / -name musl-gcc ---'
           find / -name musl-gcc
-          # musl-gcc 软链确保所有 musl 目标都能链接
           MUSL_GCC_PATH=$(find / -name musl-gcc 2>/dev/null | head -n1)
           if [ -n "$MUSL_GCC_PATH" ]; then
             ln -sf "$MUSL_GCC_PATH" /usr/local/bin/musl-gcc
+            export CC=musl-gcc
+          else
+            export CC=clang
+            echo 'musl-gcc not found, fallback to clang.'
           fi
           export PATH="/usr/local/bin:/usr/bin:$PATH"
-          which musl-gcc || (echo 'musl-gcc not found!' && exit 1)
+          which $CC || (echo "$CC not found!" && exit 1)
 
       - name: Install Go 1.23.10
         run: |
