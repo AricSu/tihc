@@ -87,9 +87,14 @@ jobs:
           yarn build
       - name: Build tihc (Linux musl static)
         run: |
-          cargo build --package tihc --release --target x86_64-unknown-linux-musl
+          cargo build --release --target x86_64-unknown-linux-musl
           mkdir -p bin-musl
-          cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/
+          cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/tihc-linux-musl
+
+      - name: Check binary is statically linked
+        run: |
+          file bin-musl/tihc-linux-musl
+          file bin-musl/tihc-linux-musl | grep 'statically linked' || (echo 'ERROR: tihc-linux-musl is not statically linked!' && exit 1)
       - name: Upload musl static binary artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
