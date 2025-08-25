@@ -94,7 +94,7 @@ jobs:
       - name: Check binary is statically linked
         run: |
           file bin-musl/tihc-linux-musl
-          file bin-musl/tihc-linux-musl | grep 'statically linked' || (echo 'ERROR: tihc-linux-musl is not statically linked!' && exit 1)
+          file bin-musl/tihc-linux-musl | grep -E 'statically linked|static-pie linked' || (echo 'ERROR: tihc-linux-musl is not statically linked!' && exit 1)
       - name: Upload musl static binary artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
