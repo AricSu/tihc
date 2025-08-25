@@ -15,7 +15,7 @@ jobs:
       - name: Install system build tools
         run: |
           apk update
-          apk add --no-cache build-base musl-dev clang llvm lld libc-dev wget tar curl bash xz
+          apk add --no-cache build-base musl-dev clang llvm lld libc-dev wget tar curl bash xz openssl openssl-dev pkgconf
           # 查找 musl-gcc 或 fallback 到 clang
           echo '--- find / -name musl-gcc ---'
           find / -name musl-gcc
