@@ -260,9 +260,9 @@ jobs:
           export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
           ln -sf $HOME/.cargo/bin/rustup /usr/local/bin/rustup
           rustup --version
-      - name: Install Node.js & npm (CentOS 8)
+      - name: Install Node.js & npm (Rocky 8, Node 20)
         run: |
-          curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+          curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
           dnf install -y nodejs
           node -v
           npm -v
