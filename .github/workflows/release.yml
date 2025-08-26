@@ -232,10 +232,10 @@ jobs:
           path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
 
   build-linux-glibc-centos8:
-    # Build on CentOS 8 to ensure glibc compatibility (GLIBC_2.28+)
+    # Build on Rocky Linux 8 to ensure glibc compatibility (GLIBC_2.28+)
     runs-on: ubuntu-latest
     container:
-      image: centos:8
+      image: rockylinux:8
     steps:
       - uses: actions/checkout@v4
       - name: Install system build tools (CentOS 8)
