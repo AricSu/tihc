@@ -4,118 +4,117 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
-    env:
-      PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install system build tools
-        run: |
-          apk update
-          apk add --no-cache build-base musl-dev clang llvm lld libc-dev wget tar curl bash xz openssl openssl-dev pkgconf perl
-          # 查找 musl-gcc 或 fallback 到 clang
-          echo '--- find / -name musl-gcc ---'
-          find / -name musl-gcc
-          MUSL_GCC_PATH=$(find / -name musl-gcc 2>/dev/null | head -n1)
-          if [ -n "$MUSL_GCC_PATH" ]; then
-            ln -sf "$MUSL_GCC_PATH" /usr/local/bin/musl-gcc
-            export CC=musl-gcc
-          else
-            export CC=clang
-            echo 'musl-gcc not found, fallback to clang.'
-          fi
-          export PATH="/usr/local/bin:/usr/bin:$PATH"
-          which $CC || (echo "$CC not found!" && exit 1)
+  # build-linux-musl:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: alpine:latest
+  #   env:
+  #     PATH: $HOME/.cargo/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install system build tools
+  #       run: |
+  #         apk update
+  #         apk add --no-cache build-base musl-dev clang llvm lld libc-dev wget tar curl bash xz openssl openssl-dev pkgconf perl
+  #         # 查找 musl-gcc 或 fallback 到 clang
+  #         echo '--- find / -name musl-gcc ---'
+  #         find / -name musl-gcc
+  #         MUSL_GCC_PATH=$(find / -name musl-gcc 2>/dev/null | head -n1)
+  #         if [ -n "$MUSL_GCC_PATH" ]; then
+  #           ln -sf "$MUSL_GCC_PATH" /usr/local/bin/musl-gcc
+  #           export CC=musl-gcc
+  #         else
+  #           export CC=clang
+  #           echo 'musl-gcc not found, fallback to clang.'
+  #         fi
+  #         export PATH="/usr/local/bin:/usr/bin:$PATH"
+  #         which $CC || (echo "$CC not found!" && exit 1)
+   #    - name: Install Go 1.23.10
+   #      run: |
+   #        wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
+   #        tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
+   #        export PATH="/usr/local/go/bin:$PATH"
+   #        go version
 
-      - name: Install Go 1.23.10
-        run: |
-          wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
-          tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
-          export PATH="/usr/local/go/bin:$PATH"
-          go version
+   #    - name: Install Rust 1.83.0 (musl, manual)
+   #      run: |
+   #        wget https://static.rust-lang.org/dist/rust-1.83.0-x86_64-unknown-linux-musl.tar.gz
+   #        tar -xzf rust-1.83.0-x86_64-unknown-linux-musl.tar.gz
+   #        ./rust-1.83.0-x86_64-unknown-linux-musl/install.sh --prefix=/usr/local
+   #        echo 'export PATH="/usr/local/bin:$PATH"' >> /etc/profile
+   #        export PATH="/usr/local/bin:$PATH"
+   #        rustc --version
+   #        cargo --version
+   #        # 安装 rustup
+   #        curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+   #        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /etc/profile
+   #        export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
+   #        ln -sf $HOME/.cargo/bin/rustup /usr/local/bin/rustup
+   #        rustup --version
 
-      - name: Install Rust 1.83.0 (musl, manual)
-        run: |
-          wget https://static.rust-lang.org/dist/rust-1.83.0-x86_64-unknown-linux-musl.tar.gz
-          tar -xzf rust-1.83.0-x86_64-unknown-linux-musl.tar.gz
-          ./rust-1.83.0-x86_64-unknown-linux-musl/install.sh --prefix=/usr/local
-          echo 'export PATH="/usr/local/bin:$PATH"' >> /etc/profile
-          export PATH="/usr/local/bin:$PATH"
-          rustc --version
-          cargo --version
-          # 安装 rustup
-          curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
-          echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /etc/profile
-          export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
-          ln -sf $HOME/.cargo/bin/rustup /usr/local/bin/rustup
-          rustup --version
+   #    - name: Install Node.js & npm (alpine musl)
+   #      run: |
+   #        apk add --no-cache nodejs npm
+   #        node -v
+   #        npm -v
 
-      - name: Install Node.js & npm (alpine musl)
-        run: |
-          apk add --no-cache nodejs npm
-          node -v
-          npm -v
+   #    - name: Install Yarn (manual)
+   #      run: |
+   #        npm install -g yarn
+   #        yarn -v
+   #    - name: Install Rust musl target
+   #      run: rustup target add x86_64-unknown-linux-musl
+   #    - name: Get tihc version
+   #      id: get_version
+   #      shell: bash
+   #      run: |
+   #        cat cli/Cargo.toml | grep version
+   #        ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+   #        echo "[debug] extracted version: $ver"
+   #        echo "version=$ver" >> $GITHUB_OUTPUT
+   #    - name: Build plugin_lossy_ddl go c-archive (linux)
+   #      run: |
+   #        cd plugins/plugin_lossy_ddl/go
+   #        go clean -cache -modcache -work -x
+   #        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -trimpath -o libschematracker.a .
+   #        ls -lh libschematracker.a libschematracker.h || true
+   #    - name: Build frontend (dashboard)
+   #      run: |
+   #        rm -rf frontend/dist
+   #        cd frontend
+   #        yarn install
+   #        yarn build
+   #    - name: Build tihc (Linux musl static)
+   #      run: |
+   #        cargo build --release --target x86_64-unknown-linux-musl
+   #        mkdir -p bin-musl
+   #        cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/tihc-linux-musl
 
-      - name: Install Yarn (manual)
-        run: |
-          npm install -g yarn
-          yarn -v
-      - name: Install Rust musl target
-        run: rustup target add x86_64-unknown-linux-musl
-      - name: Get tihc version
-        id: get_version
-        shell: bash
-        run: |
-          cat cli/Cargo.toml | grep version
-          ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "[debug] extracted version: $ver"
-          echo "version=$ver" >> $GITHUB_OUTPUT
-      - name: Build plugin_lossy_ddl go c-archive (linux)
-        run: |
-          cd plugins/plugin_lossy_ddl/go
-          go clean -cache -modcache -work -x
-          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -trimpath -o libschematracker.a .
-          ls -lh libschematracker.a libschematracker.h || true
-      - name: Build frontend (dashboard)
-        run: |
-          rm -rf frontend/dist
-          cd frontend
-          yarn install
-          yarn build
-      - name: Build tihc (Linux musl static)
-        run: |
-          cargo build --release --target x86_64-unknown-linux-musl
-          mkdir -p bin-musl
-          cp target/x86_64-unknown-linux-musl/release/tihc bin-musl/tihc-linux-musl
-
-      - name: Check binary is statically linked
-        run: |
-          file bin-musl/tihc-linux-musl
-          file bin-musl/tihc-linux-musl | grep -E 'statically linked|static-pie linked' || (echo 'ERROR: tihc-linux-musl is not statically linked!' && exit 1)
-      - name: Upload musl static binary artifacts (Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tihc-linux-bin-v${{ steps.get_version.outputs.version }}
-          path: bin-musl
-      - name: Package binaries (Linux)
-        run: |
-          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz -C bin-musl .
-      - name: Generate sha256 checksum (Linux)
-        run: |
-          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
-      - name: Upload packaged artifact (Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
-      - name: Upload sha256 checksum (Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-linux.sha256
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+   #    - name: Check binary is statically linked
+   #      run: |
+   #        file bin-musl/tihc-linux-musl
+   #        file bin-musl/tihc-linux-musl | grep -E 'statically linked|static-pie linked' || (echo 'ERROR: tihc-linux-musl is not statically linked!' && exit 1)
+   #    - name: Upload musl static binary artifacts (Linux)
+   #      uses: actions/upload-artifact@v4
+   #      with:
+   #        name: tihc-linux-bin-v${{ steps.get_version.outputs.version }}
+   #        path: bin-musl
+   #    - name: Package binaries (Linux)
+   #      run: |
+   #        tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz -C bin-musl .
+   #    - name: Generate sha256 checksum (Linux)
+   #      run: |
+   #        sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+   #    - name: Upload packaged artifact (Linux)
+   #      uses: actions/upload-artifact@v4
+   #      with:
+   #        name: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+   #        path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+   #    - name: Upload sha256 checksum (Linux)
+   #      uses: actions/upload-artifact@v4
+   #      with:
+   #        name: tihc-v${{ steps.get_version.outputs.version }}-linux.sha256
+   #        path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
 
   # build-macos:
   #   runs-on: macos-latest
@@ -231,3 +230,107 @@ jobs:
   #       with:
   #         name: tihc-v${{ steps.get_version.outputs.version }}-windows.sha256
   #         path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
+
+  build-linux-glibc:
+    # glibc 版本构建，适用于大多数 Linux 发行版
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system build tools (glibc)
+        run: |
+          # 安装常用构建工具和依赖（基于 glibc 的 Ubuntu 环境）
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang llvm lld wget tar curl bash xz-utils openssl libssl-dev pkg-config perl
+          # 检查 gcc 是否可用
+            # 检查 gcc 是否已安装，否则给出安装建议
+            if ! command -v gcc >/dev/null 2>&1; then
+              echo 'ERROR: gcc not found!'
+              echo '建议安装 gcc：sudo apt-get update && sudo apt-get install -y gcc build-essential'
+              exit 1
+            fi
+            gcc --version
+      - name: Install Go 1.23.10
+        run: |
+          wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
+          sudo tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
+          export PATH="/usr/local/go/bin:$PATH"
+          go version
+      - name: Install Rust 1.83.0 (glibc, manual)
+        run: |
+          wget https://static.rust-lang.org/dist/rust-1.83.0-x86_64-unknown-linux-gnu.tar.gz
+          tar -xzf rust-1.83.0-x86_64-unknown-linux-gnu.tar.gz
+          sudo ./rust-1.83.0-x86_64-unknown-linux-gnu/install.sh --prefix=/usr/local
+          echo 'export PATH="/usr/local/bin:$PATH"' >> $GITHUB_ENV
+          export PATH="/usr/local/bin:$PATH"
+          rustc --version
+          cargo --version
+          # 安装 rustup
+          curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+          echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $GITHUB_ENV
+          export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
+          ln -sf $HOME/.cargo/bin/rustup /usr/local/bin/rustup
+          rustup --version
+      - name: Install Node.js & npm (glibc)
+        run: |
+          sudo apt-get install -y nodejs npm
+          node -v
+          npm -v
+      - name: Install Yarn (manual)
+        run: |
+          npm install -g yarn
+          yarn -v
+      - name: Install Rust glibc target
+        run: rustup target add x86_64-unknown-linux-gnu
+      - name: Get tihc version
+        id: get_version
+        shell: bash
+        run: |
+          cat cli/Cargo.toml | grep version
+          ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "[debug] extracted version: $ver"
+          echo "version=$ver" >> $GITHUB_OUTPUT
+      - name: Build plugin_lossy_ddl go c-archive (linux)
+        run: |
+          cd plugins/plugin_lossy_ddl/go
+          go clean -cache -modcache -work -x
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildmode=c-archive -trimpath -o libschematracker.a .
+          ls -lh libschematracker.a libschematracker.h || true
+      - name: Build frontend (dashboard)
+        run: |
+          rm -rf frontend/dist
+          cd frontend
+          yarn install
+          yarn build
+      - name: Build tihc (Linux glibc static)
+        run: |
+          # --target x86_64-unknown-linux-gnu 默认使用 glibc
+          cargo build --release --target x86_64-unknown-linux-gnu
+          mkdir -p bin-glibc
+          cp target/x86_64-unknown-linux-gnu/release/tihc bin-glibc/tihc-linux-glibc
+      - name: Show binary link info (glibc)
+        run: |
+          # Show binary link info for reference (glibc static linking is not guaranteed)
+          file bin-glibc/tihc-linux-glibc
+          ldd bin-glibc/tihc-linux-glibc || true
+          echo "Note: glibc static linking is not fully supported. Above info is for reference only."
+      - name: Upload glibc static binary artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-linux-glibc-bin-v${{ steps.get_version.outputs.version }}
+          path: bin-glibc
+      - name: Package binaries (Linux glibc)
+        run: |
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz -C bin-glibc .
+      - name: Generate sha256 checksum (Linux glibc)
+        run: |
+          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz.sha256
+      - name: Upload packaged artifact (Linux glibc)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz
+      - name: Upload sha256 checksum (Linux glibc)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz.sha256

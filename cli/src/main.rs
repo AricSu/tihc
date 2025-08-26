@@ -1,4 +1,5 @@
 use crate::commands::slowlog::SlowlogOptions;
+mod check_gcc;
 use crate::commands::web::WebOptions;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -113,6 +114,8 @@ fn register_all_plugins(
 /// - Web: tihc server --host 127.0.0.1 --port 5000
 #[tokio::main]
 async fn main() -> Result<()> {
+    // 启动时检测 gcc（仅 Linux glibc 构建有效）
+    check_gcc::check_gcc();
     let cli = Cli::parse();
     let config_path = &cli.config_file;
     // === 配置加载与日志初始化（合并 CLI/config，CLI 优先） ===
