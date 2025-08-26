@@ -173,106 +173,97 @@ jobs:
   #         name: tihc-v${{ steps.get_version.outputs.version }}-macos.sha256
   #         path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
 
-  # build-windows:
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Get tihc version
-  #       id: get_version
-  #       shell: bash
-  #       run: |
-  #         cat cli/Cargo.toml | grep version
-  #         ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
-  #         echo "[debug] extracted version: $ver"
-  #         echo "version=$ver" >> $GITHUB_OUTPUT
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 'lts/*'
-  #     - name: Install yarn
-  #       run: npm install -g yarn
-  #     - name: Set yarn registry to taobao
-  #       run: yarn config set registry https://registry.npmmirror.com
-  #     - name: Set up Rust (GNU)
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable-x86_64-pc-windows-gnu
-  #         profile: minimal
-  #         override: true
-  #     - name: Install Rust targets (if needed)
-  #       run: rustup target add x86_64-pc-windows-gnu
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version-file: plugins/plugin_lossy_ddl/go/go.mod
-  #     - name: Download Go modules
-  #       run: cd plugins/plugin_lossy_ddl/go && go mod download
-  #     - name: Build all (Windows)
-  #       run: make all
-  #     - name: Upload binary artifacts (Windows)
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: tihc-windows-bin-v${{ steps.get_version.outputs.version }}
-  #         path: bin/*
-  #     - name: Package binaries (Windows)
-  #       run: |
-  #         powershell Compress-Archive -Path bin\* -DestinationPath tihc-v${{ steps.get_version.outputs.version }}-windows.zip
-  #     - name: Generate sha256 checksum (Windows)
-  #       run: |
-  #         certutil -hashfile tihc-v${{ steps.get_version.outputs.version }}-windows.zip SHA256 > tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
-  #     - name: Upload packaged artifact (Windows)
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
-  #         path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
-  #     - name: Upload sha256 checksum (Windows)
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: tihc-v${{ steps.get_version.outputs.version }}-windows.sha256
-  #         path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
-
-  build-linux-glibc:
-    # glibc 版本构建，适用于大多数 Linux 发行版
-    runs-on: ubuntu-latest
+  build-windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install system build tools (glibc)
+      - name: Get tihc version
+        id: get_version
+        shell: bash
         run: |
-          # 安装常用构建工具和依赖（基于 glibc 的 Ubuntu 环境）
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang llvm lld wget tar curl bash xz-utils openssl libssl-dev pkg-config perl
-          # 检查 gcc 是否可用
-            # 检查 gcc 是否已安装，否则给出安装建议
-            if ! command -v gcc >/dev/null 2>&1; then
-              echo 'ERROR: gcc not found!'
-              echo '建议安装 gcc：sudo apt-get update && sudo apt-get install -y gcc build-essential'
-              exit 1
-            fi
-            gcc --version
+          cat cli/Cargo.toml | grep version
+          ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "[debug] extracted version: $ver"
+          echo "version=$ver" >> $GITHUB_OUTPUT
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Set yarn registry to taobao
+        run: yarn config set registry https://registry.npmmirror.com
+      - name: Set up Rust (GNU)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable-x86_64-pc-windows-gnu
+          profile: minimal
+          override: true
+      - name: Install Rust targets (if needed)
+        run: rustup target add x86_64-pc-windows-gnu
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
+      - name: Download Go modules
+        run: cd plugins/plugin_lossy_ddl/go && go mod download
+      - name: Build all (Windows)
+        run: make all
+      - name: Upload binary artifacts (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-windows-bin-v${{ steps.get_version.outputs.version }}
+          path: bin/*
+      - name: Package binaries (Windows)
+        run: |
+          powershell Compress-Archive -Path bin\* -DestinationPath tihc-v${{ steps.get_version.outputs.version }}-windows.zip
+      - name: Generate sha256 checksum (Windows)
+        run: |
+          certutil -hashfile tihc-v${{ steps.get_version.outputs.version }}-windows.zip SHA256 > tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
+      - name: Upload packaged artifact (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
+          path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
+      - name: Upload sha256 checksum (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-v${{ steps.get_version.outputs.version }}-windows.sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
+
+  build-linux-glibc-centos7:
+    # Build on CentOS 7 to ensure glibc compatibility (GLIBC_2.17+)
+    runs-on: ubuntu-latest
+    container:
+      image: centos:7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system build tools (CentOS 7)
+        run: |
+          yum install -y epel-release
+          yum install -y gcc gcc-c++ make openssl-devel perl wget tar curl xz
       - name: Install Go 1.23.10
         run: |
           wget https://go.dev/dl/go1.23.10.linux-amd64.tar.gz
-          sudo tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
+          tar -C /usr/local -xzf go1.23.10.linux-amd64.tar.gz
           export PATH="/usr/local/go/bin:$PATH"
           go version
-      - name: Install Rust 1.83.0 (glibc, manual)
+      - name: Install Rust 1.83.0 (manual)
         run: |
           wget https://static.rust-lang.org/dist/rust-1.83.0-x86_64-unknown-linux-gnu.tar.gz
           tar -xzf rust-1.83.0-x86_64-unknown-linux-gnu.tar.gz
-          sudo ./rust-1.83.0-x86_64-unknown-linux-gnu/install.sh --prefix=/usr/local
-          echo 'export PATH="/usr/local/bin:$PATH"' >> $GITHUB_ENV
+          ./rust-1.83.0-x86_64-unknown-linux-gnu/install.sh --prefix=/usr/local
           export PATH="/usr/local/bin:$PATH"
           rustc --version
           cargo --version
-          # 安装 rustup
           curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
-          echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $GITHUB_ENV
           export PATH="$HOME/.cargo/bin:/usr/local/bin:$PATH"
           ln -sf $HOME/.cargo/bin/rustup /usr/local/bin/rustup
           rustup --version
-      - name: Install Node.js & npm (glibc)
+      - name: Install Node.js & npm (CentOS 7)
         run: |
-          sudo apt-get install -y nodejs npm
+          curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+          yum install -y nodejs
           node -v
           npm -v
       - name: Install Yarn (manual)
@@ -282,7 +273,7 @@ jobs:
       - name: Install Rust glibc target
         run: rustup target add x86_64-unknown-linux-gnu
       - name: Get tihc version
-        id: get_version
+        id: get_version_centos7
         shell: bash
         run: |
           cat cli/Cargo.toml | grep version
@@ -301,36 +292,34 @@ jobs:
           cd frontend
           yarn install
           yarn build
-      - name: Build tihc (Linux glibc static)
+      - name: Build tihc (Linux glibc static, CentOS 7)
         run: |
-          # --target x86_64-unknown-linux-gnu 默认使用 glibc
           cargo build --release --target x86_64-unknown-linux-gnu
-          mkdir -p bin-glibc
-          cp target/x86_64-unknown-linux-gnu/release/tihc bin-glibc/tihc-linux-glibc
-      - name: Show binary link info (glibc)
+          mkdir -p bin-glibc-centos7
+          cp target/x86_64-unknown-linux-gnu/release/tihc bin-glibc-centos7/tihc
+      - name: Show binary link info (glibc, CentOS 7)
         run: |
-          # Show binary link info for reference (glibc static linking is not guaranteed)
-          file bin-glibc/tihc-linux-glibc
-          ldd bin-glibc/tihc-linux-glibc || true
-          echo "Note: glibc static linking is not fully supported. Above info is for reference only."
-      - name: Upload glibc static binary artifacts (Linux)
+          file bin-glibc-centos7/tihc
+          ldd bin-glibc-centos7/tihc || true
+          echo "Note: Built on CentOS 7 for maximum glibc compatibility."
+      - name: Upload glibc static binary artifacts (CentOS 7)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-linux-glibc-bin-v${{ steps.get_version.outputs.version }}
-          path: bin-glibc
-      - name: Package binaries (Linux glibc)
+          name: tihc-linux-glibc-centos7-bin-v${{ steps.get_version_centos7.outputs.version }}
+          path: bin-glibc-centos7
+      - name: Package binaries (Linux glibc, CentOS 7)
         run: |
-          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz -C bin-glibc .
-      - name: Generate sha256 checksum (Linux glibc)
+          tar -czvf tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.tar.gz -C bin-glibc-centos7 .
+      - name: Generate sha256 checksum (Linux glibc, CentOS 7)
         run: |
-          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz.sha256
-      - name: Upload packaged artifact (Linux glibc)
+          sha256sum tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.tar.gz > tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.tar.gz.sha256
+      - name: Upload packaged artifact (Linux glibc, CentOS 7)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz
-      - name: Upload sha256 checksum (Linux glibc)
+          name: tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.tar.gz
+          path: tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.tar.gz
+      - name: Upload sha256 checksum (Linux glibc, CentOS 7)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.sha256
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux-glibc.tar.gz.sha256
+          name: tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.sha256
+          path: tihc-v${{ steps.get_version_centos7.outputs.version }}-linux-glibc-centos7.tar.gz.sha256
