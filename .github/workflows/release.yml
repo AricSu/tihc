@@ -115,7 +115,6 @@ jobs:
    #      with:
    #        name: tihc-v${{ steps.get_version.outputs.version }}-linux.sha256
    #        path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
-
   build-macos:
     runs-on: macos-latest
     steps:
