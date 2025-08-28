@@ -116,62 +116,62 @@ jobs:
    #        name: tihc-v${{ steps.get_version.outputs.version }}-linux.sha256
    #        path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
 
-  # build-macos:
-  #   runs-on: macos-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Get tihc version
-  #       id: get_version
-  #       run: |
-  #         cat cli/Cargo.toml | grep version
-  #         ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
-  #         echo "[debug] extracted version: $ver"
-  #         echo "version=$ver" >> $GITHUB_OUTPUT
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 'lts/*'
-  #     - name: Install yarn
-  #       run: npm install -g yarn
-  #     - name: Set yarn registry to taobao
-  #       run: yarn config set registry https://registry.npmmirror.com
-  #     - name: Set up Rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         profile: minimal
-  #         override: true
-  #     - name: Install Rust targets (if needed)
-  #       run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version-file: plugins/plugin_lossy_ddl/go/go.mod
-  #     - name: Download Go modules
-  #       run: cd plugins/plugin_lossy_ddl/go && go mod download
-  #     - name: Build all (macOS)
-  #       run: make all
-  #     - name: Upload binary artifacts (macOS)
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: tihc-macos-bin-v${{ steps.get_version.outputs.version }}
-  #         path: bin/*
-  #     - name: Package binaries (macOS)
-  #       run: |
-  #         tar -czvf tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz -C bin .
-  #     - name: Generate sha256 checksum (macOS)
-  #       run: |
-  #         shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
-  #     - name: Upload packaged artifact (macOS)
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
-  #         path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
-  #     - name: Upload sha256 checksum (macOS)
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: tihc-v${{ steps.get_version.outputs.version }}-macos.sha256
-  #         path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get tihc version
+        id: get_version
+        run: |
+          cat cli/Cargo.toml | grep version
+          ver=$(grep -E '^version\s*=\s*"' cli/Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "[debug] extracted version: $ver"
+          echo "version=$ver" >> $GITHUB_OUTPUT
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: Set yarn registry to taobao
+        run: yarn config set registry https://registry.npmmirror.com
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Install Rust targets (if needed)
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: plugins/plugin_lossy_ddl/go/go.mod
+      - name: Download Go modules
+        run: cd plugins/plugin_lossy_ddl/go && go mod download
+      - name: Build all (macOS)
+        run: make all
+      - name: Upload binary artifacts (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-macos-bin-v${{ steps.get_version.outputs.version }}
+          path: bin/*
+      - name: Package binaries (macOS)
+        run: |
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz -C bin .
+      - name: Generate sha256 checksum (macOS)
+        run: |
+          shasum -a 256 tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
+      - name: Upload packaged artifact (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
+          path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
+      - name: Upload sha256 checksum (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tihc-v${{ steps.get_version.outputs.version }}-macos.sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
 
   build-windows:
     runs-on: windows-latest
