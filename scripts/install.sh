@@ -71,17 +71,16 @@ check_prerequisites() {
 get_system_info() {
     local os=""
     local arch=""
-    
     case "$(uname -s)" in
         Linux*) os="linux" ;;
         Darwin*) os="macos" ;;
+        MINGW*|MSYS*|CYGWIN*) os="windows" ;;
         *)
             log_error "Unsupported operating system: $(uname -s)"
-            log_info "Supported systems: Linux, macOS"
+            log_info "Supported systems: Linux, macOS, Windows"
             exit 1
             ;;
     esac
-    
     case "$(uname -m)" in
         x86_64|amd64) arch="x86_64" ;;
         aarch64|arm64) arch="arm64" ;;
@@ -91,7 +90,6 @@ get_system_info() {
             exit 1
             ;;
     esac
-    
     echo "${os}:${arch}"
 }
 
@@ -201,19 +199,28 @@ get_latest_version() {
 download_release() {
     local system_info="$1"
     local version="$2"
-    
     IFS=':' read -r os arch <<< "${system_info}"
-    
     log_info "Downloading ${BINARY_NAME} v${version} for ${os}-${arch}..."
-    
-    # 构建下载 URL
     local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}"
-    local package_name="${BINARY_NAME}-v${version}-${os}-${arch}.tar.gz"
+    local package_name=""
+    local checksum_name=""
+    if [[ "${os}" == "macos" ]]; then
+        package_name="${BINARY_NAME}-v${version}-macos.tar.gz"
+        checksum_name="${BINARY_NAME}-v${version}-macos.tar.gz.sha256"
+    elif [[ "${os}" == "linux" ]]; then
+        package_name="${BINARY_NAME}-v${version}-linux-${arch}.tar.gz"
+        checksum_name="${BINARY_NAME}-v${version}-linux-${arch}.tar.gz.sha256"
+    elif [[ "${os}" == "windows" ]]; then
+        package_name="${BINARY_NAME}-v${version}-windows.zip"
+        checksum_name="${BINARY_NAME}-v${version}-windows.zip.sha256"
+    else
+        log_error "Unsupported OS for download: ${os}"
+        exit 1
+    fi
     local download_url="${base_url}/${package_name}"
-    local checksum_url="${base_url}/${package_name}.sha256"
+    local checksum_url="${base_url}/${checksum_name}"
     local package_file="${TEMP_DIR}/${package_name}"
-    local checksum_file="${TEMP_DIR}/${package_name}.sha256"
-    
+    local checksum_file="${TEMP_DIR}/${checksum_name}"
     # 下载包文件
     if command -v curl &> /dev/null; then
         if ! curl -fsSL -o "${package_file}" "${download_url}"; then
@@ -228,27 +235,23 @@ download_release() {
             exit 1
         fi
     fi
-    
     # 下载校验和文件（可选）
     if command -v curl &> /dev/null; then
         curl -fsSL -o "${checksum_file}" "${checksum_url}" 2>/dev/null || true
     elif command -v wget &> /dev/null; then
         wget -q -O "${checksum_file}" "${checksum_url}" 2>/dev/null || true
     fi
-    
     # 验证校验和
     if [[ -f "${checksum_file}" ]]; then
         log_info "Verifying package checksum..."
         local expected_checksum
         expected_checksum=$(cat "${checksum_file}" | cut -d' ' -f1)
-        
         local actual_checksum=""
         if command -v shasum &> /dev/null; then
             actual_checksum=$(shasum -a 256 "${package_file}" | cut -d' ' -f1)
         elif command -v sha256sum &> /dev/null; then
             actual_checksum=$(sha256sum "${package_file}" | cut -d' ' -f1)
         fi
-        
         if [[ -n "${actual_checksum}" ]]; then
             if [[ "${expected_checksum}" == "${actual_checksum}" ]]; then
                 log_success "Checksum verification passed"
@@ -264,39 +267,45 @@ download_release() {
     else
         log_warning "Checksum file not found, skipping verification"
     fi
-    
-    echo "${package_file}"
+    echo "${package_file}:${os}"
 }
 
 # 安装二进制文件
 install_binary() {
-    local package_file="$1"
-    
+    local package_and_os="$1"
+    local package_file="${package_and_os%%:*}"
+    local os="${package_and_os##*:}"
     log_info "Installing ${BINARY_NAME}..."
-    
-    # 创建安装目录
     mkdir -p "${INSTALL_DIR}"
-    
-    # 解压包
-    if ! tar -xzf "${package_file}" -C "${TEMP_DIR}"; then
-        log_error "Failed to extract package"
-        exit 1
-    fi
-    
-    # 查找二进制文件
     local binary_path=""
-    binary_path=$(find "${TEMP_DIR}" -name "${BINARY_NAME}" -type f | head -1)
-    
-    if [[ -z "${binary_path}" || ! -f "${binary_path}" ]]; then
-        log_error "Binary file not found in package"
-        exit 1
+    if [[ "${os}" == "windows" ]]; then
+        if ! command -v unzip &> /dev/null; then
+            log_error "unzip is required to extract Windows zip package. Please install unzip."
+            exit 1
+        fi
+        unzip -o "${package_file}" -d "${TEMP_DIR}"
+        binary_path=$(find "${TEMP_DIR}" -name "${BINARY_NAME}.exe" -type f | head -1)
+        if [[ -z "${binary_path}" || ! -f "${binary_path}" ]]; then
+            log_error "Binary file not found in package (expected .exe)"
+            exit 1
+        fi
+        cp "${binary_path}" "${INSTALL_DIR}/${BINARY_NAME}.exe"
+        chmod +x "${INSTALL_DIR}/${BINARY_NAME}.exe"
+        log_success "Binary installed to ${INSTALL_DIR}/${BINARY_NAME}.exe"
+    else
+        if ! tar -xzf "${package_file}" -C "${TEMP_DIR}"; then
+            log_error "Failed to extract package"
+            exit 1
+        fi
+        binary_path=$(find "${TEMP_DIR}" -name "${BINARY_NAME}" -type f | head -1)
+        if [[ -z "${binary_path}" || ! -f "${binary_path}" ]]; then
+            log_error "Binary file not found in package"
+            exit 1
+        fi
+        cp "${binary_path}" "${INSTALL_DIR}/${BINARY_NAME}"
+        chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
+        log_success "Binary installed to ${INSTALL_DIR}/${BINARY_NAME}"
     fi
-    
-    # 复制到安装目录
-    cp "${binary_path}" "${INSTALL_DIR}/"
-    chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
-    
-    log_success "Binary installed to ${INSTALL_DIR}/${BINARY_NAME}"
 }
 
 # 配置 PATH
@@ -348,17 +357,14 @@ verify_installation() {
     log_info "Verifying installation..."
     
     local binary_path="${INSTALL_DIR}/${BINARY_NAME}"
-    
+    local binary_path_win="${INSTALL_DIR}/${BINARY_NAME}.exe"
     if [[ -f "${binary_path}" && -x "${binary_path}" ]]; then
         log_success "Installation completed successfully!"
         echo
         echo "Binary location: ${binary_path}"
-        
-        # 尝试运行版本检查
         if echo "${PATH}" | grep -q "${INSTALL_DIR}" || [[ -x "${binary_path}" ]]; then
             echo "Version: $(${binary_path} --version 2>/dev/null || echo 'Version info not available')"
         fi
-        
         echo
         echo "To use ${BINARY_NAME}, either:"
         echo "  1. Restart your shell/terminal"
@@ -366,6 +372,20 @@ verify_installation() {
         echo "  3. Or use the full path: ${binary_path}"
         echo
         echo "For help, run: ${BINARY_NAME} --help"
+    elif [[ -f "${binary_path_win}" && -x "${binary_path_win}" ]]; then
+        log_success "Installation completed successfully!"
+        echo
+        echo "Binary location: ${binary_path_win}"
+        if echo "${PATH}" | grep -q "${INSTALL_DIR}" || [[ -x "${binary_path_win}" ]]; then
+            echo "Version: $(${binary_path_win} --version 2>/dev/null || echo 'Version info not available')"
+        fi
+        echo
+        echo "To use ${BINARY_NAME}.exe, either:"
+        echo "  1. Restart your shell/terminal"
+        echo "  2. Or run: source ~/.$(basename "${SHELL}")rc"
+        echo "  3. Or use the full path: ${binary_path_win}"
+        echo
+        echo "For help, run: ${BINARY_NAME}.exe --help"
     else
         log_error "Installation verification failed"
         exit 1
@@ -413,10 +433,9 @@ main() {
         log_info "Installing ${BINARY_NAME} v${version}..."
     fi
     
-    local package_file
-    package_file=$(download_release "${system_info}" "${version}")
-    
-    install_binary "${package_file}"
+    local package_and_os
+    package_and_os=$(download_release "${system_info}" "${version}")
+    install_binary "${package_and_os}"
     setup_path
     verify_installation
 }

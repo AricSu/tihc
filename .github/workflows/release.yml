@@ -116,7 +116,7 @@ jobs:
    #        name: tihc-v${{ steps.get_version.outputs.version }}-linux.sha256
    #        path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
 
-   
+
   build-macos:
     runs-on: macos-latest
     steps:
@@ -274,7 +274,7 @@ jobs:
       - name: Install Rust glibc target
         run: rustup target add x86_64-unknown-linux-gnu
       - name: Get tihc version
-        id: get_version_centos8
+        id: get_version
         shell: bash
         run: |
           cat cli/Cargo.toml | grep version
@@ -303,24 +303,24 @@ jobs:
           file bin-glibc-centos8/tihc
           ldd bin-glibc-centos8/tihc || true
           echo "Note: Built on CentOS 8 for glibc 2.28+ compatibility."
-      - name: Upload glibc static binary artifacts (CentOS 8)
+      - name: Upload glibc static binary artifacts (Linux x86_64)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-linux-glibc-centos8-bin-v${{ steps.get_version_centos8.outputs.version }}
+          name: tihc-linux-x86_64-bin-v${{ steps.get_version.outputs.version }}
           path: bin-glibc-centos8
-      - name: Package binaries (Linux glibc, CentOS 8)
+      - name: Package binaries (Linux x86_64)
         run: |
-          tar -czvf tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.tar.gz -C bin-glibc-centos8 .
-      - name: Generate sha256 checksum (Linux glibc, CentOS 8)
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz -C bin-glibc-centos8 .
+      - name: Generate sha256 checksum (Linux x86_64)
         run: |
-          sha256sum tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.tar.gz > tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.tar.gz.sha256
-      - name: Upload packaged artifact (Linux glibc, CentOS 8)
+          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz.sha256
+      - name: Upload packaged artifact (Linux x86_64)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.tar.gz
-          path: tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.tar.gz
-      - name: Upload sha256 checksum (Linux glibc, CentOS 8)
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz
+      - name: Upload sha256 checksum (Linux x86_64)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.sha256
-          path: tihc-v${{ steps.get_version_centos8.outputs.version }}-linux-glibc-centos8.tar.gz.sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz.sha256
