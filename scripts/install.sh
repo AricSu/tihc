@@ -208,8 +208,8 @@ download_release() {
         package_name="${BINARY_NAME}-v${version}-macos.tar.gz"
         checksum_name="${BINARY_NAME}-v${version}-macos.tar.gz.sha256"
     elif [[ "${os}" == "linux" ]]; then
-        package_name="${BINARY_NAME}-v${version}-linux-${arch}.tar.gz"
-        checksum_name="${BINARY_NAME}-v${version}-linux-${arch}.tar.gz.sha256"
+        package_name="${BINARY_NAME}-v${version}-linux.tar.gz"
+        checksum_name="${BINARY_NAME}-v${version}-linux.tar.gz.sha256"
     elif [[ "${os}" == "windows" ]]; then
         package_name="${BINARY_NAME}-v${version}-windows.zip"
         checksum_name="${BINARY_NAME}-v${version}-windows.zip.sha256"

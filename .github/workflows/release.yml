@@ -168,11 +168,13 @@ jobs:
         with:
           name: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
           path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz
+          if-no-files-found: error
       - name: Upload sha256 checksum (macOS)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-macos.sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
           path: tihc-v${{ steps.get_version.outputs.version }}-macos.tar.gz.sha256
+          if-no-files-found: error
 
   build-windows:
     runs-on: windows-latest
@@ -226,11 +228,13 @@ jobs:
         with:
           name: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
           path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip
+          if-no-files-found: error
       - name: Upload sha256 checksum (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-windows.sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
           path: tihc-v${{ steps.get_version.outputs.version }}-windows.zip.sha256
+          if-no-files-found: error
 
   build-linux-glibc-centos8:
     # Build on Rocky Linux 8 to ensure glibc compatibility (GLIBC_2.28+)
@@ -308,19 +312,21 @@ jobs:
         with:
           name: tihc-linux-x86_64-bin-v${{ steps.get_version.outputs.version }}
           path: bin-glibc-centos8
-      - name: Package binaries (Linux x86_64)
+      - name: Package binaries (Linux)
         run: |
-          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz -C bin-glibc-centos8 .
-      - name: Generate sha256 checksum (Linux x86_64)
+          tar -czvf tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz -C bin-glibc-centos8 .
+      - name: Generate sha256 checksum (Linux)
         run: |
-          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz.sha256
-      - name: Upload packaged artifact (Linux x86_64)
+          sha256sum tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz > tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+      - name: Upload packaged artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz
-      - name: Upload sha256 checksum (Linux x86_64)
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+          if-no-files-found: error
+      - name: Upload sha256 checksum (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.sha256
-          path: tihc-v${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz.sha256
+          name: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+          path: tihc-v${{ steps.get_version.outputs.version }}-linux.tar.gz.sha256
+          if-no-files-found: error
