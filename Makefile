@@ -12,10 +12,10 @@ all: plugin-go dashboard server
 
 # Build plugin_lossy_ddl go c-archive
 plugin-go:
-	@echo "\033[1;36m[BUILD] Compiling plugin_lossy_ddl/go/libschematracker.a ...\033[0m"
-	rm -f plugins/plugin_lossy_ddl/go/libschematracker.a plugins/plugin_lossy_ddl/go/libschematracker.h
-	cd plugins/plugin_lossy_ddl/go && go build -buildmode=c-archive -o libschematracker.a libschematracker.go
-	@echo "\033[1;32m[SUCCESS] plugin_lossy_ddl/go/libschematracker.a built.\033[0m"
+# 	@echo "\033[1;36m[BUILD] Compiling plugin_lossy_ddl/go/libschematracker.a ...\033[0m"
+# 	rm -f plugins/plugin_lossy_ddl/go/libschematracker.a plugins/plugin_lossy_ddl/go/libschematracker.h
+# 	cd plugins/plugin_lossy_ddl/go && go build -buildmode=c-archive -o libschematracker.a libschematracker.go
+# 	@echo "\033[1;32m[SUCCESS] plugin_lossy_ddl/go/libschematracker.a built.\033[0m"
 
 # Build Rust backend (all workspace crates) and copy binary to bin/
 server: plugin-go

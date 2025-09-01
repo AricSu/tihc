@@ -11,6 +11,10 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
     let path = if path.is_empty() { "index.html" } else { path };
 
+    // 打印 embed 的所有文件名和当前请求的 path
+    let all_files: Vec<_> = StaticFiles::iter().collect();
+    tracing::debug!(target: "static_files", "static_handler: request path = {}, embed files = {:?}", path, all_files);
+
     if let Some(content) = StaticFiles::get(path) {
         let mime_type = mime_guess::from_path(path).first_or_octet_stream();
         return Response::builder()

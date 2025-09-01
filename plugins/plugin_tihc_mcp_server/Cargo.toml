@@ -1,0 +1,22 @@
+[package]
+name = "plugin_tihc_mcp_server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+microkernel = { path = "../../microkernel" }
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+rmcp = { version = "0.6", features = [
+    "server",
+    "macros",
+    "transport-sse-server",
+    "transport-io",
+    "transport-streamable-http-server",
+    "auth",
+    "elicitation",
+    "schemars",
+] }
+serde_json = "1"

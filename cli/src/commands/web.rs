@@ -2,6 +2,7 @@
 
 use clap::Args;
 use microkernel::platform::command_registry::CommandRegistry;
+use plugin_tihc_backend::server;
 
 #[derive(Args, Debug, Default)]
 pub struct WebOptions {
@@ -18,7 +19,7 @@ pub async fn start_web_service(
     command_registry: CommandRegistry,
     shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
-    backend::server::start_server_with_shutdown(
+    server::start_server_with_shutdown(
         opts.host.clone(),
         opts.port,
         command_registry,

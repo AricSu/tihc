@@ -10,6 +10,9 @@ members = [
     "plugins/plugin_rca_engine",
     "plugins/plugin_sql_editor",
     "plugins/plugin_profile_collector",
-    "plugins/plugin_alert_webhook"
-]
+    "plugins/plugin_alert_webhook",
+    "plugins/plugin_multiplexer", 
+    "plugins/plugin_tihc_backend", 
+    "plugins/plugin_tihc_mcp_server", 
+    "plugins/plugin_tihc_mcp_client"]
 resolver = "2"

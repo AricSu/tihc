@@ -1,3 +1,7 @@
+use plugin_tihc_mcp_client::plugin::McpClientPlugin;
+use plugin_tihc_mcp_client::McpClient;
+pub use plugin_tihc_mcp_server::Counter;
+
 use crate::commands::slowlog::SlowlogOptions;
 mod check_gcc;
 use crate::commands::web::WebOptions;
@@ -9,7 +13,10 @@ mod commands;
 use plugin_lossy_ddl::LossyDDLPlugin;
 use plugin_slowlog::SlowLogPlugin;
 use plugin_sql_editor::SqlEditorPlugin;
+use plugin_tihc_backend::TihcBackendPlugin;
 use tracing::info;
+use crate::commands::mcp_client::McpOptions;
+use plugin_multiplexer::plugin::MultiplexerPlugin;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -64,6 +71,7 @@ struct Cli {
     command: Option<Commands>,
 }
 
+
 #[derive(Subcommand, Debug)]
 enum Commands {
     #[clap(subcommand, about = "Collect nessary info from TiDB components")]
@@ -82,9 +90,11 @@ pub enum ToolsCommands {
     Ddlcheck(commands::precheck::DDLCheckOptions),
     // #[clap(about = "Get issue info from GitHub")]
     // BugInfo(BugInfoOptions),
+    Mcp(McpOptions),
 }
 
 fn register_all_plugins(
+    // 注册 MCP client plugin（如需依赖注入或后续扩展）
     kernel: &mut microkernel::platform::Microkernel,
     command_registry: &mut CommandRegistry,
 ) {
@@ -97,6 +107,10 @@ fn register_all_plugins(
         }),
         shutdown_rx: None, // Add this field; replace with actual receiver if needed
     };
+    // 注册后端主插件
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(TihcBackendPlugin), &mut ctx);
     kernel
         .plugin_manager
         .register_plugin(Box::new(SlowLogPlugin::new()), &mut ctx);
@@ -106,6 +120,30 @@ fn register_all_plugins(
     kernel
         .plugin_manager
         .register_plugin(Box::new(LossyDDLPlugin::new()), &mut ctx);
+    // 注册 MCP 插件
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(Counter::new()), &mut ctx);
+    // multiplexer 支持注入 backend router，优先注入 tihc_backend
+    use std::sync::Arc;
+    let backend_router = kernel
+        .service_registry
+        .lock()
+        .unwrap()
+        .resolve::<Arc<axum::Router>>()
+        .cloned();
+    let service_registry = kernel.service_registry.clone();
+    let multiplexer_plugin = if let Some(router) = backend_router {
+        MultiplexerPlugin::with_backend_router(router, service_registry.clone())
+    } else {
+        MultiplexerPlugin::new(service_registry.clone())
+    };
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(multiplexer_plugin), &mut ctx);
+    kernel
+        .plugin_manager
+        .register_plugin(Box::new(McpClientPlugin), &mut ctx);
 }
 
 /// Main entry point for TiDB Intelligent Health Check (tihc) CLI/Web.
@@ -218,6 +256,41 @@ async fn main() -> Result<()> {
                     args.push(opts.collation.to_string());
                     ("ddl-precheck", args)
                 }
+                ToolsCommands::Mcp(mcp_opts) => {
+                    let client = McpClient::new(&mcp_opts.endpoint);
+                    match mcp_opts.mode.as_str() {
+                        "get_info" => {
+                            match client.get_info().await {
+                                Ok(info) => {
+                                    println!("✅ MCP get_info response:\n{}", serde_json::to_string_pretty(&info).unwrap_or_else(|_| info.to_string()));
+                                }
+                                Err(e) => {
+                                    println!("❌ MCP get_info error: {}", e);
+                                }
+                            }
+                            info!(target: "tihc", "🎉 MCP get_info command completed, exiting...");
+                            return Ok(());
+                        }
+                        "call_tool" => {
+                            let tool = &mcp_opts.tool;
+                            let args: serde_json::Value = serde_json::from_str(&mcp_opts.args).unwrap_or_default();
+                            match client.call_tool(tool, args).await {
+                                Ok(resp) => {
+                                    println!("✅ MCP call_tool response:\n{}", serde_json::to_string_pretty(&resp).unwrap_or_else(|_| resp.to_string()));
+                                }
+                                Err(e) => {
+                                    println!("❌ MCP call_tool error: {}", e);
+                                }
+                            }
+                            info!(target: "tihc", "🎉 MCP call_tool command completed, exiting...");
+                            return Ok(());
+                        }
+                        _ => {
+                            println!("❌ Unknown MCP mode: {}", mcp_opts.mode);
+                            std::process::exit(1);
+                        }
+                    }
+                },
             };
 
             info!(target: "tihc", "🚀 About to execute command: {} with {} args", cmd, args.len());
@@ -340,8 +413,17 @@ async fn main() -> Result<()> {
             println!("✅ Server is ready to accept connections");
             println!();
 
-            tracing::info!(target: "tihc", "Starting web server on {}:{}", web_opts.host, web_opts.port);
+        
+            tracing::info!(target: "tihc", "Starting multiplexer and web-server on {}:{}", web_opts.host, web_opts.port);
 
+            let multiplexer = kernel
+                .service_registry
+                .lock()
+                .unwrap()
+                .resolve::<std::sync::Arc<plugin_multiplexer::Multiplexer>>()
+                .cloned()
+                .expect("Multiplexer not registered");
+            multiplexer.run(&format!("{}:{}", web_opts.host, web_opts.port)).await?;
             commands::web::start_web_service(web_opts, command_registry, shutdown_rx).await?;
         }
         None => {
