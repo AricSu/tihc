@@ -51,3 +51,46 @@ impl SlowlogOptions {
         }
     }
 }
+
+// pub async fn handle_slowlog(opts: &SlowlogOptions) -> Result<()> {
+//     let mut args = vec![opts.log_dir.clone(), opts.pattern.clone()];
+//     let (host, port) = if opts.host.contains(':') {
+//         let parts: Vec<&str> = opts.host.split(':').collect();
+//         if parts.len() == 2 {
+//             (
+//                 parts[0].to_string(),
+//                 parts[1].parse::<u16>().unwrap_or(4000),
+//             )
+//         } else {
+//             (opts.host.clone(), 4000)
+//         }
+//     } else {
+//         (opts.host.clone(), 4000)
+//     };
+//     let password_val = if opts.password.is_empty() {
+//         "null".to_string()
+//     } else {
+//         format!("\"{}\"", opts.password)
+//     };
+//     let database_val = if opts.database == "tihc" {
+//         "null".to_string()
+//     } else {
+//         format!("\"{}\"", opts.database)
+//     };
+//     let conn_json = format!(
+//         r#"{{\"id\":0,\"name\":\"cli-connection\",\"engine\":\"tidb\",\"host\":\"{}\",\"port\":{},\"username\":\"{}\",\"password\":{},\"database\":{},\"use_tls\":false,\"ca_cert_path\":null}}"#,
+//         host, port, opts.user, password_val, database_val
+//     );
+//     args.push(conn_json);
+//     let cmd = "slowlog-import";
+//     let result = command_registry.execute(cmd, &args).await;
+//     match &result {
+//         Ok(value) => {
+//             println!("✅ Successfully imported slow query records: {}", value);
+//         }
+//         Err(e) => {
+//             println!("❌ Error: {}", e);
+//         }
+//     }
+//     result.map(|_| ())
+// }

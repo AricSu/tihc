@@ -6,19 +6,11 @@ edition = "2021"
 [dependencies]
 axum = "0.8"
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
-tracing-appender = "0.2.3"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 microkernel = { path = "../microkernel" }
 anyhow = "1"
-chrono = { version = "0.4", features = ["clock"] }
-plugin_slowlog = { path = "../plugins/plugin_slowlog" }
-plugin_sql_editor = { path = "../plugins/plugin_sql_editor" }
-plugin_tihc_backend = { path = "../plugins/plugin_tihc_backend" }
 serde_json = "1.0.142"
 plugin_lossy_ddl = { path = "../plugins/plugin_lossy_ddl" }
-plugin_multiplexer = { path = "../plugins/plugin_multiplexer" }
+plugin_tihc_backend = { path = "../plugins/plugin_tihc_backend" }
 base64ct = "=1.8"
-plugin_tihc_mcp_server = { path = "../plugins/plugin_tihc_mcp_server" }
-plugin_tihc_mcp_client = { path = "../plugins/plugin_tihc_mcp_client" }

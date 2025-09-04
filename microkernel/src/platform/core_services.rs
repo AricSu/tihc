@@ -1,83 +1,54 @@
-//! Core services provided by the system, such as logging, database connection, configuration management, and graceful shutdown.
-use crate::infrastructure::config::AppConfig;
+//! CoreServices: 平台基础服务集合，负责配置、日志、数据库等核心能力的统一管理与注入。
+//!
+//! 设计目标：
+//! - 为微内核和插件提供统一的基础服务访问入口。
+//! - 支持配置管理、日志、数据库连接、监控等扩展。
+//!
+//! 用法示例：
+//! let core = CoreServices::new(config);
+//! let db = core.db();
+//! let logger = core.logger();
 
-#[derive(Clone)]
+use super::plugin_manager::PluginManager;
+use crate::infrastructure::config::AppConfig;
+use crate::infrastructure::logging::Logger;
+
+/// CoreServices: 平台基础服务集合。
 pub struct CoreServices {
-    pub config_service: ConfigService,
-    pub logging_service: LoggingService,
-    pub database_service: DatabaseService,
-    pub shutdown_service: tokio::sync::broadcast::Sender<()>,
+    config: AppConfig,
+    logger: Logger,
+    plugin_manager: PluginManager,
+    // 可扩展更多服务，如 metrics、cache 等
 }
 
 impl CoreServices {
-    /// Creates a new CoreServices instance with config injected.
+    /// 获取插件管理器的可变引用（支持动态注册/卸载）。
+    pub fn plugin_manager_mut(&mut self) -> &mut PluginManager {
+        &mut self.plugin_manager
+    }
+    /// 创建新的 CoreServices 实例。
     pub fn new(config: AppConfig) -> Self {
-        let (shutdown_service, _) = tokio::sync::broadcast::channel(8);
+        let logger = Logger::new(&config);
+        let plugin_manager = PluginManager::new();
         CoreServices {
-            config_service: ConfigService::new(config),
-            logging_service: LoggingService::new(),
-            database_service: DatabaseService::new(),
-            shutdown_service,
+            config,
+            logger,
+            plugin_manager,
         }
     }
-    /// Broadcasts shutdown signal.
-    pub fn broadcast_shutdown(&self) {
-        let _ = self.shutdown_service.send(());
-    }
-    /// 获取 shutdown 信号订阅者（供异步任务使用）
-    pub fn subscribe_shutdown(&self) -> tokio::sync::broadcast::Receiver<()> {
-        self.shutdown_service.subscribe()
-    }
-}
 
-/// Manages the configuration settings of the system.
-/// Now holds the full AppConfig struct.
-#[derive(Clone)]
-pub struct ConfigService {
-    pub app_config: AppConfig,
-}
-
-impl ConfigService {
-    /// Creates a new ConfigService with config injected.
-    pub fn new(app_config: AppConfig) -> Self {
-        ConfigService { app_config }
+    /// 获取配置服务。
+    pub fn config(&self) -> &AppConfig {
+        &self.config
     }
 
-    /// Gets a reference to the full AppConfig.
-    pub fn get(&self) -> &AppConfig {
-        &self.app_config
-    }
-}
-
-/// Provides logging functionality for the system, supporting various log levels.
-#[derive(Clone)]
-pub struct LoggingService;
-
-impl LoggingService {
-    /// Creates a new LoggingService.
-    pub fn new() -> Self {
-        LoggingService
+    /// 获取日志服务。
+    pub fn logger(&self) -> &Logger {
+        &self.logger
     }
 
-    /// Logs an info message.
-    pub fn log_info(&self, message: &str) {
-        println!("[INFO] {}", message);
+    /// 获取插件管理器。
+    pub fn plugin_manager(&self) -> &PluginManager {
+        &self.plugin_manager
     }
-
-    /// Logs an error message.
-    pub fn log_error(&self, message: &str) {
-        println!("[ERROR] {}", message);
-    }
-}
-
-/// Provides database connection management for plugins and core services.
-#[derive(Clone)]
-pub struct DatabaseService;
-
-impl DatabaseService {
-    /// Creates a new DatabaseService.
-    pub fn new() -> Self {
-        DatabaseService
-    }
-    // TODO: Implement database connection logic.
 }

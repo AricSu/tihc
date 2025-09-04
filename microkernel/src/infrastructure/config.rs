@@ -1,67 +1,41 @@
+//! AppConfig: 平台配置管理，支持多源加载、默认值和类型安全。
+
+use clap::ArgMatches;
 use serde::Deserialize;
-use std::{borrow::Cow, fs};
+use std::fs;
+use std::path::Path;
 
-/// 全局配置结构体（可扩展）
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct AppConfig {
-    pub some_option: Option<String>,
-    /// 日志级别（如 "info"、"debug"），可被 CLI 覆盖
-    pub log_level: Option<String>,
-    /// 日志文件路径，可被 CLI 覆盖
-    pub log_file: Option<String>,
-    /// 是否启用日志切割，可被 CLI 覆盖
-    pub enable_log_rotation: Option<bool>,
-    // 其他配置项...
+    pub log_file: String,
+    pub log_level: String,
+    pub log_rotation: bool,
+    pub config: String,
 }
 
-/// 合并 CLI 参数和 config，CLI 优先，config 兜底
-pub struct MergedConfig<'a> {
-    pub log_level: Cow<'a, str>,
-    pub log_file: Cow<'a, str>,
-    pub enable_log_rotation: bool,
-}
-
-impl<'a> MergedConfig<'a> {
-    /// 构造合并后的配置
-    pub fn from(
-        cli_log_level: &'a str,
-        cli_log_file: Option<&'a str>,
-        cli_enable_log_rotation: bool,
-        config: &'a AppConfig,
-    ) -> Self {
-        let log_level = if !cli_log_level.is_empty() {
-            Cow::Borrowed(cli_log_level)
-        } else if let Some(l) = config.log_level.as_ref() {
-            Cow::Borrowed(l.as_str())
+impl AppConfig {
+    /// 从指定路径加载配置（支持 TOML/JSON），如无则用默认值。
+    pub fn load(path: &str) -> Self {
+        let path = Path::new(path);
+        if path.exists() {
+            let content = fs::read_to_string(path).unwrap_or_default();
+            toml::from_str(&content).unwrap_or_default()
         } else {
-            Cow::Borrowed("info")
-        };
-
-        let log_file = if let Some(cli_file) = cli_log_file {
-            Cow::Borrowed(cli_file)
-        } else if let Some(cfg_file) = config.log_file.as_ref() {
-            Cow::Borrowed(cfg_file.as_str())
-        } else {
-            Cow::Borrowed("tihc.log")
-        };
-
-        let enable_log_rotation = if cli_enable_log_rotation {
-            true
-        } else {
-            config.enable_log_rotation.unwrap_or(false)
-        };
-
-        Self {
-            log_level,
-            log_file,
-            enable_log_rotation,
+            AppConfig::default()
         }
     }
-}
 
-/// 从 TOML 文件加载配置
-pub fn load_config(path: &str) -> anyhow::Result<AppConfig> {
-    let content = fs::read_to_string(path)?;
-    let config: AppConfig = toml::from_str(&content)?;
-    Ok(config)
+    /// 用 clap ArgMatches 覆盖配置项
+    pub fn merge_from_args(&mut self, args: &ArgMatches) {
+        if let Some(log_file) = args.get_one::<String>("log_file") {
+            self.log_file = log_file.clone();
+        }
+        if let Some(log_level) = args.get_one::<String>("log_level") {
+            self.log_level = log_level.clone();
+        }
+        if let Some(config) = args.get_one::<String>("config") {
+            self.config = config.clone();
+        }
+        // 可扩展更多参数覆盖
+    }
 }

@@ -1,6 +1,5 @@
-
+pub mod handler;
 use std::sync::Arc;
-pub mod plugin;
 
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,

@@ -1,8 +1,6 @@
 use crate::application::slowlog_service::SlowLogService;
 use crate::domain::ImportStatus;
 use crate::domain::SlowLogScanResult;
-use microkernel::platform::command_registry::CommandHandler;
-use microkernel::platform::service_registry::ServiceRegistry;
 use serde_json;
 use std::sync::{Arc, Mutex};
 

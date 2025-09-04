@@ -1,7 +1,6 @@
 //! Plugin trait implementation and registration for SQL Editor.
 use crate::application::handler::{Command, Op};
 use crate::infrastructure::connection_store::ConnectionStore;
-use microkernel::plugin_api::traits::Plugin;
 use std::sync::Arc;
 // 假设已存在 DatabaseStore 实现
 use crate::infrastructure::database_store::DatabaseStore;

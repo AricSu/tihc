@@ -3,7 +3,6 @@ use crate::domain::error::SqlEditorError;
 use crate::infrastructure::connection_store::{ConnectionOps, ConnectionStore};
 use crate::infrastructure::table_store::TableStore;
 use crate::infrastructure::table_store::TableStoreOps;
-use microkernel::platform::command_registry::CommandHandler;
 use std::sync::Arc;
 
 #[derive(Debug)]

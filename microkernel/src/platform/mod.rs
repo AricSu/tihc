@@ -2,18 +2,14 @@
 //!
 //! This module orchestrates plugin lifecycle, service discovery, and event-driven communication.
 //! It provides the microkernel, plugin manager, service registry, event bus, and core services.
-pub mod command_registry;
-pub mod core_services;
-pub mod event_bus;
-pub mod microkernel;
-pub mod plugin_manager;
-pub mod service_registry;
-pub use command_registry::CommandRegistry;
-pub use event_bus::EventBus;
-pub use microkernel::Microkernel;
-pub use plugin_manager::PluginManager;
-pub use service_registry::ServiceRegistry;
+//! Platform layer: 微内核平台核心，负责 orchestrate 插件、服务、命令、消息总线。
+//!
+//! - plugin_manager: 插件生命周期管理。
+//! - message_bus: 插件间异步消息/事件分发。
+//! - core_services: 配置、日志、数据库等平台基础服务。
 
-pub fn start_platform() {
-    println!("Microkernel platform starting");
-}
+pub mod core_services;
+pub mod message_bus;
+pub mod plugin_manager;
+pub use core_services::CoreServices;
+pub use plugin_manager::PluginManager;

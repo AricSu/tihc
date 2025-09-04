@@ -1,16 +1,14 @@
 //! Plugin implementation for Lossy DDL Detection
 
 use std::sync::Arc;
-
-use anyhow::{Context, Result};
-use microkernel::plugin_api::traits::{Plugin, PluginContext};
-use serde_json::Value;
+use anyhow::Result;
 use sqlparser::ast::{ObjectName, Statement};
 use sqlparser::dialect::MySqlDialect;
 use sqlparser::parser::Parser;
-use tracing::info;
 
 use crate::{precheck_sql_with_collation, AnalysisResult};
+use microkernel::platform::plugin_manager::Plugin;
+use microkernel::platform::message_bus::{BusMessage, HandlerMode};
 
 /// Handler for DDL analysis operations
 #[derive(Debug, Clone, Default)]
@@ -159,47 +157,87 @@ impl DDLAnalysisHandler {
     }
 }
 
-/// Command handler implementation
-#[async_trait::async_trait]
-impl microkernel::platform::command_registry::CommandHandler for DDLAnalysisHandler {
-    async fn handle(&self, args: &[String]) -> Result<Value> {
-        let (sql, collation_enabled) = self
-            .parse_args(args)
-            .map_err(|e| anyhow::anyhow!("Argument parsing failed: {}", e))?;
-
-        let result = self.analyze_sql(&sql, collation_enabled);
-        serde_json::to_value(result).with_context(|| "Failed to serialize analysis result")
-    }
-}
-
 /// Main plugin for lossy DDL detection
 #[derive(Debug, Default)]
 pub struct LossyDDLPlugin {
-    handler: Arc<DDLAnalysisHandler>,
+    pub name: String,
+    pub description: String,
+    pub handler: Arc<DDLAnalysisHandler>,
 }
 
 impl LossyDDLPlugin {
     pub fn new() -> Self {
         Self {
+            name: "lossy_ddl".to_string(),
+            description: "Lossy DDL detection plugin".to_string(),
             handler: Arc::new(DDLAnalysisHandler::new()),
         }
     }
 
-    pub fn handler(&self) -> Arc<DDLAnalysisHandler> {
-        Arc::clone(&self.handler)
-    }
 }
 
 impl Plugin for LossyDDLPlugin {
     fn name(&self) -> &str {
-        "lossy_ddl"
+        &self.name
     }
-
-    fn register(&mut self, ctx: &mut PluginContext) {
-        if let Some(registry) = ctx.command_registry.as_mut() {
-            registry.register("ddl-precheck", Box::new(DDLAnalysisHandler::new()));
-            info!("Registered 'ddl-precheck' command handler");
+    fn description(&self) -> &str {
+        &self.description
+    }
+    fn handle(&self, msg: &BusMessage, mode: HandlerMode) -> Result<BusMessage, anyhow::Error> {
+        match mode {
+            HandlerMode::Broadcast => {
+                match msg.topic.as_str() {
+                    "ddl-precheck" => {
+                        tracing::info!(target: "lossy_ddl", "Received ddl-precheck command: {:?}", msg.data);
+                        // 这里可以返回一个空 BusMessage 或分析结果
+                        Ok(BusMessage {
+                            topic: "ddl-precheck-result".to_string(),
+                            data: serde_json::json!({"status": "ok"}),
+                        })
+                    }
+                    _ => Ok(BusMessage {
+                        topic: msg.topic.clone(),
+                        data: serde_json::json!({"status": "ignored"}),
+                    }),
+                }
+            }
+            HandlerMode::Request => {
+                match msg.topic.as_str() {
+                    "ddl-precheck" => {
+                        tracing::info!(target: "lossy_ddl", "Received ddl-precheck command: {:?}", msg.data);
+                        let sql = msg.data.get("sql").and_then(|v| v.as_str());
+                        let collation_enabled = msg.data.get("collation").and_then(|v| v.as_bool()).unwrap_or(true);
+                        let result = if let Some(sql_str) = sql {
+                            self.handler.analyze_sql(sql_str, collation_enabled)
+                        } else {
+                            AnalysisResult {
+                                lossy_status: crate::types::LossyStatus::Unknown,
+                                risk_level: crate::types::RiskLevel::High,
+                                warnings: vec!["Missing SQL statement".to_string()],
+                                error: Some("No SQL provided".to_string()),
+                            }
+                        };
+                        Ok(
+                            BusMessage {
+                                topic: "ddl-precheck-result".to_string(),
+                                data: serde_json::json!(result),
+                            }
+                        )
+                    }
+                    _ => Ok(BusMessage {
+                        topic: msg.topic.clone(),
+                        data: serde_json::json!({"status": "ignored"}),
+                    }),
+                }
+            }
         }
-        info!("LossyDDLPlugin registration completed");
+    }
+    fn on_shutdown(&self, msg: &BusMessage) -> Result<()> {
+        tracing::info!(target: "lossy_ddl", "LossyDDLPlugin received shutdown signal, cleaning up...");
+        Ok(())
+    }
+    
+    fn topics(&self) -> Vec<String> {
+        vec!["ddl-precheck".to_string()]
     }
 }

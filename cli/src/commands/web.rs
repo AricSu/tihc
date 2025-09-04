@@ -1,29 +1,16 @@
 //! Implements the 'web' command logic for tihc CLI.
 
+use anyhow::Result;
 use clap::Args;
-use microkernel::platform::command_registry::CommandRegistry;
-use plugin_tihc_backend::server;
-
-#[derive(Args, Debug, Default)]
+#[derive(Args, Debug, Clone)]
 pub struct WebOptions {
-    /// Port to listen on.
-    #[clap(long, default_value = "8080", help = "Port to listen on")]
-    pub port: u16,
-    /// Address to bind to.
-    #[clap(long, default_value = "127.0.0.1", help = "Address to bind to")]
     pub host: String,
+    pub port: u16,
 }
 
-pub async fn start_web_service(
-    opts: &WebOptions,
-    command_registry: CommandRegistry,
-    shutdown_rx: tokio::sync::broadcast::Receiver<()>,
-) -> anyhow::Result<()> {
-    server::start_server_with_shutdown(
-        opts.host.clone(),
-        opts.port,
-        command_registry,
-        shutdown_rx,
-    )
-    .await
+pub async fn start_web_service(opts: WebOptions) -> Result<()> {
+    println!("🚀 Starting web server on {}:{}", opts.host, opts.port);
+    // 这里可集成实际 web 服务启动逻辑
+    // 如 axum/hyper 等
+    Ok(())
 }

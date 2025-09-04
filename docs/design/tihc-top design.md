@@ -1,33 +1,21 @@
-
-This is the complete, structured **"TiDB Intelligent Health Check (tihc)" Design Document**, covering the integration of microkernel architecture and DDD, with a focus on plugin communication, module boundaries, technology choices, and extension strategies.
-
----
-
 # 📘 TiDB Intelligent Health Check (tihc) — Architecture Design Document
 
 ---
 
-## 1️⃣  项目定位与目标
+## 1️⃣ 项目定位与目标
 
-tihc 是一个为 DBAs 提供的 CLI + Web 集成工具平台，旨在提供：
-TiDB 集群检测与诊断
-慢查询日志和性能分析
-DDL 变更检查
-GitHub 问题分析和告警
-未来的根本原因分析（RCA / AWR 类特性）
-支持插件扩展、坚实的领域建模、跨平台部署和自包含的打包。
-平台采用微内核架构，所有业务逻辑均以插件形式扩展，核心只负责插件调度、生命周期管理、服务注册与事件驱动。
+`tihc` 是一个为 DBAs 提供的 CLI + Web 集成工具平台，支持 TiDB 集群检测、慢查询分析、DDL 检查等多种插件扩展能力。  
+平台采用微内核架构，所有业务逻辑均以插件形式扩展，**microkernel 核心**只负责插件调度、生命周期管理、服务注册与统一消息总线驱动通信。
 
 ---
 
 ## 2️⃣ 架构核心原则
 
-| Layer         | Pattern/Approach                     | Description       |
-| ------------- | ------------------------------------ | ----------------- |
-| Core Platform | Microkernel Architecture             | 插件调度/生命周期/接口管理，微内核只负责调度与基础服务，不参与具体业务。    |
-| Plugin Design | DDD + Clean Architecture             | 插件即有界上下文，采用 DDD 分层（domain/application/infrastructure），每个插件独立建模、独立测试。 |
-| Plugin Comm   | Service Registry + Event/Command Bus | 插件通信统一通过 ServiceRegistry（trait接口解耦）与 EventBus（事件驱动），保证高扩展性与低耦合。  |
-| Startup Mode  | CLI + Web Server                     | 单一二进制包，支持自包含部署，所有入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，plugin 层只关注业务逻辑和命令注册。    |
+| Layer           | Pattern/Approach                    | Description       |
+| --------------- | ----------------------------------- | ----------------- |
+| Microkernel     | Microkernel Architecture + Service Registry + Message Bus            | 插件调度/生命周期/接口管理，microkernel 不参与具体业务逻辑。插件通信通过 ServiceRegistry + MessageBus 解耦，实现高扩展性。 |
+| Plugin Design   | DDD + Clean Architecture            | 插件即有界上下文，采用 DDD 分层（domain/application/infrastructure），每个插件独立建模、独立测试。 |
+| Startup Mode    | CLI + Web Server                    | 单一二进制包，支持自包含部署，所有入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，plugin 层只关注业务逻辑和命令注册。 |
 
 ---
 
@@ -35,77 +23,159 @@ GitHub 问题分析和告警
 
 ```
 +-----------------------------------------------------+
-|                 CLI / Web Server Entry Point        |
+| CLI / Web Server Entry Point |
 +-----------------------------------------------------+
-|              🌐 Microkernel Core                    |
+| 🌐 Microkernel Platform |
 | +-----------------------------------------------+ |
-| | Core Services                                 | |
-| | - ConfigService                               | |
-| | - LoggingService (tracing)                    | |
-| | - DatabaseService (SQLx)                      | |
-| | - MetricsService (Prometheus)                 | |
-| | - EventBus / CommandBus                       | |
-| | - ServiceRegistry (Plugin Service Registry)   | |
+| | Microkernel Services | |
+| | - ConfigService | |
+| | - LoggingService (tracing) | |
+| | - DatabaseService (SQLx) | |
+| | - MetricsService (Prometheus) | |
+| | - MessageBus (统一消息总线: Pub/Sub + Request/Reply)|
+| | - ServiceRegistry (Plugin Service Registry) | |
 | +-----------------------------------------------+ |
-| | Plugin Management (PluginManager)             | |
-| | - Plugin discovery/loading/lifecycle mgmt     | |
-| | - Plugin hot-reload (future)                  | |
+| | Plugin Management (PluginManager) | |
+| | - Plugin discovery/loading/lifecycle mgmt | |
+| | - Plugin hot-reload (future) | |
 | +-----------------------------------------------+ |
 +-----------------------------------------------------+
-|                📦 Plugin System (DDD Context)      |
+| 📦 Plugin System (DDD Context) |
 | Plugin = Bounded Context, each plugin encapsulates its own domain and services |
 | +-------------------------------------------------+ |
-| | LossyDDLChecker       | Diagnose lossy DDL risks  | |
-| | SlowLogParser         | Parse slow.log and import | |
-| | GitHubIssueTracker    | GitHub issue mapping      | |
-| | RCAEngine             | Root cause analysis (AWR/ADDM) | |
-| | SQL Editor            | Visual SQL editor         | |
-| | ProfileCollector      | Profile & metrics capture | |
-| | AlertWebhook          | Alert push & config       | |
+| | LossyDDLChecker | Diagnose lossy DDL risks | |
+| | SlowLogParser | Parse slow.log and import | |
+| | GitHubIssueTracker | GitHub issue mapping | |
+| | RCAEngine | Root cause analysis (AWR/ADDM) | |
+| | SQL Editor | Visual SQL editor | |
+| | ProfileCollector | Profile & metrics capture | |
+| | AlertWebhook | Alert push & config | |
 | +-------------------------------------------------+ |
 +-----------------------------------------------------+
-|              🧠 DDD Layer Structure in Each Plugin  |
+| 🧠 DDD Layer Structure in Each Plugin |
 | +-----------------------------------------------+ |
-| | domain         | Domain model/rules/entities/events| |
-| | application    | Use case layer/domain service coordination | |
+| | domain | Domain model/rules/entities/events| |
+| | application | Use case layer/domain service coordination | |
 | | infrastructure | DB/HTTP/Prometheus implementation| |
 | +-----------------------------------------------+ |
 +-----------------------------------------------------+
-|             📡 External Dependencies/Data Sources (Unified Adapter) |
+| 📡 External Dependencies/Data Sources (Unified Adapter) |
 | +-------------------------------------------------+ |
-| | SQLx + TiDB / MySQL / PG                        | |
-| | DuckDB embedded analytics DB                    | |
-| | Prometheus / Grafana HTTP API                   | |
-| | profile API capture (tidb/tikv/pd/ticdc)        | |
+| | SQLx + TiDB / MySQL / PG | |
+| | DuckDB embedded analytics DB | |
+| | Prometheus / Grafana HTTP API | |
+| | profile API capture (tidb/tikv/pd/ticdc) | |
 | +-------------------------------------------------+ |
 ```
-
 ---
 
 ## 4️⃣ Plugin Communication Mechanism
 
-### ✅ Inter-plugin Calls: ServiceRegistry + Dependency Inversion Principle
+### ✅ 1. Inter-plugin Calls: ServiceRegistry + Dependency Inversion
 
-Inter-plugin Calls: ServiceRegistry + Dependency Inversion Principle
-核心理念：
+- **插件 A** 定义并实现 trait 接口（如 `DdlCheckerService`）并注册到 `ServiceRegistry`。  
+- **插件 B** 通过 `registry.resolve::<dyn DdlCheckerService>()` 调用服务，实现插件间解耦。  
 
-插件 A 定义并实现 trait 接口（如 DdlCheckerService）。
-插件 A 在注册时将该接口注册到核心的 ServiceRegistry。
-插件 B 通过 registry.resolve::<dyn DdlCheckerService>() 获取该能力。
-因此，插件通过 trait 接口解耦通信，核心系统不依赖具体的插件实现。
+> 💡 优点：插件之间只依赖接口而非具体实现，方便扩展、替换和测试。
 
-插件注册时将 trait 实现注册到 ServiceRegistry，其他插件通过 resolve 获取能力，完全解耦。
-事件总线 EventBus 支持插件间异步事件通知，适合告警、异步分析等场景。
-CommandBus 支持 CLI/Web 入口统一调度插件 usecase 层命令处理器。
+---
 
-🔁 Plugin Event Propagation: EventBus + CommandBus
-插件之间不需要了解彼此，事件会广播（例如 DDL 事件触发告警插件）。
+### 📡 2. Unified Message Bus: Pub/Sub + Request/Reply
 
-CommandBus 可用于 CLI/Web 调度插件中的 UseCase 处理程序。
+`MessageBus` 是 microkernel 的通信总线（**总线中心化设计**），负责插件间消息路由与异步任务调度。**整个通信系统是完全异步的**，不支持同步执行。  
+
+#### 🔹 Pub/Sub（订阅/发布）
+
+- 插件主动订阅感兴趣的主题，实现 **异步广播**，解耦插件扩展。  
+- **不返回值**，接收者只处理事件。  
+- **典型用途**：状态变更、告警推送、诊断结果广播。  
+- **执行方式**：通过 **Yatp ThreadPool** 异步调度订阅插件逻辑，发布者无需等待。  
+
+#### 🔹 Request/Reply（请求/响应）
+
+- 插件间支持 **点对点异步请求/响应**。  
+- **必须有返回值**，请求方通过异步任务获取结果。  
+- **典型用途**：命令执行、数据请求、插件间 RPC 调用。  
+- **执行方式**：请求和响应都通过 **Yatp ThreadPool** 异步处理，无同步阻塞。
+
+---
+
+### 3. MessageBus 示例接口
+
+```rust
+/// Plugin communication message.
+pub struct PluginMessage {
+    pub topic: String,
+    pub payload: serde_json::Value,
+}
+
+/// Trait for the microkernel MessageBus.
+pub trait MessageBus: Send + Sync {
+    /// Publish a message to the bus (broadcast only, no return).
+    fn publish(&self, msg: PluginMessage);
+
+    /// Subscribe to a topic; receives all matching messages asynchronously.
+    fn subscribe(&self, topic: &str, handler: Arc<dyn Fn(&PluginMessage) + Send + Sync>);
+
+    /// Send request and await response (Request/Reply, async only).
+    fn request(&self, topic: &str, payload: serde_json::Value) -> anyhow::Result<serde_json::Value>;
+}
+```
+
+### 4. Plugin Communication Flow (完全异步、总线中心化)
+
+MessageBus 底层实现技术 : 线程池调度：yatp, 所有插件逻辑通过 Yatp ThreadPool 执行，负责异步任务调度和插件逻辑执行。
+
+```mermaid
+flowchart TB
+    %% ===== Microkernel 总线 =====
+    subgraph MB["💡 MessageBus (总线)"]
+        TP[Yatp ThreadPool]
+    end
+
+    %% ===== Plugins 对等层 =====
+    subgraph Plugins["Plugins (对等)"]
+        PA[Plugin A]
+        PB[Plugin B]
+        PC[Plugin C]
+    end
+
+    %% ===== Pub/Sub 流程 =====
+    PA -->|publish event| MB
+    PB -->|publish event| MB
+    PC -->|publish event| MB
+
+    MB -.->|submit async task for PA/B/C| TP
+    TP -.->|execute async callback| PA
+    TP -.->|execute async callback| PB
+    TP -.->|execute async callback| PC
+
+    %% ===== Request/Reply 流程 =====
+    PA -->|request| MB
+    PB -->|request| MB
+    PC -->|request| MB
+
+    MB -.->|dispatch to target plugin| TP
+    TP -.->|execute handler| PA
+    TP -.->|execute handler| PB
+    TP -.->|execute handler| PC
+    TP -.->|deliver response| MB
+    MB -->|response| PA
+    MB -->|response| PB
+    MB -->|response| PC
+
+    %% 样式
+    classDef pubsub fill:#d3eaff,stroke:#4080ff,stroke-width:2px,color:#000;
+    classDef reqrep fill:#ffe5d3,stroke:#ff9040,stroke-width:2px,color:#000;
+
+    class PA,PB,PC pubsub;
+    class PA,PB,PC reqrep;
+
+```
 
 ## 5️⃣ Plugin Directory Structure (Example)
 
-```text
+```
 plugin-lossy-ddl/
 ├── domain/
 │   ├── rule.rs
@@ -114,14 +184,13 @@ plugin-lossy-ddl/
 │   └── lossy_ddl_service.rs
 ├── infrastructure/
 │   └── parser_adapter.rs
-    # 入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，无需 plugin 层 interface/
 ├── plugin.rs        // Plugin trait implementation + registration
 ├── lib.rs
-```
 
+```
 ### Plugin Registration Example
 
-```rust
+```
 pub struct LossyDdlPlugin;
 
 impl Plugin for LossyDdlPlugin {
@@ -130,11 +199,15 @@ impl Plugin for LossyDdlPlugin {
     fn register(&mut self, ctx: &mut PluginContext) {
         ctx.register_command("check-lossy-ddl", LossyDdlHandler);
         ctx.service_registry.register::<dyn DdlCheckerService>(Arc::new(LossyDdlServiceImpl));
+
+        // Optional: subscribe to relevant events
+        ctx.message_bus.subscribe("ddl_event", Arc::new(|msg| {
+            println!("Received DDL event: {:?}", msg);
+        }));
     }
 }
-```
 
----
+```
 
 ## 6️⃣ Backend Key Technology Choices
 
@@ -148,8 +221,6 @@ impl Plugin for LossyDdlPlugin {
 | Metrics            | `prometheus-client`              | 内部监控与可视化        |
 | Plugin Mgmt        | 自定义 PluginManager + trait        | 可控的插件生命周期       |
 | API Comm           | JSON REST API + `reqwest`        | 易于集成（如 Grafana） |
-
----
 
 ## 7️⃣ Frontend Architecture (Vue 3 + TS)
 
@@ -166,9 +237,7 @@ impl Plugin for LossyDdlPlugin {
 | ECharts         | 数据可视化与图表                         |
 | Vue Naive Admin | Vue 3 + Naive UI 后台管理模板，快速构建管理界面 |
 
-
 ### 📄 Page Modules
-
 | Page                 | Functionality |
 | -------------------- | ------------- |
 | Dashboard            | 概览与状态面板       |
@@ -178,11 +247,10 @@ impl Plugin for LossyDdlPlugin {
 | Profile Collection   | Flamegraph 显示 |
 | Webhook Alert Config | 设置推送通道和规则     |
 
----
 
 ## 8️⃣ CLI Command Design
 
-```bash
+```
 # CLI mode diagnosis
 tihc check lossy-ddl --file ddl.sql
 
@@ -192,302 +260,24 @@ tihc web --port 8080
 # Plugin related
 tihc plugin list
 tihc plugin run slowlog-parser --file slow.log
-```
 
----
+```
 
 ## 9️⃣ Testing Strategy
 
-| Layer          | Test Approach                        |
-| -------------- | ------------------------------------|
-| Domain         | Unit tests                           |
-| Application    | Use case combination tests           |
-| Interface      | HTTP/CLI interface tests             |
-| Plugin Integration | Plugin load/invoke tests          |
-| Core Platform  | PluginManager & ServiceRegistry tests|
-
----
-
-## 🔒 10️⃣ Packaging & Deployment
-
-构建后端：cargo build --release
-构建前端：pnpm build
-静态嵌入：使用 include_dir! 或 rust-embed
-单一二进制打包：不依赖外部依赖，支持容器部署
-
-
----
-
-## 🛤️ 11️⃣ Roadmap (Milestones)
-
-| Phase  | Features                                 |
-| ------ | -----------------------------------------|
-| MVP    | CLI mode, lossy ddl check, slow log parsing, Prometheus metrics |
-| Alpha  | Web UI, GitHub Tracker, SQL Editor, Webhook |
-| Beta   | Profile collection, Grafana integration, inspection report generation |
-| GA     | RCA framework, rule/model-driven inference, plugin marketplace/hot-plug support |
-
----
-
-
-## ✅ Architectural Design Principles Summary
-
-* Plugins are DDD bounded contexts: strong consistency, high cohesion, low coupling.
-* Microkernel only handles scheduling, registration, logging, config, not business logic.
-* Plugin communication is unified via core interfaces (registry + trait).
-* All modules are independently testable and support self-contained build/delivery.
-* 入口适配（参数校验、权限、日志、错误处理等）统一放在 backend/cli 层，plugin 层只关注业务逻辑和命令注册。
-
----
-## Directory Structure
-
 ```
-tihc/                          # 根项目目录，Rust workspace
-├── Cargo.toml                 # workspace 配置
-├── cli/                      # CLI launcher
-│   ├── Cargo.toml
-│   └── src/
-│       └── main.rs           # CLI parsing, core service dispatch
-│
-├── core/                     # Core lib: microkernel + DDD + plugin framework
-│   ├── Cargo.toml
-│   └── src/
-│       ├── domain/           # Domain layer (entities, aggregates, events, rules)
-│       ├── application/      # Application layer (use cases, domain service coordination)
-│       ├── infrastructure/   # Infrastructure (DB, HTTP, external system adapters)
-│       ├── interface/        # Interface layer (CLI adapters, Web API adapters, etc.)
-│       ├── platform/         # Microkernel core (plugin mgmt, event bus, service registry)
-│       └── plugin_api/       # Plugin public interface definitions (traits, etc.)
-│
-├── plugins/                  # Plugin collection, each as an independent crate (DDD context)
-│   ├── plugin_lossy_ddl/     # LossyDDL diagnosis plugin
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   ├── plugin_slowlog/       # Slow log parsing plugin
-│   ├── plugin_github_issue/  # GitHub Issue tracking plugin
-│   ├── plugin_rca_engine/    # Root cause analysis plugin
-│   ├── plugin_sql_editor/    # SQL editor plugin
-│   ├── plugin_profile_collector/ # Profile collection plugin
-│   └── plugin_alert_webhook/ # Alert webhook plugin
-│
-├── backend/                      # Web service launcher, depends on core, provides REST API
-│   ├── Cargo.toml
-│   └── src/
-│       └── lib.rs           # Axum service entry point
-│
-├── frontend/       # Vue 3 frontend project, managed independently with npm
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── src/
-│       ├── components/
-│       ├── views/
-│       ├── api/
-│       ├── composables/
-│       └── main.ts
-│
-├── common/                   # Common utility lib (types, helpers, error types, etc.)
-│   ├── Cargo.toml
-│   └── src/
-│
-├── scripts/                  # Scripts (build, release, DB migration, etc.)
-│
-└── docs/                     # Design docs, API specs, dev guidelines
+| Layer              | Test Approach                         |
+| ------------------ | ------------------------------------- |
+| Domain             | Unit tests                            |
+| Application        | Use case combination tests            |
+| Interface          | HTTP/CLI interface tests              |
+| Plugin Integration | Plugin load/invoke tests              |
+| Core Platform      | PluginManager & ServiceRegistry tests |
+
 ```
 
 
-## 文档注释规范
-基础格式
-使用三斜杠 /// 进行结构化注释。
-
-注释必须为完整、规范的英文句子，首字母大写，结尾使用句号。
-
-统一使用 Markdown 语法支持格式化（rustdoc 默认支持）。
-
-📚 注释对象与规则
-1. Modules（mod）
-使用 //! 放在模块文件开头，描述模块职责、用途、暴露内容。
-
-rust
-复制
-编辑
-//! Handles the parsing and normalization of slow query logs.
-//!
-//! This module provides functions to load, analyze, and store
-//! slow log entries for further inspection by diagnostic plugins.
-2. Struct / Enum / Trait
-✅ Struct / Enum
-rust
-复制
-编辑
-/// Represents a parsed slow log entry from TiDB or MySQL.
-///
-/// This structure is populated by the `SlowLogParser` plugin
-/// and ingested into DuckDB for analysis.
-pub struct SlowLogEntry {
-    /// The SQL text of the slow query.
-    pub sql: String,
-
-    /// The total execution time in milliseconds.
-    pub duration_ms: u64,
-}
-✅ Trait
-rust
-复制
-编辑
-/// Defines a diagnostic service for DDL safety checks.
-///
-/// Implementors are responsible for detecting risky or lossy
-/// DDL patterns that may cause data loss or downtime.
-pub trait DdlCheckerService {
-    /// Analyzes the given SQL statements for lossy DDL patterns.
-    fn check(&self, sql: &str) -> Result<Vec<CheckResult>>;
-}
-3. Function / Method
-✅ 公共函数（包括 async/handler）
-rust
-复制
-编辑
-/// Runs the lossy DDL check on the specified SQL input.
-///
-/// Returns a list of detected issues or an empty list if the input is safe.
-pub fn check_lossy_ddl(input: &str) -> anyhow::Result<Vec<CheckResult>> { ... }
-⚠️ 私有函数（仅必要时）
-rust
-复制
-编辑
-// Parses an individual SQL statement into an AST node.
-// Used internally by the lossy DDL checker.
-fn parse_stmt(sql: &str) -> Option<SqlStmt> { ... }
-4. Constants / Type Aliases
-rust
-复制
-编辑
-/// Default duration threshold (in ms) for slow query classification.
-pub const DEFAULT_SLOW_QUERY_THRESHOLD: u64 = 300;
-rust
-复制
-编辑
-/// Alias for a list of formatted DDL warnings.
-pub type DdlWarnings = Vec<CheckResult>;
-5. Errors
-使用 thiserror + 文档注释说明错误含义。
-
-rust
-复制
-编辑
-/// Errors that can occur while parsing a slow log file.
-#[derive(thiserror::Error, Debug)]
-pub enum SlowLogParseError {
-    /// File could not be opened or read.
-    #[error("failed to read log file")]
-    Io(#[from] std::io::Error),
-
-    /// Log entry could not be parsed.
-    #[error("invalid slow log format")]
-    InvalidFormat,
-}
-6. Tests
-测试函数可简要说明测试目标。
-
-rust
-复制
-编辑
-#[test]
-/// Ensures that `parse_stmt` correctly detects CREATE TABLE statements.
-fn test_parse_create_table() {
-    ...
-}
-🔁 注释风格建议（最佳实践）
-项目	推荐做法
-命名	使用清晰一致的英文名称，避免缩写
-动词	函数/方法首句应以“Does/Parses/Returns...”等动词开头
-段落结构	第一段简要描述用途，后续段落用 Markdown 标题/列表分层
-示例	对复杂行为使用 # Examples 块举例说明
-
-示例：
-rust
-复制
-编辑
-/// Resolves all registered services that implement the specified trait.
-///
-/// This function is typically used by plugins to access capabilities
-/// provided by other plugins via the shared `ServiceRegistry`.
-///
-/// # Examples
-/// ```
-/// let svc = registry.resolve::<dyn DdlCheckerService>().unwrap();
-/// ```
-🚫 禁止事项
-❌ 禁止在任何代码注释中使用中文
-
-❌ 不要使用行内 // 中文说明
-
-❌ 不要将设计性、逻辑性的描述藏在代码中，应移至设计文档（/docs）
-
-📦 插件注释示例（完整）
-rust
-复制
-编辑
-/// A plugin that checks for lossy or unsafe DDL statements.
-///
-/// This plugin parses SQL files or CLI input and flags any DDL operations
-/// that could result in data loss (e.g., `DROP COLUMN`, `MODIFY COLUMN` with shrink).
-pub struct LossyDdlPlugin;
-
-impl Plugin for LossyDdlPlugin {
-    fn name(&self) -> &str { "lossy_ddl" }
-
-    /// Registers the plugin with the provided runtime context.
-    ///
-    /// This includes command handlers, service trait implementations,
-    /// and any event subscriptions if needed.
-    fn register(&mut self, ctx: &mut PluginContext) {
-        ctx.register_command("check-lossy-ddl", LossyDdlHandler);
-        ctx.service_registry
-            .register::<dyn DdlCheckerService>(Arc::new(LossyDdlServiceImpl));
-    }
-}
-🧪 开发期间辅助注释规范
-开发期间可使用临时 TODO / FIXME 注释，但必须是英文：
-
-rust
-复制
-编辑
-// TODO: Implement fallback when service not found.
-// FIXME: This fails on malformed input; needs better validation.
-开发完成后应清理多余注释，并保留必要的文档注释和维护性说明。
-
-🗂️ 推荐工具链
-工具	说明
-rust-analyzer	提示文档结构、跳转与补全
-cargo doc	编译 API 文档 (target/doc)
-cargo clippy	提示注释格式错误与未使用文档
 
 
-## 错误处理
-| 层级          | 作用                     | 错误类型                | 推荐方式                          |
-| ----------- | ---------------------- | ------------------- | ----------------------------- |
-| domain      | 表达业务规则失败               | 自定义 Error 枚举        | `thiserror::Error`            |
-| application | 聚合多个子模块错误              | 使用 `anyhow::Result` | 自动转发 domain/infrastructure 错误 |
-| interface   | 映射为统一 API 响应或 CLI code | 统一封装为 JSON / Exit   | 提供格式化错误消息+追踪信息                |
-| platform    | Plugin 级错误封装与日志记录      | PluginError 枚举      | 核心日志 + 分级诊断                   |
 
 
-## 包管理
-fronted ： 使用 yran 管理
-backend ： 使用 cargo 管理
-
-
-## 插件命令处理器接口设计
-
-推荐所有插件命令处理器实现如下 trait，返回结构化 JSON 数据，兼容 API 层与前端调用：
-```
-/// 所有插件命令处理器需实现此 trait，返回结构化 JSON 数据。
-/// 有返回需求的插件直接返回数据，无返回需求的插件返回 Null 或简单状态。
-pub trait CommandHandler: Send + Sync {
-    /// 处理命令参数，返回 JSON 数据。
-    fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value>;
-}
-```
-这样设计可保证插件间调用、API 层、前端都能统一处理结果，无需区分类型。
-slowlog 等无返回插件可直接返回 Ok(serde_json::Value::Null) 或 Ok(json!({"status": "success"}))。

@@ -1,6 +1,6 @@
 use crate::application::handler::{SlowLogParseAndImportHandler, SlowLogScanHandler};
-use microkernel::plugin_api::traits::{Plugin, PluginContext};
 use std::sync::Arc;
+use microkernel::platform::plugin_manager::Plugin;
 use tracing::info;
 
 /// SlowLogPlugin 支持优雅关闭

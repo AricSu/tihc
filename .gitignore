@@ -9,3 +9,6 @@ tihc.log
 /releases
 /plugins/plugin_lossy_ddl/go/libschematracker.a
 /plugins/plugin_lossy_ddl/go/libschematracker.h
+
+
+test.sql

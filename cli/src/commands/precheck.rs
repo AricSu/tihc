@@ -1,11 +1,13 @@
 use anyhow::Result;
 use clap::Args;
+use microkernel::platform::message_bus::{BusMessage, MessageBus};
+use microkernel::platform::message_bus::GLOBAL_MESSAGE_BUS;
 
 #[derive(Args, Debug)]
 pub struct DDLCheckOptions {
     /// Path to the DDL SQL file to check (required)
     #[clap(long, short = 'f', value_name = "file", required = true)]
-    pub file: String,
+    pub sql_file: String,
     /// Whether to enable collation support (default: true)
     #[clap(long, short = 'c', default_value_t = true)]
     pub collation: bool,
@@ -14,7 +16,21 @@ pub struct DDLCheckOptions {
 impl DDLCheckOptions {
     /// 读取文件内容，返回字符串
     pub fn read_sql_file(&self) -> Result<String> {
-        std::fs::read_to_string(&self.file)
-            .map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", self.file, e))
+        std::fs::read_to_string(&self.sql_file)
+            .map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", self.sql_file, e))
     }
+}
+
+pub async fn handle_ddlcheck(opts: &DDLCheckOptions) -> Result<()> {
+    let sql = opts.read_sql_file()?;
+    // 使用 request/reply 模式
+    let topic = "ddl-precheck";
+    let data = serde_json::json!({
+        "sql": sql,
+        "collation": opts.collation,
+    });
+    let bus_msg = BusMessage { topic: topic.to_string(), data };
+    let reply = GLOBAL_MESSAGE_BUS.request(bus_msg).await?;
+    println!("DDL Precheck Result: {:?}", reply);
+    Ok(())
 }
