@@ -1,8 +1,9 @@
-pub mod handler;
 pub mod plugin;
-pub mod bus_handler;
 
 use std::sync::Arc;
+use microkernel::platform::message_bus::{BusMessage, MessageHandler, MessageBus, GLOBAL_MESSAGE_BUS, HandlerMode};
+use async_trait::async_trait;
+use anyhow::Result;
 
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
@@ -15,7 +16,7 @@ use rmcp::{
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -244,4 +245,212 @@ impl ServerHandler for Counter {
         }
         Ok(self.get_info())
     }
+}
+
+/// 轻量级MCP适配器 - 将消息总线消息转换为标准MCP请求
+/// 然后直接使用Counter的完整ServerHandler实现
+pub struct McpMessageBusAdapter {
+    counter: Arc<Counter>,
+}
+
+impl McpMessageBusAdapter {
+    pub fn new(counter: Arc<Counter>) -> Self {
+        Self { counter }
+    }
+    
+    async fn handle_with_routers(&self, method: &str, params: Value) -> Result<Value, McpError> {
+        match method {
+            "register" => {
+                // 触发延迟注册
+                register_unified_mcp_handler().await;
+                Ok(serde_json::json!({"status": "registered", "message": "MCP handlers registered successfully"}))
+            }
+            "initialize" => {
+                let info = self.counter.get_info();
+                Ok(serde_json::to_value(info).unwrap())
+            }
+            "list_tools" => {
+                let tools = self.counter.tool_router.list_all();
+                let result = ListToolsResult { tools, next_cursor: None };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            "call_tool" => {
+                let request = serde_json::from_value::<CallToolRequestParam>(params)
+                    .map_err(|e| McpError::invalid_params(e.to_string(), None))?;
+                
+                // 直接调用Counter的#[tool]方法
+                let result = match request.name.as_ref() {
+                    "increment" => self.counter.increment().await?,
+                    "decrement" => self.counter.decrement().await?,
+                    "get_value" => self.counter.get_value().await?,
+                    "say_hello" => self.counter.say_hello()?,
+                    "echo" => {
+                        let args = request.arguments.unwrap_or_default();
+                        self.counter.echo(Parameters(args))?
+                    }
+                    "sum" => {
+                        let args = request.arguments.unwrap_or_default();
+                        let struct_req: StructRequest = serde_json::from_value(serde_json::Value::Object(args))
+                            .map_err(|e| McpError::invalid_params(e.to_string(), None))?;
+                        self.counter.sum(Parameters(struct_req))?
+                    }
+                    _ => return Err(McpError::invalid_params(format!("Unknown tool: {}", request.name), None)),
+                };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            "list_prompts" => {
+                let prompts = self.counter.prompt_router.list_all();
+                let result = ListPromptsResult { prompts, next_cursor: None };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            "get_prompt" => {
+                let request = serde_json::from_value::<GetPromptRequestParam>(params)
+                    .map_err(|e| McpError::invalid_params(e.to_string(), None))?;
+                
+                // 手动处理提示逻辑
+                let result = match request.name.as_ref() {
+                    "example_prompt" => {
+                        let message = request.arguments
+                            .as_ref()
+                            .and_then(|args| args.get("message"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Hello");
+                        
+                        GetPromptResult {
+                            description: Some("Example prompt".to_string()),
+                            messages: vec![
+                                PromptMessage {
+                                    role: PromptMessageRole::User,
+                                    content: PromptMessageContent::text(format!(
+                                        "This is an example prompt with your message here: '{}'", message
+                                    )),
+                                }
+                            ],
+                        }
+                    }
+                    "counter_analysis" => {
+                        let goal = request.arguments
+                            .as_ref()
+                            .and_then(|args| args.get("goal"))
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(10) as i32;
+                        
+                        let current_value = { *self.counter.counter.lock().await };
+                        let difference = goal - current_value;
+                        
+                        GetPromptResult {
+                            description: Some(format!("Counter analysis for reaching {} from {}", goal, current_value)),
+                            messages: vec![
+                                PromptMessage::new_text(
+                                    PromptMessageRole::Assistant,
+                                    "I'll analyze the counter situation and suggest the best approach.",
+                                ),
+                                PromptMessage::new_text(
+                                    PromptMessageRole::User,
+                                    format!(
+                                        "Current counter value: {}\nGoal value: {}\nDifference: {}\n\nPlease analyze the situation and suggest the best approach to reach the goal.",
+                                        current_value, goal, difference
+                                    ),
+                                ),
+                            ],
+                        }
+                    }
+                    _ => return Err(McpError::invalid_params(format!("Unknown prompt: {}", request.name), None)),
+                };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            "list_resources" => {
+                let resources = vec![
+                    self.counter._create_resource_text("str:////Users/to/some/path/", "cwd"),
+                    self.counter._create_resource_text("memo://insights", "memo-name"),
+                ];
+                let result = ListResourcesResult { resources, next_cursor: None };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            "read_resource" => {
+                let request = serde_json::from_value::<ReadResourceRequestParam>(params)
+                    .map_err(|e| McpError::invalid_params(e.to_string(), None))?;
+                
+                let result = match request.uri.as_str() {
+                    "str:////Users/to/some/path/" => {
+                        ReadResourceResult {
+                            contents: vec![ResourceContents::text("/Users/to/some/path/", request.uri)],
+                        }
+                    }
+                    "memo://insights" => {
+                        let memo = "Business Intelligence Memo\n\nAnalysis has revealed 5 key insights ...";
+                        ReadResourceResult {
+                            contents: vec![ResourceContents::text(memo, request.uri)],
+                        }
+                    }
+                    _ => return Err(McpError::resource_not_found("resource_not_found", Some(json!({"uri": request.uri})))),
+                };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            "list_resource_templates" => {
+                let result = ListResourceTemplatesResult {
+                    next_cursor: None, 
+                    resource_templates: Vec::new()
+                };
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            _ => Err(McpError::invalid_request(format!("Unsupported method: {}", method), None)),
+        }
+    }
+}
+
+#[async_trait]
+impl MessageHandler for McpMessageBusAdapter {
+    async fn handle(&self, msg: BusMessage) -> Result<BusMessage> {
+        tracing::debug!("McpAdapter received message on topic: {}", msg.topic);
+
+        if !msg.is_ok() {
+            return Ok(BusMessage::error(&msg.topic, "Received error message"));
+        }
+
+        let request_data = msg.data.data.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Missing request data"))?;
+
+        let method = request_data.get("method")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let params = request_data.get("params")
+            .cloned()
+            .unwrap_or(Value::Null);
+
+        tracing::debug!("Processing MCP method: {} with params: {:?}", method, params);
+        
+        // 使用简化的路由器调用，避免复杂的Context创建
+        let result = match self.handle_with_routers(method, params).await {
+            Ok(result) => result,
+            Err(_e) => {
+                // 对于不支持的方法或错误，返回错误消息
+                return Ok(BusMessage::error(&msg.topic, format!("Method '{}' failed", method)));
+            }
+        };
+
+        Ok(BusMessage::ok(&msg.topic, result))
+    }
+}
+
+/// 注册轻量级MCP适配器到消息总线
+pub async fn register_unified_mcp_handler() {
+    static REGISTERED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    
+    REGISTERED.get_or_init(|| {
+        let counter = Arc::new(Counter::new());
+        let adapter = Arc::new(McpMessageBusAdapter::new(counter));
+        let bus = GLOBAL_MESSAGE_BUS.clone();
+        
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                // 注册适配器到多个消息总线主题
+                bus.register("tihc-mcp", adapter.clone(), HandlerMode::Request).await;
+                bus.register("tihc-mcp-tools", adapter.clone(), HandlerMode::Request).await;
+                bus.register("tihc-mcp-resources", adapter.clone(), HandlerMode::Request).await;
+                
+                tracing::info!("MCP适配器已注册到消息总线 (topics: tihc-mcp, tihc-mcp-tools, tihc-mcp-resources)");
+            });
+        });
+    });
 }

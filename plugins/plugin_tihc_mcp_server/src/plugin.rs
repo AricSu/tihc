@@ -1,17 +1,7 @@
-use std::sync::Arc;
-use crate::{Counter, bus_handler::McpBusHandler};
-
-/// 自动注册 MCP handlers 到消息总线
+/// 自动注册统一的 MCP handler 到消息总线
+/// 这个函数只是标记插件已加载，实际注册会通过消息总线的"register"消息触发
 #[ctor::ctor]
 fn init_mcp_plugin() {
-    // 创建Counter实例
-    let counter = Arc::new(Counter::new());
-    
-    // 创建消息总线处理器
-    let bus_handler = Arc::new(McpBusHandler::new(counter));
-    
-    // 注册到消息总线
-    bus_handler.register_to_bus();
-    
-    tracing::info!("MCP plugin initialized and registered to message bus");
+    // 只标记插件已加载，真正的注册会在backend发送"register"消息时进行
+    tracing::info!("MCP plugin loaded - waiting for registration trigger from backend");
 }
