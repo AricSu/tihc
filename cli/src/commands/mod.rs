@@ -4,8 +4,6 @@ pub mod web;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use microkernel::platform::message_bus;
-use slowlog::SlowlogOptions;
 use web::WebOptions;
 
 #[derive(Parser, Debug)]

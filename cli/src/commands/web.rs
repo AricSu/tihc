@@ -4,13 +4,14 @@ use anyhow::Result;
 use clap::Args;
 #[derive(Args, Debug, Clone)]
 pub struct WebOptions {
+    #[clap(long, default_value = "127.0.0.1")]
     pub host: String,
+    #[clap(long, default_value_t = 8080)]
     pub port: u16,
 }
 
+
 pub async fn start_web_service(opts: WebOptions) -> Result<()> {
-    println!("🚀 Starting web server on {}:{}", opts.host, opts.port);
-    // 这里可集成实际 web 服务启动逻辑
-    // 如 axum/hyper 等
-    Ok(())
+    // 直接调用 backend 的统一启动入口
+    backend::server::start_server_with_shutdown(opts.host.clone(), opts.port).await
 }

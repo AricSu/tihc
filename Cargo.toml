@@ -4,7 +4,8 @@ members = [
     "microkernel",
     "backend",
     "common",
-    "plugins/plugin_lossy_ddl"
+    "plugins/plugin_lossy_ddl",
+    "plugins/plugin_tihc_mcp_server"
 ]
 resolver = "2"
 

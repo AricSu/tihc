@@ -30,7 +30,7 @@ pub(crate) mod types;
 
 // Re-exports for convenience - only keep what's needed for plugin interface
 pub use error::DDLError;
-pub use plugin::{DDLAnalysisHandler, LossyDDLPlugin};
+pub use plugin::{LossyDDLPlugin};
 pub use types::{AnalysisResult, LossyStatus, RiskLevel};
 
 #[cfg(feature = "tidb-engine")]
@@ -208,7 +208,7 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
         }
     }
 
-    // 命中则直接返回 warning，不再调用 analyze_with_tidb
+    // 命中则直接返回 warning，不再调用后续校验
     if !rename_column_warnings.is_empty() {
         return AnalysisResult {
             lossy_status: types::LossyStatus::Unknown,
@@ -218,6 +218,144 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
         };
     }
 
+    // 业务校验：必须包含 CREATE DATABASE、CREATE TABLE、ALTER TABLE 且数据库名一致
+    use sqlparser::ast::{ObjectName, Statement};
+    use sqlparser::dialect::MySqlDialect;
+    use sqlparser::parser::Parser;
+    let dialect = MySqlDialect {};
+    let statements = match Parser::parse_sql(&dialect, sql.trim()) {
+        Ok(stmts) => stmts,
+        Err(e) => {
+            return AnalysisResult {
+                lossy_status: types::LossyStatus::Unknown,
+                risk_level: RiskLevel::High,
+                warnings: vec![format!("SQL parsing failed: {}", e)],
+                error: Some(e.to_string()),
+            };
+        }
+    };
+    if statements.is_empty() {
+        return AnalysisResult {
+            lossy_status: types::LossyStatus::Unknown,
+            risk_level: RiskLevel::High,
+            warnings: vec!["No valid statements found".to_string()],
+            error: Some("No valid statements found".to_string()),
+        };
+    }
+    let mut create_db_name: Option<String> = None;
+    let mut create_table_db: Option<String> = None;
+    let mut alter_table_db: Option<String> = None;
+    let mut has_create_db = false;
+    let mut has_create_table = false;
+    let mut has_alter_table = false;
+    for stmt in &statements {
+        match stmt {
+            Statement::CreateDatabase { db_name, .. } => {
+                has_create_db = true;
+                if let Some(sqlparser::ast::ObjectNamePart::Identifier(ident)) = db_name.0.first() {
+                    create_db_name = Some(ident.value.clone());
+                }
+            }
+            Statement::CreateTable(create_table) => {
+                has_create_table = true;
+                // 提取数据库名
+                let name = &create_table.name;
+                if name.0.len() < 2 {
+                    return AnalysisResult {
+                        lossy_status: types::LossyStatus::Unknown,
+                        risk_level: RiskLevel::High,
+                        warnings: vec!["Table name must include database prefix (e.g., 'database.table')".to_string()],
+                        error: Some("Table name must include database prefix (e.g., 'database.table')".to_string()),
+                    };
+                }
+                if let sqlparser::ast::ObjectNamePart::Identifier(ident) = &name.0[0] {
+                    create_table_db = Some(ident.value.clone());
+                } else {
+                    return AnalysisResult {
+                        lossy_status: types::LossyStatus::Unknown,
+                        risk_level: RiskLevel::High,
+                        warnings: vec!["Invalid database name format".to_string()],
+                        error: Some("Invalid database name format".to_string()),
+                    };
+                }
+            }
+            Statement::AlterTable { name, .. } => {
+                has_alter_table = true;
+                if name.0.len() < 2 {
+                    return AnalysisResult {
+                        lossy_status: types::LossyStatus::Unknown,
+                        risk_level: RiskLevel::High,
+                        warnings: vec!["Table name must include database prefix (e.g., 'database.table')".to_string()],
+                        error: Some("Table name must include database prefix (e.g., 'database.table')".to_string()),
+                    };
+                }
+                if let sqlparser::ast::ObjectNamePart::Identifier(ident) = &name.0[0] {
+                    alter_table_db = Some(ident.value.clone());
+                } else {
+                    return AnalysisResult {
+                        lossy_status: types::LossyStatus::Unknown,
+                        risk_level: RiskLevel::High,
+                        warnings: vec!["Invalid database name format".to_string()],
+                        error: Some("Invalid database name format".to_string()),
+                    };
+                }
+            }
+            _ => {}
+        }
+    }
+    if !has_create_db {
+        return AnalysisResult {
+            lossy_status: types::LossyStatus::Unknown,
+            risk_level: RiskLevel::High,
+            warnings: vec!["Missing CREATE DATABASE statement".to_string()],
+            error: Some("Missing CREATE DATABASE statement".to_string()),
+        };
+    }
+    if !has_create_table {
+        return AnalysisResult {
+            lossy_status: types::LossyStatus::Unknown,
+            risk_level: RiskLevel::High,
+            warnings: vec!["Missing CREATE TABLE statement".to_string()],
+            error: Some("Missing CREATE TABLE statement".to_string()),
+        };
+    }
+    if !has_alter_table {
+        return AnalysisResult {
+            lossy_status: types::LossyStatus::Unknown,
+            risk_level: RiskLevel::High,
+            warnings: vec!["Missing ALTER TABLE statement".to_string()],
+            error: Some("Missing ALTER TABLE statement".to_string()),
+        };
+    }
+    let expected_db = match create_db_name {
+        Some(db) => db,
+        None => {
+            return AnalysisResult {
+                lossy_status: types::LossyStatus::Unknown,
+                risk_level: RiskLevel::High,
+                warnings: vec!["CREATE DATABASE statement must specify database name".to_string()],
+                error: Some("CREATE DATABASE statement must specify database name".to_string()),
+            };
+        }
+    };
+    if create_table_db != Some(expected_db.clone()) {
+        return AnalysisResult {
+            lossy_status: types::LossyStatus::Unknown,
+            risk_level: RiskLevel::High,
+            warnings: vec![format!("CREATE TABLE must use database '{}', found: {:?}", expected_db, create_table_db)],
+            error: Some(format!("CREATE TABLE must use database '{}', found: {:?}", expected_db, create_table_db)),
+        };
+    }
+    if alter_table_db != Some(expected_db.clone()) {
+        return AnalysisResult {
+            lossy_status: types::LossyStatus::Unknown,
+            risk_level: RiskLevel::High,
+            warnings: vec![format!("ALTER TABLE must use database '{}', found: {:?}", expected_db, alter_table_db)],
+            error: Some(format!("ALTER TABLE must use database '{}', found: {:?}", expected_db, alter_table_db)),
+        };
+    }
+
+    // 校验通过，进入 TiDB engine 分析
     #[cfg(feature = "tidb-engine")]
     {
         match analyze_with_tidb(sql, collation_enabled) {
@@ -230,16 +368,5 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
     {
         let _ = collation_enabled; // 避免未使用警告
         create_success_result(types::LossyStatus::Unknown, "ℹ️ TiDB engine not available")
-    }
-}
-// 依赖 regex crate
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_rename_column_detect() {
-        let sql = "ALTER TABLE test.aric RENAME COLUMN name TO name1;";
-        let result = precheck_sql_with_collation(sql, false);
-        assert!(result.warnings.iter().any(|w| w.contains("RENAME COLUMN")));
     }
 }

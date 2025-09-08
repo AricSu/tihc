@@ -4,6 +4,7 @@ use crate::infrastructure::connection_store::ConnectionStore;
 use std::sync::Arc;
 // 假设已存在 DatabaseStore 实现
 use crate::infrastructure::database_store::DatabaseStore;
+use microkernel::plugin_api::traits::{Plugin, CommandHandler};
 
 pub enum DbPoolType {
     MySql(Arc<sqlx::MySqlPool>),

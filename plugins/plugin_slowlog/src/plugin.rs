@@ -1,6 +1,6 @@
 use crate::application::handler::{SlowLogParseAndImportHandler, SlowLogScanHandler};
-use std::sync::Arc;
 use microkernel::platform::plugin_manager::Plugin;
+use std::sync::Arc;
 use tracing::info;
 
 /// SlowLogPlugin 支持优雅关闭
@@ -37,24 +37,19 @@ impl Plugin for SlowLogPlugin {
     fn name(&self) -> &str {
         "slowlog"
     }
-    fn register(&mut self, ctx: &mut PluginContext) {
-        if let Some(reg) = ctx.command_registry.as_mut() {
-            reg.register(
-                "slowlog-scan",
-                Box::new(SlowLogScanHandler {
-                    registry: Arc::clone(&ctx.service_registry),
-                }),
-            );
-            reg.register(
-                "slowlog-import",
-                Box::new(SlowLogParseAndImportHandler {
-                    registry: Arc::clone(&ctx.service_registry),
-                }),
-            );
-        }
-        // 后台任务由平台统一调度，传入 shutdown_rx
-        if let Some(shutdown_rx) = ctx.shutdown_rx.take() {
-            SlowLogPlugin::start_background_task(shutdown_rx);
-        }
+
+    fn description(&self) -> &str {
+        todo!()
+    }
+
+    fn on_shutdown(
+        &self,
+        msg: &microkernel::platform::message_bus::BusMessage,
+    ) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    fn topics(&self) -> Vec<String> {
+        todo!()
     }
 }

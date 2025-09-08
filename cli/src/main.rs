@@ -1,15 +1,15 @@
-use crate::commands::Commands;
 use crate::commands::Cli;
+use crate::commands::Commands;
 mod check_gcc;
 use anyhow::Result;
 use clap::{CommandFactory, Parser};
-use microkernel::platform::message_bus::MessageBus;
-// use microkernel::platform::message_bus::PluginMessageBus; // 已移除，无需此类型
-use microkernel::infrastructure::{config};
+use microkernel::infrastructure::config;
 mod commands;
 mod plugin;
 use config::AppConfig;
-    use microkernel::platform::message_bus::GLOBAL_MESSAGE_BUS;
+
+// 确保插件被链接，以便 #[ctor::ctor] 自动注册生效
+extern crate plugin_tihc_mcp_server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
 
     tracing::info!(target: "tihc", "[core_services] Loaded config: {:?}", app_config);
 
-        // 保证 log_file 字段始终有默认值
+    // 保证 log_file 字段始终有默认值
     if app_config.log_file.trim().is_empty() {
         app_config.log_file = "/Users/aric/Database/tihc/tihc.log".to_string();
         tracing::warn!(target: "config", "log_file is empty, using default: tihc.log");
@@ -59,21 +59,7 @@ async fn main() -> Result<()> {
                 commands::handle_tools_command(&tools_cmd).await?;
             }
             Commands::Server(web_opts) => {
-                let server_task = tokio::spawn(commands::handle_server_command(web_opts.clone()));
-                let shutdown_task = tokio::spawn(async move {
-                    tokio::signal::ctrl_c()
-                        .await
-                        .expect("Failed to listen for Ctrl+C");
-                    GLOBAL_MESSAGE_BUS.send(microkernel::platform::message_bus::BusMessage {
-                        topic: "shutdown".to_string(),
-                        data: serde_json::Value::Null,
-                    }).await.ok();
-                    tracing::info!(target: "tihc", "Graceful shutdown signal sent via message bus");
-                });
-                tokio::select! {
-                    _ = server_task => {},
-                    _ = shutdown_task => {},
-                }
+                commands::handle_server_command(web_opts.clone()).await?;
             }
         }
     } else {

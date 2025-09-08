@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Args;
-use microkernel::platform::message_bus::{BusMessage, MessageBus};
 use microkernel::platform::message_bus::GLOBAL_MESSAGE_BUS;
+use microkernel::platform::message_bus::{BusMessage, MessageBus};
 
 #[derive(Args, Debug)]
 pub struct DDLCheckOptions {
@@ -23,13 +23,12 @@ impl DDLCheckOptions {
 
 pub async fn handle_ddlcheck(opts: &DDLCheckOptions) -> Result<()> {
     let sql = opts.read_sql_file()?;
-    // 使用 request/reply 模式
     let topic = "ddl-precheck";
     let data = serde_json::json!({
         "sql": sql,
         "collation": opts.collation,
     });
-    let bus_msg = BusMessage { topic: topic.to_string(), data };
+    let bus_msg = BusMessage::ok(topic, data);
     let reply = GLOBAL_MESSAGE_BUS.request(bus_msg).await?;
     println!("DDL Precheck Result: {:?}", reply);
     Ok(())

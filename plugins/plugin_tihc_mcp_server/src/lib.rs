@@ -1,4 +1,7 @@
 pub mod handler;
+pub mod plugin;
+pub mod bus_handler;
+
 use std::sync::Arc;
 
 use rmcp::{

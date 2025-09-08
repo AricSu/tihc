@@ -4,7 +4,7 @@ use std::path::Path;
 use tracing_subscriber::fmt;
 
 use crate::infrastructure;
-pub struct Logger{
+pub struct Logger {
     log_file: String,
     log_level: String,
     enable_rotation: bool,
@@ -28,7 +28,9 @@ impl Logger {
         }
         if let Some(parent) = log_path.parent() {
             if parent.as_os_str().is_empty() {
-                return Err(anyhow::anyhow!("Log file parent directory is empty or invalid"));
+                return Err(anyhow::anyhow!(
+                    "Log file parent directory is empty or invalid"
+                ));
             }
             std::fs::create_dir_all(parent)?;
         } else {

@@ -2,16 +2,13 @@ use crate::application::slowlog_service::SlowLogService;
 use crate::domain::ImportStatus;
 use crate::domain::SlowLogScanResult;
 use serde_json;
-use std::sync::{Arc, Mutex};
+// ...existing code...
 
 #[allow(dead_code)]
-pub struct SlowLogScanHandler {
-    pub registry: Arc<Mutex<ServiceRegistry>>,
-}
+pub struct SlowLogScanHandler {}
 
-#[async_trait::async_trait]
-impl CommandHandler for SlowLogScanHandler {
-    async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
+impl SlowLogScanHandler {
+    pub async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         // 支持前端动态传递 conn 参数（如 json 字符串或各字段）
         let log_dir = args
             .get(0)
@@ -50,13 +47,10 @@ impl CommandHandler for SlowLogScanHandler {
 }
 
 #[allow(dead_code)]
-pub struct SlowLogParseAndImportHandler {
-    pub registry: Arc<Mutex<ServiceRegistry>>,
-}
+pub struct SlowLogParseAndImportHandler;
 
-#[async_trait::async_trait]
-impl CommandHandler for SlowLogParseAndImportHandler {
-    async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
+impl SlowLogParseAndImportHandler {
+    pub async fn handle(&self, args: &[String]) -> anyhow::Result<serde_json::Value> {
         let log_dir = args
             .get(0)
             .cloned()
