@@ -8,9 +8,6 @@ mod commands;
 mod plugin;
 use config::AppConfig;
 
-// 确保插件被链接，以便 #[ctor::ctor] 自动注册生效
-extern crate plugin_tihc_mcp_server;
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // 启动时检测 gcc（仅 Linux glibc 构建有效）
