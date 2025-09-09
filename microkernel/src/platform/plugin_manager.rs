@@ -1,6 +1,6 @@
 //! PluginManager: 插件生命周期和 handler 管理，负责插件注册、卸载、查找和 handler 绑定。
 
-use crate::platform::message_bus::{BusMessage};
+use crate::platform::message_bus::BusMessage;
 use std::collections::HashMap;
 use std::sync::Arc;
 

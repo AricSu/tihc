@@ -1,47 +1,244 @@
-use axum::{
-    extract::Request,
-    response::Response,
-    http::StatusCode,
-    body::Body,
-};
-use rmcp::transport::streamable_http_server::{
-    StreamableHttpService, 
-    session::local::LocalSessionManager,
-};
+#![allow(dead_code)]
 use std::sync::Arc;
-use tower::ServiceExt;
-use http_body_util::BodyExt;
-use crate::interface::mcp::service::SimpleMcpProxy;
 
-pub async fn mcp_handler(req: Request<Body>) -> Result<Response<Body>, StatusCode> {
-    // 使用静态的会话管理器来保持会话状态
-    static SESSION_MANAGER: std::sync::OnceLock<Arc<LocalSessionManager>> = std::sync::OnceLock::new();
-    let session_manager = SESSION_MANAGER.get_or_init(|| Arc::new(LocalSessionManager::default()));
-    
-    // 使用简化的MCP代理服务
-    static SIMPLE_PROXY: std::sync::OnceLock<Arc<SimpleMcpProxy>> = std::sync::OnceLock::new();
-    let proxy_service = SIMPLE_PROXY.get_or_init(|| Arc::new(SimpleMcpProxy::new()));
-    
-    let service = StreamableHttpService::new(
-        {
-            let proxy_service = proxy_service.clone();
-            move || Ok((*proxy_service).clone())
-        },
-        session_manager.clone(),
-        Default::default(),
-    );
-    
-    // 使用 oneshot 处理单个请求
-    match service.oneshot(req).await {
-        Ok(response) => {
-            // 转换 body 类型
-            let (parts, body) = response.into_parts();
-            let body_bytes = match body.collect().await {
-                Ok(collected) => collected.to_bytes(),
-                Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-            };
-            Ok(Response::from_parts(parts, Body::from(body_bytes)))
+use rmcp::{
+    ErrorData as McpError, RoleServer, ServerHandler,
+    handler::server::{
+        router::{prompt::PromptRouter, tool::ToolRouter},
+        wrapper::Parameters,
+    },
+    model::*,
+    prompt, prompt_handler, prompt_router, schemars,
+    service::RequestContext,
+    tool, tool_handler, tool_router,
+};
+use serde_json::json;
+use tokio::sync::Mutex;
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct StructRequest {
+    pub a: i32,
+    pub b: i32,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct ExamplePromptArgs {
+    /// A message to put in the prompt
+    pub message: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct CounterAnalysisArgs {
+    /// The target value you're trying to reach
+    pub goal: i32,
+    /// Preferred strategy: 'fast' or 'careful'
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strategy: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct Counter {
+    counter: Arc<Mutex<i32>>,
+    pub tool_router: ToolRouter<Counter>,
+    prompt_router: PromptRouter<Counter>,
+}
+
+#[tool_router]
+impl Counter {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        Self {
+            counter: Arc::new(Mutex::new(0)),
+            tool_router: Self::tool_router(),
+            prompt_router: Self::prompt_router(),
         }
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
+
+    fn _create_resource_text(&self, uri: &str, name: &str) -> Resource {
+        RawResource::new(uri, name.to_string()).no_annotation()
+    }
+
+    #[tool(description = "Increment the counter by 1")]
+        pub async fn increment(&self) -> Result<CallToolResult, McpError> {
+        let mut counter = self.counter.lock().await;
+        *counter += 1;
+        Ok(CallToolResult::success(vec![Content::text(
+            counter.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Decrement the counter by 1")]
+        pub async fn decrement(&self) -> Result<CallToolResult, McpError> {
+        let mut counter = self.counter.lock().await;
+        *counter -= 1;
+        Ok(CallToolResult::success(vec![Content::text(
+            counter.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get the current counter value")]
+        pub async fn get_value(&self) -> Result<CallToolResult, McpError> {
+        let counter = self.counter.lock().await;
+        Ok(CallToolResult::success(vec![Content::text(
+            counter.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Say hello to the client")]
+    fn say_hello(&self) -> Result<CallToolResult, McpError> {
+        Ok(CallToolResult::success(vec![Content::text("hello")]))
+    }
+
+    #[tool(description = "Repeat what you say")]
+    fn echo(&self, Parameters(object): Parameters<JsonObject>) -> Result<CallToolResult, McpError> {
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::Value::Object(object).to_string(),
+        )]))
+    }
+
+    #[tool(description = "Calculate the sum of two numbers")]
+    fn sum(
+        &self,
+        Parameters(StructRequest { a, b }): Parameters<StructRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(CallToolResult::success(vec![Content::text(
+            (a + b).to_string(),
+        )]))
+    }
+}
+
+#[prompt_router]
+impl Counter {
+    /// This is an example prompt that takes one required argument, message
+    #[prompt(name = "example_prompt")]
+    async fn example_prompt(
+        &self,
+        Parameters(args): Parameters<ExamplePromptArgs>,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<Vec<PromptMessage>, McpError> {
+        let prompt = format!(
+            "This is an example prompt with your message here: '{}'",
+            args.message
+        );
+        Ok(vec![PromptMessage {
+            role: PromptMessageRole::User,
+            content: PromptMessageContent::text(prompt),
+        }])
+    }
+
+    /// Analyze the current counter value and suggest next steps
+    #[prompt(name = "counter_analysis")]
+    async fn counter_analysis(
+        &self,
+        Parameters(args): Parameters<CounterAnalysisArgs>,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResult, McpError> {
+        let strategy = args.strategy.unwrap_or_else(|| "careful".to_string());
+        let current_value = *self.counter.lock().await;
+        let difference = args.goal - current_value;
+
+        let messages = vec![
+            PromptMessage::new_text(
+                PromptMessageRole::Assistant,
+                "I'll analyze the counter situation and suggest the best approach.",
+            ),
+            PromptMessage::new_text(
+                PromptMessageRole::User,
+                format!(
+                    "Current counter value: {}\nGoal value: {}\nDifference: {}\nStrategy preference: {}\n\nPlease analyze the situation and suggest the best approach to reach the goal.",
+                    current_value, args.goal, difference, strategy
+                ),
+            ),
+        ];
+
+        Ok(GetPromptResult {
+            description: Some(format!(
+                "Counter analysis for reaching {} from {}",
+                args.goal, current_value
+            )),
+            messages,
+        })
+    }
+}
+
+#[tool_handler]
+#[prompt_handler]
+impl ServerHandler for Counter {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            protocol_version: ProtocolVersion::V_2024_11_05,
+            capabilities: ServerCapabilities::builder()
+                .enable_prompts()
+                .enable_resources()
+                .enable_tools()
+                .build(),
+            server_info: Implementation::from_build_env(),
+            instructions: Some("This server provides counter tools and prompts. Tools: increment, decrement, get_value, say_hello, echo, sum. Prompts: example_prompt (takes a message), counter_analysis (analyzes counter state with a goal).".to_string()),
+        }
+    }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, McpError> {
+        Ok(ListResourcesResult {
+            resources: vec![
+                self._create_resource_text("str:////Users/to/some/path/", "cwd"),
+                self._create_resource_text("memo://insights", "memo-name"),
+            ],
+            next_cursor: None,
+        })
+    }
+
+    async fn read_resource(
+        &self,
+        ReadResourceRequestParam { uri }: ReadResourceRequestParam,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResult, McpError> {
+        match uri.as_str() {
+            "str:////Users/to/some/path/" => {
+                let cwd = "/Users/to/some/path/";
+                Ok(ReadResourceResult {
+                    contents: vec![ResourceContents::text(cwd, uri)],
+                })
+            }
+            "memo://insights" => {
+                let memo = "Business Intelligence Memo\n\nAnalysis has revealed 5 key insights ...";
+                Ok(ReadResourceResult {
+                    contents: vec![ResourceContents::text(memo, uri)],
+                })
+            }
+            _ => Err(McpError::resource_not_found(
+                "resource_not_found",
+                Some(json!({
+                    "uri": uri
+                })),
+            )),
+        }
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, McpError> {
+        Ok(ListResourceTemplatesResult {
+            next_cursor: None,
+            resource_templates: Vec::new(),
+        })
+    }
+
+    async fn initialize(
+        &self,
+        _request: InitializeRequestParam,
+        context: RequestContext<RoleServer>,
+    ) -> Result<InitializeResult, McpError> {
+        if let Some(http_request_part) = context.extensions.get::<axum::http::request::Parts>() {
+            let initialize_headers = &http_request_part.headers;
+            let initialize_uri = &http_request_part.uri;
+            tracing::info!(?initialize_headers, %initialize_uri, "initialize from http server");
+        }
+        Ok(self.get_info())
     }
 }

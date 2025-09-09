@@ -16,6 +16,5 @@ microkernel = { path = "../microkernel" }
 anyhow = "1"
 serde_json = "1.0.142"
 plugin_lossy_ddl = { path = "../plugins/plugin_lossy_ddl" }
-plugin_tihc_mcp_server = { path = "../plugins/plugin_tihc_mcp_server" }
 backend = { path = "../backend" }
 base64ct = "=1.8"

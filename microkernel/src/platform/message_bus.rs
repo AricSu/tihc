@@ -1,16 +1,16 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use futures::executor::block_on;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
-use futures::executor::block_on;
 use tokio::time::timeout;
 
 /// 支持闭包注册的 handler 类型（Box 包裹闭包，避免泛型污染 impl）
 pub struct FnHandler {
-    f: Box<dyn Fn(BusMessage) -> Result<BusMessage> + Send + Sync + 'static>,
+    pub f: Box<dyn Fn(BusMessage) -> Result<BusMessage> + Send + Sync + 'static>,
 }
 
 #[async_trait]
@@ -21,16 +21,17 @@ impl MessageHandler for FnHandler {
 }
 
 /// 全局消息总线单例
-pub static GLOBAL_MESSAGE_BUS: Lazy<Arc<MessageBusImpl>> = Lazy::new(|| Arc::new(MessageBusImpl::new()));
+pub static GLOBAL_MESSAGE_BUS: Lazy<Arc<MessageBusImpl>> =
+    Lazy::new(|| Arc::new(MessageBusImpl::new()));
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct MessageData {
     pub ok: bool,
     pub data: Option<Value>,
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct BusMessage {
     pub topic: String,
     pub data: MessageData,
@@ -60,7 +61,9 @@ impl BusMessage {
 
     /// 链式/函数式设置 topic，可接受闭包
     pub fn with_topic<F>(self, f: F) -> Self
-    where F: FnOnce(Self) -> Self {
+    where
+        F: FnOnce(Self) -> Self,
+    {
         f(self)
     }
 
@@ -78,13 +81,17 @@ impl BusMessage {
 
     /// 链式/函数式设置 data，可接受闭包
     pub fn with_data<F>(self, f: F) -> Self
-    where F: FnOnce(Self) -> Self {
+    where
+        F: FnOnce(Self) -> Self,
+    {
         f(self)
     }
 
     /// 链式/函数式设置 error，可接受闭包
     pub fn with_error<F>(self, f: F) -> Self
-    where F: FnOnce(Self) -> Self {
+    where
+        F: FnOnce(Self) -> Self,
+    {
         f(self)
     }
 
@@ -95,19 +102,32 @@ impl BusMessage {
 
     /// when: 条件成立时执行闭包，链式/函数式
     pub fn when<F>(self, cond: bool, f: F) -> Self
-    where F: FnOnce(Self) -> Self {
-        if cond { f(self) } else { self }
+    where
+        F: FnOnce(Self) -> Self,
+    {
+        if cond {
+            f(self)
+        } else {
+            self
+        }
     }
 
     /// then: ok 时执行闭包，链式/函数式
     pub fn then<F>(self, f: F) -> Self
-    where F: FnOnce(Self) -> Self {
-        if self.data.ok { f(self) } else { self }
+    where
+        F: FnOnce(Self) -> Self,
+    {
+        if self.data.ok {
+            f(self)
+        } else {
+            self
+        }
     }
 
     /// unwrap_data: 取出 data 字段，返回 Result
     pub fn unwrap_data<T: serde::de::DeserializeOwned>(&self) -> Result<T> {
-        self.data.data
+        self.data
+            .data
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("BusMessage data missing"))
             .and_then(|v| serde_json::from_value(v.clone()).map_err(|e| anyhow::anyhow!(e)))
@@ -132,9 +152,14 @@ pub trait MessageBus: Send + Sync {
     async fn register(&self, topic: &str, handler: Arc<dyn MessageHandler>, mode: HandlerMode);
     async fn send(&self, msg: BusMessage) -> Result<Vec<BusMessage>>;
     async fn request(&self, msg: BusMessage) -> Result<BusMessage>;
-    
-    /// 支持超时的发送方法（MCP 统一 API 层使用）
-    async fn send_with_timeout(&self, topic: &str, data: Value, timeout_duration: Duration) -> Result<Value>;
+
+    /// 支持超时的 request 方法（MCP 统一 API 层使用）
+    async fn request_with_timeout(
+        &self,
+        topic: &str,
+        data: Value,
+        timeout_duration: Duration,
+    ) -> Result<BusMessage>;
 }
 
 /// 消息总线实现
@@ -154,22 +179,33 @@ impl MessageBusImpl {
 
     // --- 注册 handler 语法糖 ---
     /// 链式注册 handler（mode 默认 Broadcast）
-    pub fn register_chain(self: Arc<Self>, topic: &str, handler: Arc<dyn MessageHandler>, mode: Option<HandlerMode>) -> Arc<Self> {
+    pub fn register_chain(
+        self: Arc<Self>,
+        topic: &str,
+        handler: Arc<dyn MessageHandler>,
+        mode: Option<HandlerMode>,
+    ) -> Arc<Self> {
         let m = mode.unwrap_or(HandlerMode::Broadcast);
         block_on(self.register(topic, handler, m));
         self
     }
 
     /// 函数式注册 handler（闭包，mode 默认 Broadcast）
-    pub fn register_fn<F>(self: Arc<Self>, topic: &str, f: F, mode: Option<HandlerMode>) -> Arc<Self>
-    where F: Fn(BusMessage) -> Result<BusMessage> + Send + Sync + 'static {
+    pub fn register_fn<F>(
+        self: Arc<Self>,
+        topic: &str,
+        f: F,
+        mode: Option<HandlerMode>,
+    ) -> Arc<Self>
+    where
+        F: Fn(BusMessage) -> Result<BusMessage> + Send + Sync + 'static,
+    {
         let m = mode.unwrap_or(HandlerMode::Broadcast);
         let handler = Arc::new(FnHandler { f: Box::new(f) });
         block_on(self.register(topic, handler, m));
         self
     }
 }
-
 
 #[async_trait]
 impl MessageBus for MessageBusImpl {
@@ -209,22 +245,20 @@ impl MessageBus for MessageBusImpl {
         }
     }
 
-    async fn send_with_timeout(&self, topic: &str, data: Value, timeout_duration: Duration) -> Result<Value> {
+    async fn request_with_timeout(
+        &self,
+        topic: &str,
+        data: Value,
+        timeout_duration: Duration,
+    ) -> Result<BusMessage> {
         let msg = BusMessage::ok(topic, data);
-        
         let request_future = async {
             if let Some(handler) = self.request_handlers.get(topic) {
-                let response = handler.handle(msg).await?;
-                if response.is_ok() {
-                    response.data.data.ok_or_else(|| anyhow::anyhow!("Empty response data"))
-                } else {
-                    Err(anyhow::anyhow!("Handler returned error: {:?}", response.data.error))
-                }
+                handler.handle(msg).await
             } else {
                 Err(anyhow::anyhow!("No handler for topic {}", topic))
             }
         };
-
         timeout(timeout_duration, request_future)
             .await
             .map_err(|_| anyhow::anyhow!("Request timeout after {:?}", timeout_duration))?
