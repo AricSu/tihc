@@ -29,6 +29,12 @@ const staticMenus = computed(() => [
     icon: () => h('i', { class: 'i-mdi-home text-16' }),
   },
   {
+    label: t('menu.inspection'),
+    key: 'inspection',
+    path: '/inspection',
+    icon: () => h('i', { class: 'i-mdi-clipboard-check-outline text-16' }),
+  },
+  {
     label: t('menu.sqlEditor'),
     key: 'sql-editor',
     path: '/sql-editor',

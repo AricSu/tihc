@@ -17,6 +17,14 @@ export const basicRoutes = [
     },
   },
   {
+    name: 'Inspection',
+    path: '/inspection',
+    component: () => import('@/views/inspection-access/index.vue'),
+    meta: {
+      title: '巡检报告',
+    },
+  },
+  {
     name: 'SQLEditor',
     path: '/sql-editor',
     component: () => import('@/views/sql-editor/index.vue'),

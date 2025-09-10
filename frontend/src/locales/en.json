@@ -241,6 +241,7 @@
     },
     "menu": {
         "home": "Home",
+        "inspection": "Inspection Report",
         "sqlEditor": "SQL Editor",
         "ddlCheck": "DDL Check"
     },
