@@ -4,7 +4,10 @@ members = [
     "microkernel",
     "backend",
     "common",
-    "plugins/plugin_lossy_ddl"
+    "plugins/plugin_lossy_ddl",
+    "plugins/plugin_inspection_engine", 
+    "plugins/plugin_observability", 
+    "plugins/plugin_causality_engine"
 ]
 resolver = "2"
 
