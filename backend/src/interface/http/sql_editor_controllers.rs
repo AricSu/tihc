@@ -1,11 +1,16 @@
 // SQL Editor HTTP Controllers
 // HTTP接口层，处理SQL编辑和执行相关的API请求
 
-use axum::{Json, Router, routing::{get, post, put, delete}, http::StatusCode, extract::{Path, State}};
-use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use crate::application::services::EditorApplicationService;
 use crate::interface::http::responses::ApiResponse;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{delete, get, post, put},
+    Json, Router,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// SQL编辑器控制器
 pub struct SqlEditorController;
@@ -101,14 +106,19 @@ pub async fn execute_sql_handler(
         execution_time_ms: 45,
         data: Some(SqlResult {
             column_names: vec!["id".to_string(), "name".to_string()],
-            rows: vec![
-                vec![serde_json::Value::Number(1.into()), serde_json::Value::String("Test User".to_string())],
-            ],
+            rows: vec![vec![
+                serde_json::Value::Number(1.into()),
+                serde_json::Value::String("Test User".to_string()),
+            ]],
         }),
         error: None,
     };
-    
-    tracing::info!("Executing SQL for connection {}: {}", request.connection_id, &request.sql[..50.min(request.sql.len())]);
+
+    tracing::info!(
+        "Executing SQL for connection {}: {}",
+        request.connection_id,
+        &request.sql[..50.min(request.sql.len())]
+    );
     Ok(Json(ApiResponse::success(response)))
 }
 
@@ -124,7 +134,7 @@ pub async fn get_sql_status(
         "message": "SQL query executed successfully",
         "data": []
     });
-    
+
     Ok(Json(ApiResponse::success(status)))
 }
 
@@ -136,7 +146,7 @@ pub async fn create_query_handler(
     // 生成简单的ID和时间戳
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
-    
+
     let response = QueryResponse {
         id,
         database_id: dto.database_id,
@@ -145,7 +155,7 @@ pub async fn create_query_handler(
         created_at: now.clone(),
         updated_at: now,
     };
-    
+
     Ok(Json(ApiResponse::success(response)))
 }
 
@@ -163,7 +173,7 @@ pub async fn get_query_handler(
         created_at: chrono::Utc::now().to_rfc3339(),
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
-    
+
     Ok(Json(ApiResponse::success(response)))
 }
 
@@ -177,12 +187,14 @@ pub async fn update_query_handler(
     let response = QueryResponse {
         id: id.clone(),
         database_id: 1,
-        content: dto.content.unwrap_or_else(|| "SELECT * FROM users;".to_string()),
+        content: dto
+            .content
+            .unwrap_or_else(|| "SELECT * FROM users;".to_string()),
         name: dto.name.or_else(|| Some("Updated Query".to_string())),
         created_at: chrono::Utc::now().to_rfc3339(),
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
-    
+
     Ok(Json(ApiResponse::success(response)))
 }
 

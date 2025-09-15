@@ -1,9 +1,9 @@
 // Editor Domain - SQL编辑器领域模型
 
-use crate::domain::shared::{DomainError, DomainResult, DatabaseId, QueryId};
+use crate::domain::shared::{DatabaseId, DomainError, DomainResult, QueryId};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use async_trait::async_trait;
 use uuid::Uuid;
 
 /// SQL查询实体
@@ -60,19 +60,19 @@ impl SqlQuery {
             status: QueryStatus::Draft,
         }
     }
-    
+
     pub fn update_content(&mut self, content: String) -> DomainResult<()> {
         if content.trim().is_empty() {
             return Err(DomainError::ValidationError {
                 message: "SQL内容不能为空".to_string(),
             });
         }
-        
+
         self.content = content;
         self.updated_at = chrono::Utc::now();
         Ok(())
     }
-    
+
     pub fn start_execution(&mut self) -> DomainResult<()> {
         match self.status {
             QueryStatus::Draft | QueryStatus::Failed | QueryStatus::Cancelled => {
@@ -85,26 +85,26 @@ impl SqlQuery {
             }),
         }
     }
-    
+
     pub fn complete_execution(&mut self) -> DomainResult<()> {
         if self.status != QueryStatus::Executing {
             return Err(DomainError::BusinessRuleViolation {
                 rule: "只有正在执行的查询才能标记为完成".to_string(),
             });
         }
-        
+
         self.status = QueryStatus::Completed;
         self.updated_at = chrono::Utc::now();
         Ok(())
     }
-    
+
     pub fn fail_execution(&mut self, _error: &str) -> DomainResult<()> {
         if self.status != QueryStatus::Executing {
             return Err(DomainError::BusinessRuleViolation {
                 rule: "只有正在执行的查询才能标记为失败".to_string(),
             });
         }
-        
+
         self.status = QueryStatus::Failed;
         self.updated_at = chrono::Utc::now();
         Ok(())
@@ -128,7 +128,7 @@ pub trait SqlExecutor {
         query: &SqlQuery,
         context: &QueryExecutionContext,
     ) -> DomainResult<QueryResult>;
-    
+
     async fn validate_syntax(&self, sql: &str) -> DomainResult<bool>;
 }
 
@@ -148,7 +148,7 @@ impl EditorDomainService {
             sql_executor,
         }
     }
-    
+
     pub async fn execute_query(
         &self,
         query_id: &QueryId,
@@ -162,11 +162,11 @@ impl EditorDomainService {
             .ok_or_else(|| DomainError::NotFound {
                 resource: format!("查询 {}", query_id.as_str()),
             })?;
-        
+
         // 开始执行
         query.start_execution()?;
         self.query_repository.save(&query).await?;
-        
+
         // 执行查询
         match self.sql_executor.execute_query(&query, &context).await {
             Ok(result) => {

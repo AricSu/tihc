@@ -1,10 +1,8 @@
 // HTTP Middleware
 
-use axum::{
-    http::{
-        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-        Method,
-    },
+use axum::http::{
+    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    Method,
 };
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -20,7 +18,8 @@ pub fn cors_layer() -> CorsLayer {
 }
 
 /// 创建跟踪中间件
-pub fn trace_layer() -> TraceLayer<tower_http::classify::SharedClassifier<tower_http::classify::ServerErrorsAsFailures>> {
-    TraceLayer::new_for_http()
-        .make_span_with(DefaultMakeSpan::default().include_headers(true))
+pub fn trace_layer(
+) -> TraceLayer<tower_http::classify::SharedClassifier<tower_http::classify::ServerErrorsAsFailures>>
+{
+    TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true))
 }

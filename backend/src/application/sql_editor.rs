@@ -2,7 +2,7 @@
 // 基于DDD架构的SQL编辑器应用服务实现
 
 use crate::application::services::*;
-use crate::domain::shared::{DomainResult, DomainError, Pagination, PagedResult};
+use crate::domain::shared::{DomainError, DomainResult, PagedResult, Pagination};
 use async_trait::async_trait;
 use std::collections::HashMap;
 
@@ -28,9 +28,9 @@ impl EditorApplicationService for SqlEditorApplicationServiceImpl {
         // 简化实现：创建一个模拟的查询响应
         let now = chrono::Utc::now();
         let query_id = uuid::Uuid::new_v4().to_string();
-        
+
         tracing::info!(target: "sql_editor_service", "Creating query for database: {}", request.database_id);
-        
+
         Ok(QueryResponse {
             id: query_id,
             database_id: request.database_id,
@@ -40,17 +40,23 @@ impl EditorApplicationService for SqlEditorApplicationServiceImpl {
             updated_at: now,
         })
     }
-    
-    async fn execute_query(&self, request: ExecuteQueryRequest) -> DomainResult<QueryResultResponse> {
+
+    async fn execute_query(
+        &self,
+        request: ExecuteQueryRequest,
+    ) -> DomainResult<QueryResultResponse> {
         tracing::info!(target: "sql_editor_service", "Executing query: {}", request.query_id);
-        
+
         // 简化实现：返回一个模拟的执行结果
         let now = chrono::Utc::now();
         let mut rows = Vec::new();
         let mut sample_row = HashMap::new();
-        sample_row.insert("message".to_string(), serde_json::Value::String("Query executed via simplified service".to_string()));
+        sample_row.insert(
+            "message".to_string(),
+            serde_json::Value::String("Query executed via simplified service".to_string()),
+        );
         rows.push(sample_row);
-        
+
         Ok(QueryResultResponse {
             query_id: request.query_id,
             columns: vec!["message".to_string()],
@@ -60,13 +66,13 @@ impl EditorApplicationService for SqlEditorApplicationServiceImpl {
             executed_at: now,
         })
     }
-    
+
     async fn get_query(&self, query_id: &str) -> DomainResult<QueryResponse> {
         tracing::info!(target: "sql_editor_service", "Getting query: {}", query_id);
-        
+
         // 简化实现：返回一个模拟的查询
         let now = chrono::Utc::now();
-        
+
         Ok(QueryResponse {
             id: query_id.to_string(),
             database_id: "default".to_string(),
@@ -76,25 +82,25 @@ impl EditorApplicationService for SqlEditorApplicationServiceImpl {
             updated_at: now,
         })
     }
-    
+
     async fn list_queries(
         &self,
         database_id: &str,
         pagination: Pagination,
     ) -> DomainResult<PagedResult<QueryResponse>> {
         tracing::info!(target: "sql_editor_service", "Listing queries for database: {}", database_id);
-        
+
         // 简化实现：返回空列表
         let queries = Vec::new();
         Ok(PagedResult::new(queries, 0, &pagination))
     }
-    
+
     async fn update_query(&self, request: UpdateQueryRequest) -> DomainResult<QueryResponse> {
         tracing::info!(target: "sql_editor_service", "Updating query: {}", request.query_id);
-        
+
         // 简化实现：返回更新后的查询
         let now = chrono::Utc::now();
-        
+
         Ok(QueryResponse {
             id: request.query_id,
             database_id: "default".to_string(),
@@ -104,10 +110,10 @@ impl EditorApplicationService for SqlEditorApplicationServiceImpl {
             updated_at: now,
         })
     }
-    
+
     async fn delete_query(&self, query_id: &str) -> DomainResult<()> {
         tracing::info!(target: "sql_editor_service", "Deleting query: {}", query_id);
-        
+
         // 简化实现：总是成功
         Ok(())
     }

@@ -16,8 +16,7 @@ pub struct NotificationsController;
 impl NotificationsController {
     /// Creates the notifications router with all endpoints
     pub fn routes() -> Router<NotificationsAppState> {
-        Router::new()
-            .route("/notifications", get(notifications_handler))
+        Router::new().route("/notifications", get(notifications_handler))
     }
 }
 
@@ -29,28 +28,29 @@ pub struct NotificationsAppState {
 
 impl NotificationsAppState {
     pub fn new(notifications_service: Arc<NotificationsApplicationService>) -> Self {
-        Self { notifications_service }
+        Self {
+            notifications_service,
+        }
     }
 }
 
 /// Handler for SSE notifications endpoint
-async fn notifications_handler(
-    State(state): State<NotificationsAppState>,
-) -> impl IntoResponse {
-    let stream = state.notifications_service.create_sample_notification_stream();
+async fn notifications_handler(State(state): State<NotificationsAppState>) -> impl IntoResponse {
+    let stream = state
+        .notifications_service
+        .create_sample_notification_stream();
 
     // Convert notification events to SSE events
-    let sse_stream = stream.map(|result| {
-        match result {
-            Ok(notification) => {
-                match notification.to_json() {
-                    Ok(json) => Ok::<Event, Infallible>(Event::default().data(json)),
-                    Err(_) => Ok(Event::default().data(r#"{"status":"failed","progress":0,"message":"Serialization error"}"#))
-                }
-            }
-            Err(_) => Ok(Event::default().data(r#"{"status":"failed","progress":0,"message":"Stream error"}"#))
-        }
-    });
+    let sse_stream =
+        stream.map(|result| match result {
+            Ok(notification) => match notification.to_json() {
+                Ok(json) => Ok::<Event, Infallible>(Event::default().data(json)),
+                Err(_) => Ok(Event::default()
+                    .data(r#"{"status":"failed","progress":0,"message":"Serialization error"}"#)),
+            },
+            Err(_) => Ok(Event::default()
+                .data(r#"{"status":"failed","progress":0,"message":"Stream error"}"#)),
+        });
 
     Sse::new(sse_stream)
 }

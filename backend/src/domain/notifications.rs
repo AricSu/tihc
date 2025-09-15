@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn test_notification_event_creation() {
         let event = NotificationEvent::running(50, "Processing...".to_string());
-        
+
         assert_eq!(event.status, TaskStatus::Running);
         assert_eq!(event.progress, 50);
         assert_eq!(event.message, "Processing...");
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_completed_event() {
         let event = NotificationEvent::completed("Done!".to_string());
-        
+
         assert_eq!(event.status, TaskStatus::Completed);
         assert_eq!(event.progress, 100);
         assert_eq!(event.message, "Done!");
@@ -86,7 +86,7 @@ mod tests {
     fn test_json_serialization() {
         let event = NotificationEvent::running(25, "Working...".to_string());
         let json = event.to_json().unwrap();
-        
+
         assert!(json.contains("\"status\":\"running\""));
         assert!(json.contains("\"progress\":25"));
         assert!(json.contains("\"message\":\"Working...\""));

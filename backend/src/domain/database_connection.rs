@@ -98,14 +98,24 @@ impl TlsConfig {
         if self.enabled {
             if let Some(ref ca_path) = self.ca_cert_path {
                 if ca_path.is_empty() {
-                    return Err(anyhow::anyhow!("CA certificate path cannot be empty when TLS is enabled"));
+                    return Err(anyhow::anyhow!(
+                        "CA certificate path cannot be empty when TLS is enabled"
+                    ));
                 }
             }
-            
+
             // If client cert is provided, key must also be provided
             match (&self.client_cert_path, &self.client_key_path) {
-                (Some(_), None) => return Err(anyhow::anyhow!("Client key path is required when client certificate is provided")),
-                (None, Some(_)) => return Err(anyhow::anyhow!("Client certificate path is required when client key is provided")),
+                (Some(_), None) => {
+                    return Err(anyhow::anyhow!(
+                        "Client key path is required when client certificate is provided"
+                    ))
+                }
+                (None, Some(_)) => {
+                    return Err(anyhow::anyhow!(
+                        "Client certificate path is required when client key is provided"
+                    ))
+                }
                 _ => {}
             }
         }
@@ -145,22 +155,25 @@ impl DatabaseConnection {
     ) -> anyhow::Result<Self> {
         // Validate TLS configuration
         tls_config.validate()?;
-        
+
         // Validate basic connection parameters
         if name.trim().is_empty() {
             return Err(anyhow::anyhow!("Connection name cannot be empty"));
         }
-        
+
         if host.trim().is_empty() {
             return Err(anyhow::anyhow!("Host cannot be empty"));
         }
-        
+
         if username.trim().is_empty() {
             return Err(anyhow::anyhow!("Username cannot be empty"));
         }
-        
+
         if port == 0 && engine != DatabaseEngine::SQLite {
-            return Err(anyhow::anyhow!("Port cannot be zero for {} connections", engine.to_string()));
+            return Err(anyhow::anyhow!(
+                "Port cannot be zero for {} connections",
+                engine.to_string()
+            ));
         }
 
         let now = chrono::Utc::now();
@@ -208,7 +221,10 @@ impl DatabaseConnection {
 
         if let Some(port) = port {
             if port == 0 && self.engine != DatabaseEngine::SQLite {
-                return Err(anyhow::anyhow!("Port cannot be zero for {} connections", self.engine.to_string()));
+                return Err(anyhow::anyhow!(
+                    "Port cannot be zero for {} connections",
+                    self.engine.to_string()
+                ));
             }
             self.port = port;
         }
@@ -256,10 +272,13 @@ impl DatabaseConnection {
                 format!("sqlite://{}", self.database.as_deref().unwrap_or(""))
             }
             _ => {
-                let db_part = self.database.as_ref()
+                let db_part = self
+                    .database
+                    .as_ref()
                     .map(|d| format!("/{}", d))
                     .unwrap_or_default();
-                format!("{}://{}@{}:{}{}", 
+                format!(
+                    "{}://{}@{}:{}{}",
                     self.engine.to_string().to_lowercase(),
                     self.username,
                     self.host,
@@ -277,13 +296,18 @@ impl DatabaseConnection {
                 format!("sqlite://{}", self.database.as_deref().unwrap_or(""))
             }
             _ => {
-                let password_part = self.password.as_ref()
+                let password_part = self
+                    .password
+                    .as_ref()
                     .map(|p| format!(":{}", p))
                     .unwrap_or_default();
-                let db_part = self.database.as_ref()
+                let db_part = self
+                    .database
+                    .as_ref()
                     .map(|d| format!("/{}", d))
                     .unwrap_or_default();
-                format!("{}://{}{password_part}@{}:{}{}", 
+                format!(
+                    "{}://{}{password_part}@{}:{}{}",
                     self.engine.to_string().to_lowercase(),
                     self.username,
                     self.host,
@@ -354,7 +378,10 @@ impl CreateConnectionRequest {
 
         let engine = DatabaseEngine::from_string(&self.engine);
         if self.port == 0 && engine != DatabaseEngine::SQLite {
-            return Err(anyhow::anyhow!("Port is required for {} connections", engine));
+            return Err(anyhow::anyhow!(
+                "Port is required for {} connections",
+                engine
+            ));
         }
 
         // TLS validation
@@ -371,7 +398,11 @@ impl CreateConnectionRequest {
         self.validate()?;
 
         let engine = DatabaseEngine::from_string(&self.engine);
-        let port = if self.port == 0 { engine.default_port() } else { self.port };
+        let port = if self.port == 0 {
+            engine.default_port()
+        } else {
+            self.port
+        };
 
         let tls_config = if self.use_tls {
             if let Some(ref ca_path) = self.ca_cert_path {
@@ -411,11 +442,23 @@ mod tests {
     fn test_database_engine_from_string() {
         assert_eq!(DatabaseEngine::from_string("mysql"), DatabaseEngine::MySQL);
         assert_eq!(DatabaseEngine::from_string("MySQL"), DatabaseEngine::MySQL);
-        assert_eq!(DatabaseEngine::from_string("postgresql"), DatabaseEngine::PostgreSQL);
-        assert_eq!(DatabaseEngine::from_string("postgres"), DatabaseEngine::PostgreSQL);
-        assert_eq!(DatabaseEngine::from_string("sqlite"), DatabaseEngine::SQLite);
+        assert_eq!(
+            DatabaseEngine::from_string("postgresql"),
+            DatabaseEngine::PostgreSQL
+        );
+        assert_eq!(
+            DatabaseEngine::from_string("postgres"),
+            DatabaseEngine::PostgreSQL
+        );
+        assert_eq!(
+            DatabaseEngine::from_string("sqlite"),
+            DatabaseEngine::SQLite
+        );
         assert_eq!(DatabaseEngine::from_string("tidb"), DatabaseEngine::TiDB);
-        assert_eq!(DatabaseEngine::from_string("unknown"), DatabaseEngine::MySQL);
+        assert_eq!(
+            DatabaseEngine::from_string("unknown"),
+            DatabaseEngine::MySQL
+        );
     }
 
     #[test]
@@ -455,7 +498,7 @@ mod tests {
     fn test_database_connection_creation() {
         let id = ConnectionId::new(1);
         let tls_config = TlsConfig::disabled();
-        
+
         let connection = DatabaseConnection::new(
             id,
             "Test Connection".to_string(),
@@ -478,7 +521,7 @@ mod tests {
     fn test_database_connection_validation() {
         let id = ConnectionId::new(1);
         let tls_config = TlsConfig::disabled();
-        
+
         // Empty name should fail
         let result = DatabaseConnection::new(
             id,
@@ -526,7 +569,7 @@ mod tests {
     fn test_connection_string_generation() {
         let id = ConnectionId::new(1);
         let tls_config = TlsConfig::disabled();
-        
+
         let connection = DatabaseConnection::new(
             id,
             "Test".to_string(),
@@ -537,7 +580,8 @@ mod tests {
             Some("password".to_string()),
             Some("testdb".to_string()),
             tls_config,
-        ).unwrap();
+        )
+        .unwrap();
 
         let display_str = connection.get_display_connection_string();
         assert_eq!(display_str, "mysql://user@localhost:3306/testdb");

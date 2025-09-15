@@ -56,33 +56,34 @@ impl DDLStatement {
         if sql.trim().is_empty() {
             return Err(DDLValidationError::EmptySQL);
         }
-        
-        if sql.len() > 1_000_000 { // 1MB limit
+
+        if sql.len() > 1_000_000 {
+            // 1MB limit
             return Err(DDLValidationError::SQLTooLarge);
         }
-        
+
         Ok(Self {
             sql: sql.trim().to_string(),
             collation_enabled,
         })
     }
-    
+
     /// 检查是否为DDL语句
     pub fn is_ddl(&self) -> bool {
         let sql_upper = self.sql.to_uppercase();
-        sql_upper.starts_with("CREATE") ||
-        sql_upper.starts_with("ALTER") ||
-        sql_upper.starts_with("DROP") ||
-        sql_upper.starts_with("TRUNCATE") ||
-        sql_upper.starts_with("RENAME")
+        sql_upper.starts_with("CREATE")
+            || sql_upper.starts_with("ALTER")
+            || sql_upper.starts_with("DROP")
+            || sql_upper.starts_with("TRUNCATE")
+            || sql_upper.starts_with("RENAME")
     }
-    
+
     /// 检查是否可能是高风险操作
     pub fn is_potentially_risky(&self) -> bool {
         let sql_upper = self.sql.to_uppercase();
-        sql_upper.contains("DROP") ||
-        sql_upper.contains("TRUNCATE") ||
-        sql_upper.contains("ALTER") && sql_upper.contains("DROP COLUMN")
+        sql_upper.contains("DROP")
+            || sql_upper.contains("TRUNCATE")
+            || sql_upper.contains("ALTER") && sql_upper.contains("DROP COLUMN")
     }
 }
 
@@ -107,7 +108,7 @@ impl DDLAnalysisResult {
         error: Option<String>,
     ) -> Self {
         let recommendations = Self::generate_recommendations(&lossy_status, &issues);
-        
+
         Self {
             statement,
             lossy_status,
@@ -117,41 +118,48 @@ impl DDLAnalysisResult {
             error,
         }
     }
-    
+
     /// 根据状态生成建议
     fn generate_recommendations(lossy_status: &LossyStatus, issues: &[String]) -> Vec<String> {
         let mut recommendations = Vec::new();
-        
+
         match lossy_status {
             LossyStatus::Lossy => {
                 recommendations.push(
                     "Ensure no data is lost due to truncation, and run ANALYZE TABLE immediately after DDL to avoid statistics loss impacting SQL performance.".to_string()
                 );
-                
+
                 if issues.iter().any(|issue| issue.contains("DROP")) {
-                    recommendations.push("Consider backing up affected data before executing DROP operations.".to_string());
+                    recommendations.push(
+                        "Consider backing up affected data before executing DROP operations."
+                            .to_string(),
+                    );
                 }
             }
             LossyStatus::Safe => {
                 // 安全操作可能仍需要一些建议
                 if issues.iter().any(|issue| issue.contains("performance")) {
-                    recommendations.push("Consider executing during low-traffic periods for better performance.".to_string());
+                    recommendations.push(
+                        "Consider executing during low-traffic periods for better performance."
+                            .to_string(),
+                    );
                 }
             }
             LossyStatus::Unknown => {
-                recommendations.push("Please check your SQL syntax based on the provided hints.".to_string());
+                recommendations
+                    .push("Please check your SQL syntax based on the provided hints.".to_string());
                 recommendations.push("Review the SQL statement for potential syntax errors or unsupported operations.".to_string());
             }
         }
-        
+
         recommendations
     }
-    
+
     /// 检查是否有错误
     pub fn has_error(&self) -> bool {
         self.error.is_some()
     }
-    
+
     /// 检查是否为高风险
     pub fn is_high_risk(&self) -> bool {
         self.risk_level == RiskLevel::High
@@ -173,7 +181,9 @@ impl fmt::Display for DDLValidationError {
             DDLValidationError::EmptySQL => write!(f, "SQL statement cannot be empty"),
             DDLValidationError::SQLTooLarge => write!(f, "SQL statement is too large (max 1MB)"),
             DDLValidationError::InvalidSyntax(msg) => write!(f, "Invalid SQL syntax: {}", msg),
-            DDLValidationError::UnsupportedOperation(op) => write!(f, "Unsupported operation: {}", op),
+            DDLValidationError::UnsupportedOperation(op) => {
+                write!(f, "Unsupported operation: {}", op)
+            }
         }
     }
 }
@@ -185,10 +195,13 @@ pub struct DDLPrecheckDomainService;
 
 impl DDLPrecheckDomainService {
     /// 验证DDL语句
-    pub fn validate_ddl_statement(sql: &str, collation_enabled: bool) -> Result<DDLStatement, DDLValidationError> {
+    pub fn validate_ddl_statement(
+        sql: &str,
+        collation_enabled: bool,
+    ) -> Result<DDLStatement, DDLValidationError> {
         DDLStatement::new(sql.to_string(), collation_enabled)
     }
-    
+
     /// 评估DDL风险级别
     pub fn assess_risk_level(statement: &DDLStatement, lossy_status: &LossyStatus) -> RiskLevel {
         match lossy_status {
@@ -215,13 +228,13 @@ mod tests {
         let stmt = DDLStatement::new("CREATE TABLE test (id INT)".to_string(), true).unwrap();
         assert_eq!(stmt.sql, "CREATE TABLE test (id INT)");
         assert!(stmt.collation_enabled);
-        
+
         // 空SQL
         assert!(matches!(
             DDLStatement::new("".to_string(), true),
             Err(DDLValidationError::EmptySQL)
         ));
-        
+
         // SQL过大
         let large_sql = "A".repeat(1_000_001);
         assert!(matches!(
@@ -232,9 +245,10 @@ mod tests {
 
     #[test]
     fn test_ddl_statement_detection() {
-        let create_stmt = DDLStatement::new("CREATE TABLE test (id INT)".to_string(), true).unwrap();
+        let create_stmt =
+            DDLStatement::new("CREATE TABLE test (id INT)".to_string(), true).unwrap();
         assert!(create_stmt.is_ddl());
-        
+
         let select_stmt = DDLStatement::new("SELECT * FROM test".to_string(), true).unwrap();
         assert!(!select_stmt.is_ddl());
     }
@@ -243,8 +257,9 @@ mod tests {
     fn test_risk_assessment() {
         let drop_stmt = DDLStatement::new("DROP TABLE test".to_string(), true).unwrap();
         assert!(drop_stmt.is_potentially_risky());
-        
-        let create_stmt = DDLStatement::new("CREATE TABLE test (id INT)".to_string(), true).unwrap();
+
+        let create_stmt =
+            DDLStatement::new("CREATE TABLE test (id INT)".to_string(), true).unwrap();
         assert!(!create_stmt.is_potentially_risky());
     }
 
@@ -258,7 +273,7 @@ mod tests {
             vec!["DROP operation detected".to_string()],
             None,
         );
-        
+
         assert!(!result.recommendations.is_empty());
         assert!(result.is_high_risk());
         assert!(!result.has_error());
@@ -266,9 +281,10 @@ mod tests {
 
     #[test]
     fn test_domain_service_validation() {
-        let result = DDLPrecheckDomainService::validate_ddl_statement("CREATE TABLE test (id INT)", true);
+        let result =
+            DDLPrecheckDomainService::validate_ddl_statement("CREATE TABLE test (id INT)", true);
         assert!(result.is_ok());
-        
+
         let empty_result = DDLPrecheckDomainService::validate_ddl_statement("", true);
         assert!(empty_result.is_err());
     }
@@ -276,14 +292,15 @@ mod tests {
     #[test]
     fn test_risk_level_assessment() {
         let stmt = DDLStatement::new("CREATE TABLE test (id INT)".to_string(), true).unwrap();
-        
+
         let safe_risk = DDLPrecheckDomainService::assess_risk_level(&stmt, &LossyStatus::Safe);
         assert_eq!(safe_risk, RiskLevel::Safe);
-        
+
         let lossy_risk = DDLPrecheckDomainService::assess_risk_level(&stmt, &LossyStatus::Lossy);
         assert_eq!(lossy_risk, RiskLevel::High);
-        
-        let unknown_risk = DDLPrecheckDomainService::assess_risk_level(&stmt, &LossyStatus::Unknown);
+
+        let unknown_risk =
+            DDLPrecheckDomainService::assess_risk_level(&stmt, &LossyStatus::Unknown);
         assert_eq!(unknown_risk, RiskLevel::High);
     }
 }

@@ -1,18 +1,15 @@
-use tokio::signal;
 use std::net::SocketAddr;
+use tokio::signal;
 use tracing::info;
 
-use crate::interface::{http::middleware, Counter};
+use crate::interface::{http::middleware, TihcMcpServer};
 
-
-pub async fn start_server_with_shutdown(
-    host: String,
-    port: u16,
-) -> anyhow::Result<()> {
+pub async fn start_server_with_shutdown(host: String, port: u16) -> anyhow::Result<()> {
     // 创建 rmcp streamable 服务
     let rmcp_service = rmcp::transport::streamable_http_server::StreamableHttpService::new(
-        || Ok(Counter::new()),
-        rmcp::transport::streamable_http_server::session::local::LocalSessionManager::default().into(),
+        || Ok(TihcMcpServer::new()),
+        rmcp::transport::streamable_http_server::session::local::LocalSessionManager::default()
+            .into(),
         Default::default(),
     );
 
@@ -25,7 +22,10 @@ pub async fn start_server_with_shutdown(
         .layer(middleware::trace_layer());
 
     let addr = SocketAddr::new(host.parse()?, port);
-    tracing::info!("Web server started with unified MCP (topic: tihc-mcp) at {}", addr);
+    tracing::info!(
+        "Web server started with unified MCP (topic: tihc-mcp) at {}",
+        addr
+    );
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app.into_make_service())

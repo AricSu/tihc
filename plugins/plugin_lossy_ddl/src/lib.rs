@@ -30,7 +30,7 @@ pub(crate) mod types;
 
 // Re-exports for convenience - only keep what's needed for plugin interface
 pub use error::DDLError;
-pub use plugin::{LossyDDLPlugin};
+pub use plugin::LossyDDLPlugin;
 pub use types::{AnalysisResult, LossyStatus, RiskLevel};
 
 #[cfg(feature = "tidb-engine")]
@@ -264,8 +264,14 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
                     return AnalysisResult {
                         lossy_status: types::LossyStatus::Unknown,
                         risk_level: RiskLevel::High,
-                        warnings: vec!["Table name must include database prefix (e.g., 'database.table')".to_string()],
-                        error: Some("Table name must include database prefix (e.g., 'database.table')".to_string()),
+                        warnings: vec![
+                            "Table name must include database prefix (e.g., 'database.table')"
+                                .to_string(),
+                        ],
+                        error: Some(
+                            "Table name must include database prefix (e.g., 'database.table')"
+                                .to_string(),
+                        ),
                     };
                 }
                 if let sqlparser::ast::ObjectNamePart::Identifier(ident) = &name.0[0] {
@@ -285,8 +291,14 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
                     return AnalysisResult {
                         lossy_status: types::LossyStatus::Unknown,
                         risk_level: RiskLevel::High,
-                        warnings: vec!["Table name must include database prefix (e.g., 'database.table')".to_string()],
-                        error: Some("Table name must include database prefix (e.g., 'database.table')".to_string()),
+                        warnings: vec![
+                            "Table name must include database prefix (e.g., 'database.table')"
+                                .to_string(),
+                        ],
+                        error: Some(
+                            "Table name must include database prefix (e.g., 'database.table')"
+                                .to_string(),
+                        ),
                     };
                 }
                 if let sqlparser::ast::ObjectNamePart::Identifier(ident) = &name.0[0] {
@@ -342,16 +354,28 @@ pub fn precheck_sql_with_collation(sql: &str, collation_enabled: bool) -> Analys
         return AnalysisResult {
             lossy_status: types::LossyStatus::Unknown,
             risk_level: RiskLevel::High,
-            warnings: vec![format!("CREATE TABLE must use database '{}', found: {:?}", expected_db, create_table_db)],
-            error: Some(format!("CREATE TABLE must use database '{}', found: {:?}", expected_db, create_table_db)),
+            warnings: vec![format!(
+                "CREATE TABLE must use database '{}', found: {:?}",
+                expected_db, create_table_db
+            )],
+            error: Some(format!(
+                "CREATE TABLE must use database '{}', found: {:?}",
+                expected_db, create_table_db
+            )),
         };
     }
     if alter_table_db != Some(expected_db.clone()) {
         return AnalysisResult {
             lossy_status: types::LossyStatus::Unknown,
             risk_level: RiskLevel::High,
-            warnings: vec![format!("ALTER TABLE must use database '{}', found: {:?}", expected_db, alter_table_db)],
-            error: Some(format!("ALTER TABLE must use database '{}', found: {:?}", expected_db, alter_table_db)),
+            warnings: vec![format!(
+                "ALTER TABLE must use database '{}', found: {:?}",
+                expected_db, alter_table_db
+            )],
+            error: Some(format!(
+                "ALTER TABLE must use database '{}', found: {:?}",
+                expected_db, alter_table_db
+            )),
         };
     }
 

@@ -10,7 +10,6 @@ pub struct WebOptions {
     pub port: u16,
 }
 
-
 pub async fn start_web_service(opts: WebOptions) -> Result<()> {
     // 直接调用 backend 的统一启动入口
     backend::server::start_server_with_shutdown(opts.host.clone(), opts.port).await

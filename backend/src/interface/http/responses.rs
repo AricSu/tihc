@@ -1,6 +1,6 @@
 // HTTP Responses
 
-use serde::{Serialize};
+use serde::Serialize;
 
 /// 标准API响应格式
 #[derive(Debug, Serialize)]
@@ -20,7 +20,7 @@ impl<T> ApiResponse<T> {
             timestamp: chrono::Utc::now(),
         }
     }
-    
+
     pub fn success_with_message(data: T, message: String) -> Self {
         Self {
             success: true,

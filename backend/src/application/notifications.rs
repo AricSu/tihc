@@ -1,7 +1,7 @@
-use std::time::Duration;
-use futures::stream::{self, Stream};
-use tokio_stream::StreamExt;
 use crate::domain::notifications::NotificationEvent;
+use futures::stream::{self, Stream};
+use std::time::Duration;
+use tokio_stream::StreamExt;
 
 /// Application service for managing notifications and SSE streams
 pub struct NotificationsApplicationService;
@@ -14,7 +14,9 @@ impl NotificationsApplicationService {
 
     /// Creates a sample notification stream for demonstration
     /// In a real application, this would connect to a message bus or event store
-    pub fn create_sample_notification_stream(&self) -> impl Stream<Item = Result<NotificationEvent, std::convert::Infallible>> {
+    pub fn create_sample_notification_stream(
+        &self,
+    ) -> impl Stream<Item = Result<NotificationEvent, std::convert::Infallible>> {
         let events = vec![
             NotificationEvent::running(10, "SQL is being executed...".to_string()),
             NotificationEvent::running(50, "SQL is halfway done...".to_string()),
@@ -28,7 +30,10 @@ impl NotificationsApplicationService {
 
     /// Creates a notification stream for a specific task
     /// This is where you would integrate with your actual notification system
-    pub fn create_task_notification_stream(&self, _task_id: &str) -> impl Stream<Item = Result<NotificationEvent, std::convert::Infallible>> {
+    pub fn create_task_notification_stream(
+        &self,
+        _task_id: &str,
+    ) -> impl Stream<Item = Result<NotificationEvent, std::convert::Infallible>> {
         // For now, return the sample stream
         // In the future, this would fetch real task status from a data store
         self.create_sample_notification_stream()
@@ -44,8 +49,8 @@ impl Default for NotificationsApplicationService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio_stream::StreamExt;
     use futures::pin_mut;
+    use tokio_stream::StreamExt;
 
     #[tokio::test]
     async fn test_sample_notification_stream() {

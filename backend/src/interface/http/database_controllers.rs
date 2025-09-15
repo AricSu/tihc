@@ -1,19 +1,20 @@
 // HTTP Controllers for Database Management
 // 数据库管理的HTTP控制器 - 基于消息总线通信
 
-use axum::{
-    http::StatusCode,
-    extract::{Path, State},
-    response::Json,
-    routing::{get, post, put, delete},
-    Router,
-};
 use crate::application::services::{
-    ConnectionResponse, CreateConnectionRequest, UpdateConnectionRequest,
-    TableResponse, ColumnResponse
+    ColumnResponse, ConnectionResponse, CreateConnectionRequest, TableResponse,
+    UpdateConnectionRequest,
 };
 use crate::interface::http::responses::ApiResponse;
-use microkernel::platform::message_bus::{BusMessage, MessageBus, GLOBAL_MESSAGE_BUS};
+use crate::infrastructure::bus_client::InfraBusClient;
+use serde_json::from_value;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+    routing::{delete, get, post, put},
+    Router,
+};
 use serde::Deserialize;
 
 #[derive(Debug, Clone)]
@@ -38,7 +39,10 @@ impl DatabaseController {
             .route("/api/connections/{id}", delete(delete_connection))
             .route("/api/connections/test", post(test_connection))
             .route("/api/connections/{id}/tables", get(get_tables))
-            .route("/api/connections/{connection_id}/tables/{table_name}/columns", get(get_table_columns))
+            .route(
+                "/api/connections/{connection_id}/tables/{table_name}/columns",
+                get(get_table_columns),
+            )
     }
 }
 
@@ -71,26 +75,23 @@ pub struct ColumnListResponse {
 pub async fn create_connection(
     State(_state): State<DatabaseControllerState>,
     Json(create_request): Json<CreateConnectionRequest>,
-) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.add_connection", create_request);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<ConnectionResponse>() {
-                    Ok(connection) => Ok(Json(ApiResponse::success(connection))),
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
-                }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                if error_msg.contains("not found") {
-                    let api_response = ApiResponse::error("Connection not found", 404);
-                    Err((StatusCode::NOT_FOUND, Json(api_response)))
-                } else {
-                    let api_response = ApiResponse::error(&format!("Failed to create connection: {}", error_msg), 500);
+) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
+{
+    let bus = InfraBusClient::new();
+    match bus.request(
+        "sql_editor.add_connection",
+        None,
+        serde_json::to_value(create_request).map_err(|e| {
+            let api_response = ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
+        })?,
+        None,
+    ).await {
+        Ok(value) => {
+            match from_value::<ConnectionResponse>(value) {
+                Ok(connection) => Ok(Json(ApiResponse::success(connection))),
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
                     Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
                 }
             }
@@ -105,26 +106,22 @@ pub async fn create_connection(
 /// 获取所有连接 - 通过消息总线
 pub async fn list_connections(
     State(_state): State<DatabaseControllerState>,
-) -> Result<Json<ApiResponse<ConnectionListResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.list_connection", ());
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<Vec<ConnectionResponse>>() {
-                    Ok(connections) => {
-                        let response_data = ConnectionListResponse { connections };
-                        Ok(Json(ApiResponse::success(response_data)))
-                    }
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
+) -> Result<
+    Json<ApiResponse<ConnectionListResponse>>,
+    (StatusCode, Json<ApiResponse<serde_json::Value>>),
+> {
+    let bus = InfraBusClient::new();
+    match bus.request("sql_editor.list_connection", None, (), None).await {
+        Ok(value) => {
+            match from_value::<Vec<ConnectionResponse>>(value) {
+                Ok(connections) => {
+                    let response_data = ConnectionListResponse { connections };
+                    Ok(Json(ApiResponse::success(response_data)))
                 }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                let api_response = ApiResponse::error(&format!("Failed to list connections: {}", error_msg), 500);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                }
             }
         }
         Err(e) => {
@@ -138,26 +135,15 @@ pub async fn list_connections(
 pub async fn get_connection(
     State(_state): State<DatabaseControllerState>,
     Path(connection_id): Path<String>,
-) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.get_connection", connection_id);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<ConnectionResponse>() {
-                    Ok(connection) => Ok(Json(ApiResponse::success(connection))),
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
-                }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                if error_msg.contains("not found") {
-                    let api_response = ApiResponse::error("Connection not found", 404);
-                    Err((StatusCode::NOT_FOUND, Json(api_response)))
-                } else {
-                    let api_response = ApiResponse::error(&format!("Failed to get connection: {}", error_msg), 500);
+) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
+{
+    let bus = InfraBusClient::new();
+    match bus.request("sql_editor.get_connection", None, connection_id, None).await {
+        Ok(value) => {
+            match from_value::<ConnectionResponse>(value) {
+                Ok(connection) => Ok(Json(ApiResponse::success(connection))),
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
                     Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
                 }
             }
@@ -173,27 +159,20 @@ pub async fn get_connection(
 pub async fn update_connection(
     State(_state): State<DatabaseControllerState>,
     Json(update_request): Json<UpdateConnectionRequest>,
-) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.update_connection", update_request);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<ConnectionResponse>() {
-                    Ok(connection) => Ok(Json(ApiResponse::success(connection))),
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
-                }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                if error_msg.contains("not found") {
-                    let api_response = ApiResponse::error("Connection not found", 404);
-                    Err((StatusCode::NOT_FOUND, Json(api_response)))
-                } else {
-                    let api_response = ApiResponse::error(&format!("Failed to update connection: {}", error_msg), 400);
-                    Err((StatusCode::BAD_REQUEST, Json(api_response)))
+) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
+{
+    let bus = InfraBusClient::new();
+    let update_value = serde_json::to_value(update_request).map_err(|e| {
+        let api_response = ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
+    })?;
+    match bus.request("sql_editor.update_connection", None, update_value, None).await {
+        Ok(value) => {
+            match from_value::<ConnectionResponse>(value) {
+                Ok(connection) => Ok(Json(ApiResponse::success(connection))),
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
                 }
             }
         }
@@ -209,23 +188,9 @@ pub async fn delete_connection(
     State(_state): State<DatabaseControllerState>,
     Path(connection_id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.delete_connection", connection_id);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                Ok(Json(ApiResponse::success(())))
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                if error_msg.contains("not found") {
-                    let api_response = ApiResponse::error("Connection not found", 404);
-                    Err((StatusCode::NOT_FOUND, Json(api_response)))
-                } else {
-                    let api_response = ApiResponse::error(&format!("Failed to delete connection: {}", error_msg), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
-            }
-        }
+    let bus = InfraBusClient::new();
+    match bus.request("sql_editor.delete_connection", None, connection_id, None).await {
+        Ok(_) => Ok(Json(ApiResponse::success(()))),
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -237,26 +202,22 @@ pub async fn delete_connection(
 pub async fn test_connection(
     State(_state): State<DatabaseControllerState>,
     Json(test_request): Json<TestConnectionRequest>,
-) -> Result<Json<ApiResponse<TestConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.test_connection", test_request.connection_id);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<bool>() {
-                    Ok(success) => {
-                        let test_response = TestConnectionResponse { success };
-                        Ok(Json(ApiResponse::success(test_response)))
-                    }
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
+) -> Result<
+    Json<ApiResponse<TestConnectionResponse>>,
+    (StatusCode, Json<ApiResponse<serde_json::Value>>),
+> {
+    let bus = InfraBusClient::new();
+    match bus.request("sql_editor.test_connection", None, test_request.connection_id.clone(), None).await {
+        Ok(value) => {
+            match from_value::<bool>(value) {
+                Ok(success) => {
+                    let test_response = TestConnectionResponse { success };
+                    Ok(Json(ApiResponse::success(test_response)))
                 }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                let api_response = ApiResponse::error(&format!("Failed to test connection: {}", error_msg), 500);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                }
             }
         }
         Err(e) => {
@@ -270,26 +231,20 @@ pub async fn test_connection(
 pub async fn get_tables(
     State(_state): State<DatabaseControllerState>,
     Path(connection_id): Path<String>,
-) -> Result<Json<ApiResponse<TableListResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
-    let msg = BusMessage::ok("sql_editor.get_tables", connection_id);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<Vec<TableResponse>>() {
-                    Ok(tables) => {
-                        let response_data = TableListResponse { tables };
-                        Ok(Json(ApiResponse::success(response_data)))
-                    }
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
+) -> Result<Json<ApiResponse<TableListResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
+{
+    let bus = InfraBusClient::new();
+    match bus.request("sql_editor.get_tables", None, connection_id, None).await {
+        Ok(value) => {
+            match from_value::<Vec<TableResponse>>(value) {
+                Ok(tables) => {
+                    let response_data = TableListResponse { tables };
+                    Ok(Json(ApiResponse::success(response_data)))
                 }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                let api_response = ApiResponse::error(&format!("Failed to list tables: {}", error_msg), 500);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                }
             }
         }
         Err(e) => {
@@ -303,33 +258,34 @@ pub async fn get_tables(
 pub async fn get_table_columns(
     State(_state): State<DatabaseControllerState>,
     Path((connection_id, table_name)): Path<(String, String)>,
-) -> Result<Json<ApiResponse<ColumnListResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
+) -> Result<Json<ApiResponse<ColumnListResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
+{
     #[derive(serde::Serialize)]
     struct TableColumnsRequest {
         connection_id: String,
         table_name: String,
     }
-    
-    let request = TableColumnsRequest { connection_id, table_name };
-    let msg = BusMessage::ok("sql_editor.get_table_columns", request);
-    
-    match GLOBAL_MESSAGE_BUS.request(msg).await {
-        Ok(response) => {
-            if response.data.ok {
-                match response.unwrap_data::<Vec<ColumnResponse>>() {
-                    Ok(columns) => {
-                        let response_data = ColumnListResponse { columns };
-                        Ok(Json(ApiResponse::success(response_data)))
-                    }
-                    Err(e) => {
-                        let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                    }
+
+    let request = TableColumnsRequest {
+        connection_id,
+        table_name,
+    };
+    let bus = InfraBusClient::new();
+    let request_value = serde_json::to_value(request).map_err(|e| {
+        let api_response = ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
+    })?;
+    match bus.request("sql_editor.get_table_columns", None, request_value, None).await {
+        Ok(value) => {
+            match from_value::<Vec<ColumnResponse>>(value) {
+                Ok(columns) => {
+                    let response_data = ColumnListResponse { columns };
+                    Ok(Json(ApiResponse::success(response_data)))
                 }
-            } else {
-                let error_msg = response.data.error.unwrap_or_else(|| "Unknown error".to_string());
-                let api_response = ApiResponse::error(&format!("Failed to list columns: {}", error_msg), 500);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                Err(e) => {
+                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+                }
             }
         }
         Err(e) => {

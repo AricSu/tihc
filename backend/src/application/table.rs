@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-use crate::domain::table::{Table, TableId, Column, AddColumnRequest};
+use crate::domain::table::{AddColumnRequest, Column, Table, TableId};
 
 /// Response for table listing
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,19 +67,27 @@ impl ColumnOperationResponse {
 pub trait TableApplicationService: Send + Sync {
     /// Lists all tables in the database
     async fn list_tables(&self, database: Option<String>) -> anyhow::Result<TableListResponse>;
-    
+
     /// Gets detailed information about a specific table
     async fn get_table_details(&self, table_id: &TableId) -> anyhow::Result<TableDetailResponse>;
-    
+
     /// Adds a column to a table
-    async fn add_column(&self, table_id: &TableId, request: AddColumnRequest) -> anyhow::Result<ColumnOperationResponse>;
-    
+    async fn add_column(
+        &self,
+        table_id: &TableId,
+        request: AddColumnRequest,
+    ) -> anyhow::Result<ColumnOperationResponse>;
+
     /// Removes a column from a table
-    async fn remove_column(&self, table_id: &TableId, column_name: &str) -> anyhow::Result<ColumnOperationResponse>;
-    
+    async fn remove_column(
+        &self,
+        table_id: &TableId,
+        column_name: &str,
+    ) -> anyhow::Result<ColumnOperationResponse>;
+
     /// Creates a new table
     async fn create_table(&self, table: Table) -> anyhow::Result<TableDetailResponse>;
-    
+
     /// Drops a table
     async fn drop_table(&self, table_id: &TableId) -> anyhow::Result<ColumnOperationResponse>;
 }
@@ -102,39 +110,51 @@ impl TableApplicationServiceImpl {
         // Create a sample users table
         let users_table_id = TableId::new("users".to_string());
         let mut users_table = Table::new(users_table_id);
-        
+
         let id_column = Column::new("id".to_string(), crate::domain::table::ColumnType::Int)
             .primary_key()
             .auto_increment();
-        let name_column = Column::new("name".to_string(), crate::domain::table::ColumnType::Varchar(Some(255)))
-            .not_null();
-        let email_column = Column::new("email".to_string(), crate::domain::table::ColumnType::Varchar(Some(255)));
-        
+        let name_column = Column::new(
+            "name".to_string(),
+            crate::domain::table::ColumnType::Varchar(Some(255)),
+        )
+        .not_null();
+        let email_column = Column::new(
+            "email".to_string(),
+            crate::domain::table::ColumnType::Varchar(Some(255)),
+        );
+
         users_table = users_table.add_column(id_column).unwrap();
         users_table = users_table.add_column(name_column).unwrap();
         users_table = users_table.add_column(email_column).unwrap();
         users_table.engine = Some("InnoDB".to_string());
         users_table.charset = Some("utf8mb4".to_string());
-        
+
         tables.push(users_table);
 
         // Create a sample orders table
         let orders_table_id = TableId::new("orders".to_string());
         let mut orders_table = Table::new(orders_table_id);
-        
-        let order_id_column = Column::new("order_id".to_string(), crate::domain::table::ColumnType::Int)
-            .primary_key()
-            .auto_increment();
-        let user_id_column = Column::new("user_id".to_string(), crate::domain::table::ColumnType::Int)
-            .not_null();
-        let total_column = Column::new("total".to_string(), crate::domain::table::ColumnType::Decimal(Some((10, 2))));
-        
+
+        let order_id_column = Column::new(
+            "order_id".to_string(),
+            crate::domain::table::ColumnType::Int,
+        )
+        .primary_key()
+        .auto_increment();
+        let user_id_column =
+            Column::new("user_id".to_string(), crate::domain::table::ColumnType::Int).not_null();
+        let total_column = Column::new(
+            "total".to_string(),
+            crate::domain::table::ColumnType::Decimal(Some((10, 2))),
+        );
+
         orders_table = orders_table.add_column(order_id_column).unwrap();
         orders_table = orders_table.add_column(user_id_column).unwrap();
         orders_table = orders_table.add_column(total_column).unwrap();
         orders_table.engine = Some("InnoDB".to_string());
         orders_table.charset = Some("utf8mb4".to_string());
-        
+
         tables.push(orders_table);
 
         tables
@@ -165,13 +185,21 @@ impl TableApplicationService for TableApplicationServiceImpl {
     async fn get_table_details(&self, table_id: &TableId) -> anyhow::Result<TableDetailResponse> {
         match Self::find_table_by_id(table_id) {
             Some(table) => Ok(TableDetailResponse { table }),
-            None => Err(anyhow::anyhow!("Table '{}' not found", table_id.full_name())),
+            None => Err(anyhow::anyhow!(
+                "Table '{}' not found",
+                table_id.full_name()
+            )),
         }
     }
 
-    async fn add_column(&self, table_id: &TableId, request: AddColumnRequest) -> anyhow::Result<ColumnOperationResponse> {
+    async fn add_column(
+        &self,
+        table_id: &TableId,
+        request: AddColumnRequest,
+    ) -> anyhow::Result<ColumnOperationResponse> {
         // Validate the request
-        request.validate()
+        request
+            .validate()
             .map_err(|e| anyhow::anyhow!("Invalid column request: {}", e))?;
 
         // In a real implementation, this would interact with the database
@@ -187,33 +215,38 @@ impl TableApplicationService for TableApplicationServiceImpl {
                     Err(e) => Ok(ColumnOperationResponse::error(e)),
                 }
             }
-            None => Ok(ColumnOperationResponse::error(
-                format!("Table '{}' not found", table_id.full_name())
-            )),
+            None => Ok(ColumnOperationResponse::error(format!(
+                "Table '{}' not found",
+                table_id.full_name()
+            ))),
         }
     }
 
-    async fn remove_column(&self, table_id: &TableId, column_name: &str) -> anyhow::Result<ColumnOperationResponse> {
+    async fn remove_column(
+        &self,
+        table_id: &TableId,
+        column_name: &str,
+    ) -> anyhow::Result<ColumnOperationResponse> {
         // In a real implementation, this would interact with the database
         match Self::find_table_by_id(table_id) {
-            Some(mut table) => {
-                match table.remove_column(column_name) {
-                    Ok(removed_column) => Ok(ColumnOperationResponse::success(
-                        format!("Column '{}' deleted successfully", column_name),
-                        Some(removed_column),
-                    )),
-                    Err(e) => Ok(ColumnOperationResponse::error(e)),
-                }
-            }
-            None => Ok(ColumnOperationResponse::error(
-                format!("Table '{}' not found", table_id.full_name())
-            )),
+            Some(mut table) => match table.remove_column(column_name) {
+                Ok(removed_column) => Ok(ColumnOperationResponse::success(
+                    format!("Column '{}' deleted successfully", column_name),
+                    Some(removed_column),
+                )),
+                Err(e) => Ok(ColumnOperationResponse::error(e)),
+            },
+            None => Ok(ColumnOperationResponse::error(format!(
+                "Table '{}' not found",
+                table_id.full_name()
+            ))),
         }
     }
 
     async fn create_table(&self, table: Table) -> anyhow::Result<TableDetailResponse> {
         // Validate the table
-        table.validate()
+        table
+            .validate()
             .map_err(|e| anyhow::anyhow!("Invalid table: {}", e))?;
 
         // In a real implementation, this would create the table in the database
@@ -227,9 +260,10 @@ impl TableApplicationService for TableApplicationServiceImpl {
                 format!("Table '{}' dropped successfully", table_id.full_name()),
                 None,
             )),
-            None => Ok(ColumnOperationResponse::error(
-                format!("Table '{}' not found", table_id.full_name())
-            )),
+            None => Ok(ColumnOperationResponse::error(format!(
+                "Table '{}' not found",
+                table_id.full_name()
+            ))),
         }
     }
 }
@@ -248,7 +282,7 @@ mod tests {
     async fn test_list_tables() {
         let service = TableApplicationServiceImpl::new();
         let result = service.list_tables(None).await.unwrap();
-        
+
         assert!(!result.tables.is_empty());
         assert!(result.tables.iter().any(|t| t.id.name == "users"));
         assert!(result.tables.iter().any(|t| t.id.name == "orders"));
@@ -258,7 +292,7 @@ mod tests {
     async fn test_get_table_details() {
         let service = TableApplicationServiceImpl::new();
         let table_id = TableId::new("users".to_string());
-        
+
         let result = service.get_table_details(&table_id).await.unwrap();
         assert_eq!(result.table.id.name, "users");
         assert!(!result.table.columns.is_empty());
@@ -268,7 +302,7 @@ mod tests {
     async fn test_add_column() {
         let service = TableApplicationServiceImpl::new();
         let table_id = TableId::new("users".to_string());
-        
+
         let request = AddColumnRequest {
             column_name: "age".to_string(),
             column_type: "int".to_string(),
@@ -286,7 +320,7 @@ mod tests {
     async fn test_remove_column() {
         let service = TableApplicationServiceImpl::new();
         let table_id = TableId::new("users".to_string());
-        
+
         let result = service.remove_column(&table_id, "email").await.unwrap();
         assert_eq!(result.status, "success");
         assert!(result.column.is_some());
@@ -297,7 +331,7 @@ mod tests {
     async fn test_add_column_to_nonexistent_table() {
         let service = TableApplicationServiceImpl::new();
         let table_id = TableId::new("nonexistent".to_string());
-        
+
         let request = AddColumnRequest {
             column_name: "test".to_string(),
             column_type: "int".to_string(),

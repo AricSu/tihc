@@ -50,7 +50,9 @@ impl ColumnType {
             ColumnType::Varchar(None) => "varchar".to_string(),
             ColumnType::Int => "int".to_string(),
             ColumnType::BigInt => "bigint".to_string(),
-            ColumnType::Decimal(Some((precision, scale))) => format!("decimal({},{})", precision, scale),
+            ColumnType::Decimal(Some((precision, scale))) => {
+                format!("decimal({},{})", precision, scale)
+            }
             ColumnType::Decimal(None) => "decimal".to_string(),
             ColumnType::Text => "text".to_string(),
             ColumnType::DateTime => "datetime".to_string(),
@@ -126,7 +128,9 @@ impl Column {
             return Err("Primary key columns cannot be nullable".to_string());
         }
 
-        if self.is_auto_increment && !matches!(self.column_type, ColumnType::Int | ColumnType::BigInt) {
+        if self.is_auto_increment
+            && !matches!(self.column_type, ColumnType::Int | ColumnType::BigInt)
+        {
             return Err("Auto increment is only allowed for integer types".to_string());
         }
 
@@ -189,7 +193,7 @@ impl Table {
     /// Adds a column to the table
     pub fn add_column(mut self, column: Column) -> Result<Self, String> {
         column.validate()?;
-        
+
         // Check for duplicate column names
         if self.columns.iter().any(|c| c.name == column.name) {
             return Err(format!("Column '{}' already exists", column.name));
@@ -201,11 +205,12 @@ impl Table {
 
     /// Removes a column from the table
     pub fn remove_column(&mut self, column_name: &str) -> Result<Column, String> {
-        let index = self.columns
+        let index = self
+            .columns
             .iter()
             .position(|c| c.name == column_name)
             .ok_or_else(|| format!("Column '{}' not found", column_name))?;
-        
+
         let removed_column = self.columns.remove(index);
         Ok(removed_column)
     }
@@ -263,10 +268,7 @@ pub struct AddColumnRequest {
 
 impl AddColumnRequest {
     pub fn to_column(&self) -> Column {
-        let mut column = Column::from_string_type(
-            self.column_name.clone(),
-            &self.column_type
-        );
+        let mut column = Column::from_string_type(self.column_name.clone(), &self.column_type);
 
         if let Some(nullable) = self.nullable {
             column.nullable = nullable;
@@ -298,9 +300,15 @@ mod tests {
 
     #[test]
     fn test_column_type_from_string() {
-        assert_eq!(ColumnType::from_string("varchar"), ColumnType::Varchar(None));
+        assert_eq!(
+            ColumnType::from_string("varchar"),
+            ColumnType::Varchar(None)
+        );
         assert_eq!(ColumnType::from_string("int"), ColumnType::Int);
-        assert_eq!(ColumnType::from_string("custom_type"), ColumnType::Custom("custom_type".to_string()));
+        assert_eq!(
+            ColumnType::from_string("custom_type"),
+            ColumnType::Custom("custom_type".to_string())
+        );
     }
 
     #[test]
@@ -308,7 +316,7 @@ mod tests {
         let column = Column::new("id".to_string(), ColumnType::Int)
             .primary_key()
             .auto_increment();
-        
+
         assert_eq!(column.name, "id");
         assert_eq!(column.column_type, ColumnType::Int);
         assert!(column.is_primary_key);
@@ -320,13 +328,13 @@ mod tests {
     fn test_table_creation() {
         let table_id = TableId::new("users".to_string());
         let mut table = Table::new(table_id);
-        
+
         let id_column = Column::new("id".to_string(), ColumnType::Int)
             .primary_key()
             .auto_increment();
-        
+
         table = table.add_column(id_column).unwrap();
-        
+
         assert_eq!(table.id.name, "users");
         assert_eq!(table.columns.len(), 1);
         assert_eq!(table.columns[0].name, "id");
@@ -351,10 +359,10 @@ mod tests {
     fn test_table_validation() {
         let table_id = TableId::new("".to_string());
         let table = Table::new(table_id);
-        
+
         // Empty table name should fail
         assert!(table.validate().is_err());
-        
+
         // Table without columns should fail
         let table_id = TableId::new("test".to_string());
         let table = Table::new(table_id);

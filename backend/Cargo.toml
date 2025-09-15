@@ -29,10 +29,13 @@ mime_guess = "2.0"
 rmcp = { version = "0.6", features = [
     "server",
     "transport-streamable-http-server",
+    "schemars"
 ] }
 async-trait = "0.1"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 thiserror = "2.0"
+serde-aux = "4.7.0"
+schemars = "1.0.4"
 
 [dev-dependencies]
 

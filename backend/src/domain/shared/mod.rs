@@ -10,7 +10,7 @@ impl DatabaseId {
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
-    
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -24,7 +24,7 @@ impl QueryId {
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
-    
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -35,16 +35,16 @@ impl QueryId {
 pub enum DomainError {
     #[error("资源未找到: {resource}")]
     NotFound { resource: String },
-    
+
     #[error("验证失败: {message}")]
     ValidationError { message: String },
-    
+
     #[error("业务规则违反: {rule}")]
     BusinessRuleViolation { rule: String },
-    
+
     #[error("外部依赖错误: {service}")]
     ExternalServiceError { service: String },
-    
+
     #[error("内部错误: {message}")]
     InternalError { message: String },
 }
