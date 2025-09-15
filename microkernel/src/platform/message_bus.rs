@@ -108,6 +108,7 @@ impl MessageBusImpl {
         }
     }
 
+    
     /// Broadcast 模式（并发执行，忽略返回值，但记录错误）
     pub async fn send(&self, msg: BusMessage) -> Result<()> {
         if let Some(subs) = self.broadcast.get(&msg.topic.main) {
