@@ -1,253 +1,133 @@
+pub mod clinic_api;
+pub mod data_source;
+
+// 重新导出统一抽象
+pub use data_source::{
+    DataSourceConfig, QueryResult, ConnectionTestResult, 
+    DataSource, HttpDataSource, create_data_source, DataProcessor
+};
+
+// 保留简化的类型别名，用于向后兼容
+pub type MetricsData = QueryResult;
+pub type LogData = QueryResult;
+pub type TableData = QueryResult;
+pub type ConfigData = QueryResult;
+pub type ProcessData = QueryResult;
+pub type K8sData = QueryResult;
+pub type SubsystemData = QueryResult;
+
+// ================== 统一数据管理器 ==================
 
 use async_trait::async_trait;
-use reqwest::{Client, header::COOKIE};
 use std::collections::HashMap;
-use tracing::{error, info};
 
-#[derive(Debug, Clone)]
-pub enum DataSourceConfig {
-	Prometheus { base_url: String, cookie: String },
-	// 可扩展其他数据源配置
+/// 统一的数据管理器，基于新的 DataSource 架构
+pub struct UnifiedDataManager {
+    data_sources: HashMap<String, Box<dyn DataSource>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct MetricsData {
-	pub data: serde_json::Value,
+impl UnifiedDataManager {
+    pub fn new() -> Self {
+        Self {
+            data_sources: HashMap::new(),
+        }
+    }
+
+    /// 添加数据源
+    pub fn add_data_source(&mut self, name: String, config: DataSourceConfig) {
+        let data_source = create_data_source(config);
+        self.data_sources.insert(name, data_source);
+    }
+
+    /// 获取数据源
+    pub fn get_data_source(&self, name: &str) -> Option<&dyn DataSource> {
+        self.data_sources.get(name).map(|ds| ds.as_ref())
+    }
+
+    /// 测试所有数据源连接
+    pub async fn test_all_connections(&self) -> HashMap<String, ConnectionTestResult> {
+        let mut results = HashMap::new();
+        for (name, data_source) in &self.data_sources {
+            match data_source.test_connection().await {
+                Ok(result) => {
+                    results.insert(name.clone(), result);
+                }
+                Err(e) => {
+                    results.insert(name.clone(), ConnectionTestResult {
+                        success: false,
+                        message: format!("Connection test failed: {}", e),
+                    });
+                }
+            }
+        }
+        results
+    }
+
+    /// 统一查询接口
+    pub async fn query(
+        &self, 
+        source_name: &str, 
+        query: &str, 
+        params: Option<HashMap<&str, String>>
+    ) -> Result<QueryResult, String> {
+        match self.data_sources.get(source_name) {
+            Some(data_source) => data_source.query(query, params).await,
+            None => Err(format!("Data source '{}' not found", source_name)),
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
-pub struct LogData {
-	pub logs: Vec<String>,
+impl Default for UnifiedDataManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
-#[derive(Debug, Clone)]
-pub struct TableData {
-	pub table: serde_json::Value,
-}
+// ================== 向后兼容的 DataManager Trait ==================
 
-#[derive(Debug, Clone)]
-pub struct ConfigData {
-	pub config: serde_json::Value,
-}
-
-#[derive(Debug, Clone)]
-pub struct ProcessData {
-	pub args: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct K8sData {
-	pub resource: serde_json::Value,
-}
-
-#[derive(Debug, Clone)]
-pub struct SubsystemData {
-	pub status: serde_json::Value,
-}
-
-#[derive(Debug, Clone)]
-pub struct ConnectionTestResult {
-	pub success: bool,
-	pub message: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum QueryResult {
-	Metrics { data: serde_json::Value },
-	Raw { raw_data: String },
-}
-
-// ================== Adapter Trait ==================
-
+/// @deprecated 使用 UnifiedDataManager 和 DataSource trait 替代
 #[async_trait]
-pub trait MetricsAdapter: Send + Sync {
-	async fn fetch_data(&self, query: &str, params: Option<HashMap<&str, String>>) -> Result<QueryResult, String>;
-	async fn fetch_data_range(&self, query: &str, params: Option<HashMap<&str, String>>) -> Result<QueryResult, String>;
-	async fn test_connection(&self) -> Result<ConnectionTestResult, String>;
-	async fn execute_query(&self, query: &str) -> Result<QueryResult, String>;
-}
-
-// ================== Prometheus Adapter ==================
-
-pub struct PrometheusSource {
-	pub base_url: String,
-	pub client: Client,
-	pub cookie: String,
-}
-
-impl PrometheusSource {
-	pub fn new(config: DataSourceConfig) -> Self {
-		let DataSourceConfig::Prometheus { base_url, cookie } = config;
-		Self {
-			base_url,
-			client: reqwest::Client::new(),
-			cookie,
-		}
-	}
-}
-
-#[async_trait]
-impl MetricsAdapter for PrometheusSource {
-	async fn fetch_data(
-		&self,
-		query: &str,
-		params: Option<HashMap<&str, String>>,
-	) -> Result<QueryResult, String> {
-		let url = format!("{}/api/datasources/proxy/1/api/v1/query", self.base_url);
-
-		info!("Sending instant query to Prometheus: URL={}, query={}, params={:?}", url, query, params);
-
-		let mut query_params = vec![("query", query.to_string())];
-		if let Some(params) = params {
-			for (key, value) in params {
-				query_params.push((key, value));
-			}
-		}
-
-		let response = self
-			.client
-			.get(&url)
-			.query(&query_params)
-			.header(COOKIE, format!("grafana_session={}", self.cookie))
-			.send()
-			.await
-			.map_err(|e| format!("Request error: {}", e))?;
-
-		let body = response
-			.text()
-			.await
-			.map_err(|e| format!("Failed to parse response: {}", e))?;
-
-		info!("Prometheus response body: {}", body);
-
-		match serde_json::from_str::<serde_json::Value>(&body) {
-			Ok(json) => {
-				if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
-					if status == "success" {
-						if let Some(data) = json.get("data") {
-							if let Some(result) = data.get("result") {
-								info!("Parsed Prometheus metrics successfully");
-								return Ok(QueryResult::Metrics {
-									data: result.clone(),
-								});
-							}
-						}
-					}
-				}
-				Ok(QueryResult::Raw { raw_data: body })
-			}
-			Err(e) => {
-				error!("Failed to parse JSON response: {}", e);
-				Ok(QueryResult::Raw { raw_data: body })
-			}
-		}
-	}
-
-	async fn fetch_data_range(
-		&self,
-		query: &str,
-		params: Option<HashMap<&str, String>>,
-	) -> Result<QueryResult, String> {
-		let url = format!("{}/api/datasources/proxy/1/api/v1/query_range", self.base_url);
-
-		info!("Sending range query to Prometheus: URL={}, query={}, params={:?}", url, query, params);
-
-		let mut query_params = vec![("query", query.to_string())];
-		if let Some(params) = params {
-			for (key, value) in params {
-				query_params.push((key, value));
-			}
-		}
-
-		let response = self
-			.client
-			.get(&url)
-			.query(&query_params)
-			.header(COOKIE, format!("grafana_session={}", self.cookie))
-			.send()
-			.await
-			.map_err(|e| format!("Request error: {}", e))?;
-
-		let body = response
-			.text()
-			.await
-			.map_err(|e| format!("Failed to parse response: {}", e))?;
-
-		info!("Prometheus range response body: {}", body);
-
-		match serde_json::from_str::<serde_json::Value>(&body) {
-			Ok(json) => {
-				if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
-					if status == "success" {
-						if let Some(data) = json.get("data") {
-							if let Some(result) = data.get("result") {
-								info!("Parsed Prometheus range metrics successfully");
-								return Ok(QueryResult::Metrics {
-									data: result.clone(),
-								});
-							}
-						}
-					}
-				}
-				Ok(QueryResult::Raw { raw_data: body })
-			}
-			Err(e) => {
-				error!("Failed to parse JSON response: {}", e);
-				Ok(QueryResult::Raw { raw_data: body })
-			}
-		}
-	}
-
-	async fn test_connection(&self) -> Result<ConnectionTestResult, String> {
-		info!("Testing Prometheus connection: base_url={}", self.base_url);
-
-		let health_url = format!("{}/api/datasources/proxy/1/api/v1/status/config", self.base_url);
-
-		match self
-			.client
-			.get(&health_url)
-			.header(COOKIE, format!("grafana_session={}", self.cookie))
-			.send()
-			.await
-		{
-			Ok(response) => {
-				if response.status().is_success() {
-					info!("Prometheus connection test successful");
-					Ok(ConnectionTestResult {
-						success: true,
-						message: "Prometheus connection successful".to_string(),
-					})
-				} else {
-					error!("Prometheus connection test failed with status: {}", response.status());
-					Ok(ConnectionTestResult {
-						success: false,
-						message: format!("Connection failed with status: {}", response.status()),
-					})
-				}
-			}
-			Err(e) => {
-				error!("Prometheus connection test failed: {}", e);
-				Ok(ConnectionTestResult {
-					success: false,
-					message: format!("Connection failed: {}", e),
-				})
-			}
-		}
-	}
-
-	async fn execute_query(&self, query: &str) -> Result<QueryResult, String> {
-		self.fetch_data(query, None).await
-	}
-}
-
-// ================== DataManager Trait ==================
-
 pub trait DataManager: Send + Sync {
-	fn get_metrics(&self, query: &str) -> Result<MetricsData, String>;
-	fn get_logs(&self, filter: &str) -> Result<LogData, String>;
-	fn get_system_table(&self, query: &str) -> Result<TableData, String>;
-	fn get_config(&self, target: &str) -> Result<ConfigData, String>;
-	fn get_process_args(&self, target: &str) -> Result<ProcessData, String>;
-	fn get_k8s_resource(&self, query: &str) -> Result<K8sData, String>;
-	fn get_k8s_subsystem(&self, query: &str) -> Result<SubsystemData, String>;
+    async fn get_metrics(&self, query: &str) -> Result<QueryResult, String>;
+    async fn get_logs(&self, filter: &str) -> Result<QueryResult, String>;
+    async fn get_system_table(&self, query: &str) -> Result<QueryResult, String>;
+    async fn get_config(&self, target: &str) -> Result<QueryResult, String>;
+    async fn get_process_args(&self, target: &str) -> Result<QueryResult, String>;
+    async fn get_k8s_resource(&self, query: &str) -> Result<QueryResult, String>;
+    async fn get_k8s_subsystem(&self, query: &str) -> Result<QueryResult, String>;
+}
+
+/// 为 UnifiedDataManager 提供向后兼容的 DataManager 实现
+#[async_trait]
+impl DataManager for UnifiedDataManager {
+    async fn get_metrics(&self, query: &str) -> Result<QueryResult, String> {
+        // 默认使用 prometheus 数据源
+        self.query("prometheus", query, None).await
+    }
+
+    async fn get_logs(&self, filter: &str) -> Result<QueryResult, String> {
+        // 可以扩展支持 logs 数据源
+        self.query("logs", filter, None).await
+    }
+
+    async fn get_system_table(&self, query: &str) -> Result<QueryResult, String> {
+        // 使用 clinic 数据源查询系统表
+        self.query("clinic", query, None).await
+    }
+
+    async fn get_config(&self, target: &str) -> Result<QueryResult, String> {
+        self.query("config", target, None).await
+    }
+
+    async fn get_process_args(&self, target: &str) -> Result<QueryResult, String> {
+        self.query("process", target, None).await
+    }
+
+    async fn get_k8s_resource(&self, query: &str) -> Result<QueryResult, String> {
+        self.query("k8s", query, None).await
+    }
+
+    async fn get_k8s_subsystem(&self, query: &str) -> Result<QueryResult, String> {
+        self.query("k8s_subsystem", query, None).await
+    }
 }
