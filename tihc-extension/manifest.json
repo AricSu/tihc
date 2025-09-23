@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "TiHC",
+  "version": "1.0",
+  "description": "获取 Clinic 和 Grafana 登录信息",
+  "permissions": [
+    "cookies",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://clinic.pingcap.com/*",
+    "https://clinic.pingcap.com.cn/*",
+    "https://*/login*",
+    "http://*/login*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://clinic.pingcap.com/*",
+        "https://clinic.pingcap.com.cn/*",
+        "https://tidbcloud.com/*",
+        "https://*.tidbcloud.com/*",
+        "https://*.pingcap.com/*"
+      ],
+      "js": ["service-discovery.js", "api-client.js", "content.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["service-discovery.js", "api-client.js", "content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 pub mod controllers;
 pub mod database_controllers;
 pub mod ddl_controllers;
+pub mod extension_controllers;
 pub mod extractors;
 pub mod health_controllers;
 pub mod middleware;
@@ -17,6 +18,7 @@ pub mod table_controllers;
 
 // 重新导出HTTP组件
 pub use controllers::*;
+pub use extension_controllers::*;
 pub use extractors::*;
 pub use middleware::*;
 pub use responses::*;

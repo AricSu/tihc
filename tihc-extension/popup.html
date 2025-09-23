@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 400px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    .primary-btn {
+      background-color: #007bff;
+      color: white;
+    }
+    
+    .primary-btn:hover {
+      background-color: #0056b3;
+    }
+    
+    .secondary-btn {
+      background-color: #6c757d;
+      color: white;
+    }
+    
+    .secondary-btn:hover {
+      background-color: #545b62;
+    }
+    
+    .info-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      background-color: #f8f9fa;
+    }
+    
+    .info-item {
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: white;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .info-label {
+      font-weight: bold;
+      color: #495057;
+      margin-bottom: 5px;
+    }
+    
+    .info-value {
+      font-family: monospace;
+      font-size: 12px;
+      background-color: #f1f3f4;
+      padding: 5px;
+      border-radius: 3px;
+      word-break: break-all;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #6c757d;
+      padding: 20px;
+      font-style: italic;
+    }
+    
+    .status {
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      text-align: center;
+      font-size: 14px;
+    }
+    
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .status.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3>TiHC Helper</h3>
+    <p style="font-size: 12px; color: #666; margin: 5px 0;">
+      自动检测 Clinic 和 Grafana 登录信息
+      <span id="auto-refresh-indicator" style="color: #28a745;">● 自动刷新中</span>
+    </p>
+  </div>
+  
+  <div class="buttons">
+    <button id="refresh" class="secondary-btn">刷新显示</button>
+    <button id="export" class="secondary-btn">导出 JSON</button>
+  </div>
+  
+  <div id="status" class="status" style="display: none;"></div>
+  
+  <div class="info-container">
+    <div id="token-info">
+      <div class="empty-state">
+        正在自动检测当前页面的登录信息...<br>
+        <small style="color: #999;">支持 Clinic 和 Grafana 页面</small>
+      </div>
+    </div>
+  </div>
+  
+  <script src="popup-fixed.js"></script>
+</body>
+</html>

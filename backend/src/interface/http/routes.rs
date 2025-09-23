@@ -16,6 +16,7 @@ use crate::application::table::{TableApplicationService, TableApplicationService
 use crate::application::DatabaseApplicationService;
 use crate::interface::http::database_controllers::{DatabaseController, DatabaseControllerState};
 use crate::interface::http::ddl_controllers::{DDLPrecheckController, DDLPrecheckControllerState};
+use crate::interface::http::extension_controllers::{ExtensionAppState, create_extension_routes};
 use crate::interface::http::health_controllers::HealthController;
 use crate::interface::http::notifications_controllers::{
     NotificationsAppState, NotificationsController,
@@ -53,6 +54,9 @@ pub fn create_api_routes() -> Router {
     let table_state = TableAppState::new(table_service);
     let database_state = DatabaseControllerState::new();
     let sql_editor_state = SqlEditorControllerState::new(sql_editor_service);
+    
+    // 创建扩展应用状态
+    let extension_state = ExtensionAppState::new();
 
     // 组合所有路由
     Router::new()
@@ -64,4 +68,5 @@ pub fn create_api_routes() -> Router {
         .merge(TableController::routes().with_state(table_state))
         .merge(DatabaseController::routes().with_state(database_state))
         .merge(SqlEditorController::routes().with_state(sql_editor_state))
+        .nest("/api", create_extension_routes().with_state(extension_state))
 }
