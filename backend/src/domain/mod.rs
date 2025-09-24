@@ -4,6 +4,7 @@
 pub mod database_connection;
 pub mod ddl_precheck;
 pub mod editor;
+pub mod extension;
 pub mod mcp;
 pub mod notifications;
 pub mod settings;
@@ -15,6 +16,7 @@ pub mod table;
 pub use database_connection::*;
 pub use ddl_precheck::*;
 pub use editor::*;
+pub use extension::*;
 pub use mcp::*;
 pub use notifications::*;
 pub use settings::*;

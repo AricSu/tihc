@@ -3,7 +3,7 @@
       <n-space vertical>
         <!-- 输入区域 -->
         <n-card title="输入配置" size="small" class="section-card">
-          <!-- 单行输入：时间范围、时区、扩展状态和操作按钮 -->
+          <!-- 单行输入：时间范围、时区和操作按钮 -->
           <n-space align="center" justify="space-between">
             <n-date-picker 
               v-model:value="form.timeRange" 
@@ -23,26 +23,20 @@
               style="width: 180px;"
             />
             
-            <div class="config-status-inline">
-              <div class="status-indicator">
-                <div class="status-dot" :class="statusClass"></div>
-                <span class="status-text">{{ statusText }}</span>
-              </div>
-              <div v-if="hasExtensionData" class="config-tags">
-                <n-tag v-if="grafanaConfig" type="success" size="small">Grafana</n-tag>
-                <n-tag v-if="clinicConfig" type="success" size="small">TiDB Cloud</n-tag>
-              </div>
+            <div class="extension-status">
+              <n-tag :type="extensionStatusType" size="small">
+                {{ extensionStatusText }}
+              </n-tag>
+              <n-button 
+                size="small" 
+                text 
+                @click="$router.push('/extension-config')"
+              >
+                配置扩展
+              </n-button>
             </div>
             
             <n-space>
-              <n-button v-if="hasExtensionData" size="small" @click="refreshConfig" :loading="refreshing">
-                刷新
-              </n-button>
-              
-              <n-button size="small" @click="showGuideDrawer = true" text type="primary">
-                帮助
-              </n-button>
-              
               <n-button 
                 type="primary" 
                 @click="handleSubmit" 
@@ -90,21 +84,6 @@
           </n-space>
         </n-card>
       </n-space>
-
-    <!-- 配置帮助抽屉 -->
-    <n-drawer v-model:show="showGuideDrawer" :width="400" placement="right">
-      <n-drawer-content title="配置帮助" closable>
-        <div class="help-content">
-          <h4>如何配置扩展？</h4>
-          <ol>
-            <li>下载并安装 TiHC 扩展</li>
-            <li>访问 Grafana 或 TiDB Cloud</li>
-            <li>扩展会自动收集配置信息</li>
-            <li>返回此页面即可看到配置状态</li>
-          </ol>
-        </div>
-      </n-drawer-content>
-    </n-drawer>
   </n-config-provider>
 </template>
 
@@ -118,21 +97,19 @@ import {
   NSelect,
   NButton,
   NTag,
-  NIcon,
-  NDrawer,
-  NDrawerContent,
   NDataTable,
   NPagination,
   NSpin,
   NPopover
 } from 'naive-ui'
 import { extensionData, extensionApiHandler } from '@/api/extension'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
+
+const router = useRouter()
 
 // 响应式状态
 const loading = ref(false)
-const refreshing = ref(false)
-const showGuideDrawer = ref(false)
 const reportsLoading = ref(false)
 const generatedReports = ref([])
 const currentPage = ref(1)
@@ -151,6 +128,42 @@ const timezones = Intl.supportedValuesOf('timeZone').map(tz => ({
   label: tz, 
   value: tz 
 }))
+
+// 简化的扩展状态
+const extensionStatusType = computed(() => {
+  switch (extensionData.connectionStatus) {
+    case 'connected': return 'success'
+    case 'waiting': return 'warning'
+    default: return 'error'
+  }
+})
+
+const extensionStatusText = computed(() => {
+  switch (extensionData.connectionStatus) {
+    case 'connected': return '扩展已连接'
+    case 'waiting': return '等待连接'
+    default: return '扩展未连接'
+  }
+})
+
+const hasValidConfig = computed(() => {
+  if (extensionData.connectionStatus !== 'connected') return false
+  
+  const tokens = extensionData.tokens || {}
+  for (const domainData of Object.values(tokens)) {
+    if (domainData.grafana || domainData.clinic) {
+      return true
+    }
+  }
+  return false
+})
+
+const canGenerate = computed(() => {
+  return form.value.timeRange && 
+         form.value.timeRange.length === 2 && 
+         form.value.timezone && 
+         hasValidConfig.value
+})
 
 // 表格列定义
 const columns = [
@@ -246,60 +259,6 @@ const columns = [
   }
 ]
 
-// 计算属性
-const hasExtensionData = computed(() => {
-  return extensionData.connectionStatus === 'connected' && 
-         Object.keys(extensionData.tokens).length > 0
-})
-
-const statusClass = computed(() => {
-  const status = extensionData.connectionStatus
-  return {
-    'connected': status === 'connected',
-    'disconnected': status === 'disconnected' || status === 'error',
-    'waiting': status === 'waiting'
-  }
-})
-
-const statusText = computed(() => {
-  switch (extensionData.connectionStatus) {
-    case 'connected': return '扩展已连接'
-    case 'waiting': return '等待连接...'
-    case 'disconnected': return '扩展未连接'
-    case 'error': return '连接错误'
-    default: return '未知状态'
-  }
-})
-
-const grafanaConfig = computed(() => {
-  if (!hasExtensionData.value) return null
-  
-  for (const [domain, domainData] of Object.entries(extensionData.tokens)) {
-    if (domainData.grafana) {
-      return { domain, data: domainData.grafana }
-    }
-  }
-  return null
-})
-
-const clinicConfig = computed(() => {
-  if (!hasExtensionData.value) return null
-  
-  for (const [domain, domainData] of Object.entries(extensionData.tokens)) {
-    if (domainData.clinic) {
-      return { domain, data: domainData.clinic }
-    }
-  }
-  return null
-})
-
-const canGenerate = computed(() => {
-  return form.value.timeRange && 
-         form.value.timeRange.length === 2 && 
-         form.value.timezone && 
-         (grafanaConfig.value || clinicConfig.value)
-})
-
 // 方法
 function disableFutureDates(date) {
   return date.getTime() > Date.now()
@@ -317,22 +276,9 @@ function resetForm() {
   window.$message?.info('配置已重置')
 }
 
-async function refreshConfig() {
-  refreshing.value = true
-  try {
-    await extensionApiHandler.manualSync()
-    window.$message?.success('配置已刷新')
-  } catch (error) {
-    console.error('刷新配置失败:', error)
-    window.$message?.error('刷新配置失败')
-  } finally {
-    refreshing.value = false
-  }
-}
-
 async function handleSubmit() {
   if (!canGenerate.value) {
-    window.$message?.error('请完善配置信息')
+    window.$message?.error('请完善配置信息或配置扩展')
     return
   }
 
@@ -343,22 +289,25 @@ async function handleSubmit() {
       timezone: form.value.timezone
     }
 
-    // 添加配置信息
-    if (grafanaConfig.value) {
-      const protocol = grafanaConfig.value.domain.includes('localhost') ? 'http' : 'https'
-      payload.grafana_url = `${protocol}://${grafanaConfig.value.domain}`
+    // 获取扩展配置
+    const tokens = extensionData.tokens || {}
+    for (const [domain, domainData] of Object.entries(tokens)) {
+      if (domainData.grafana) {
+        const protocol = domain.includes('localhost') ? 'http' : 'https'
+        payload.grafana_url = `${protocol}://${domain}`
+        
+        const cookies = []
+        const data = domainData.grafana
+        if (data.session_id) cookies.push(`grafana_session=${data.session_id}`)
+        if (data.csrf_token) cookies.push(`grafana_session_expiry=${data.csrf_token}`)
+        if (data.auth_token) cookies.push(`grafana_token=${data.auth_token}`)
+        
+        payload.grafana_cookie = cookies.join('; ')
+      }
       
-      const cookies = []
-      const data = grafanaConfig.value.data
-      if (data.session_id) cookies.push(`grafana_session=${data.session_id}`)
-      if (data.csrf_token) cookies.push(`grafana_session_expiry=${data.csrf_token}`)
-      if (data.auth_token) cookies.push(`grafana_token=${data.auth_token}`)
-      
-      payload.grafana_cookie = cookies.join('; ')
-    }
-
-    if (clinicConfig.value) {
-      payload.clinic_config = clinicConfig.value.data
+      if (domainData.clinic) {
+        payload.clinic_config = domainData.clinic
+      }
     }
 
     await axios.post('/api/report/generate', payload)
@@ -429,49 +378,14 @@ onMounted(() => {
   padding: 20px;
 }
 
-.config-status-inline {
+.extension-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 8px 12px;
   background: #f7fafc;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.status-dot.connected {
-  background: #48bb78;
-}
-
-.status-dot.waiting {
-  background: #ed8936;
-}
-
-.status-dot.disconnected {
-  background: #f56565;
-}
-
-.status-text {
-  font-size: 13px;
-  color: #4a5568;
-  white-space: nowrap;
-}
-
-.config-tags {
-  display: flex;
-  gap: 4px;
 }
 
 @media (max-width: 768px) {

@@ -1,317 +1,321 @@
-// 调试日志函数
-function debugLog(message, data = null) {
-  console.log(`[TiHC Helper Background] ${message}`, data || '');
-}
+// TiHC 扩展 background script v1.1
+// 支持跨域cookie采集，无需打开目标页面
+console.log('[TiHC Background] Service Worker 启动 v1.1');
+
+// 扩展状态
+let extensionState = {
+  isActive: true,
+  lastCollectionTime: null,
+  collectionCount: 0,
+  collectionDomains: {}
+};
+
+// 扩展安装时
+chrome.runtime.onInstalled.addListener(function(details) {
+  console.log('[TiHC Background] 扩展安装/更新:', details.reason);
+  
+  // 初始化状态
+  chrome.storage.local.set({
+    extensionState: extensionState
+  }, function() {
+    console.log('[TiHC Background] 初始状态已设置');
+  });
+});
 
 // 监听消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  debugLog('收到消息', { type: message.type, sender: sender.tab?.url });
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  console.log('[TiHC Background] 收到消息:', message.type);
   
-  if (message.type === 'setToken') {
-    handleTokenMessage(message, sender);
-  } else if (message.type === 'trigger_collection') {
-    handleTriggerCollection(message, sender);
-  }
-  
-  // 保持连接活跃
-  sendResponse({ success: true });
-  return true;
-});
-
-// 处理 token 消息
-async function handleTokenMessage(message, sender) {
-  try {
-    const { domain, service, data } = message;
-    
-    debugLog('处理 Token 消息', { domain, service, dataKeys: Object.keys(data || {}) });
-    
-    // 获取现有的 tokens
-    const result = await chrome.storage.local.get('tokens');
-    const tokens = result.tokens || {};
-    
-    // 确保域名对象存在
-    if (!tokens[domain]) {
-      tokens[domain] = {};
-    }
-    
-    // 存储服务相关数据
-    tokens[domain][service] = {
-      ...data,
-      lastUpdated: Math.floor(Date.now() / 1000),
-      tabId: sender.tab ? sender.tab.id : null,
-      tabUrl: sender.tab ? sender.tab.url : null
-    };
-    
-    // 保存到 storage
-    await chrome.storage.local.set({ tokens });
-    
-    debugLog('Token 已保存', {
-      domain,
-      service,
-      timestamp: data.timestamp,
-      totalDomains: Object.keys(tokens).length
-    });
-
-    // 🔗 发送数据到前端 API
-    await sendToFrontendAPI(domain, service, tokens[domain][service]);
-    
-    // 发送通知给其他部分（如果需要）
-    chrome.runtime.sendMessage({
-      type: 'tokenUpdated',
-      domain,
-      service,
-      data
-    }).catch(() => {
-      // 忽略没有监听者的错误
-    });
-    
-  } catch (error) {
-    debugLog('保存 Token 失败', error);
-  }
-}
-
-// 发送数据到前端 API
-async function sendToFrontendAPI(domain, service, tokenData) {
-  try {
-    // 注入 API 客户端并发送数据
-    chrome.scripting.executeScript({
-      target: { tabId: chrome.tabs.TAB_ID_NONE },
-      func: async (domain, service, tokenData) => {
-        if (window.tiHCApiClient) {
-          const result = await window.tiHCApiClient.updateTokens(domain, service, tokenData);
-          console.log('[TiHC Extension] API 发送结果:', result);
-        }
-      },
-      args: [domain, service, tokenData]
-    }).catch(() => {
-      // 如果直接注入失败，尝试使用 fetch
-      sendDirectApiRequest(domain, service, tokenData);
-    });
-  } catch (error) {
-    debugLog('发送到前端 API 失败', error);
-  }
-}
-
-// 直接发送 API 请求
-async function sendDirectApiRequest(domain, service, tokenData) {
-  try {
-    const response = await fetch('http://localhost:5173/api/extension/tokens', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Source': 'tihc-extension'
-      },
-      body: JSON.stringify({
-        domain,
-        service,
-        data: tokenData,
-        timestamp: Date.now()
-      })
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      debugLog('前端 API 响应成功', result);
-    } else {
-      debugLog('前端 API 响应失败', response.status);
-    }
-  } catch (error) {
-    debugLog('直接 API 请求失败', error);
-  }
-}
-
-// 扩展安装时的初始化
-chrome.runtime.onInstalled.addListener((details) => {
-  debugLog('扩展已安装/更新', details.reason);
-  
-  // 清理旧版本数据格式（如果需要）
-  if (details.reason === 'update') {
-    migrateOldData();
-  }
-  
-  // 设置右键菜单（可选）
-  createContextMenus();
-});
-
-// 创建右键菜单
-function createContextMenus() {
-  try {
-    chrome.contextMenus.create({
-      id: 'tihc-collect',
-      title: '收集登录信息',
-      contexts: ['page']
-    });
-    
-    chrome.contextMenus.create({
-      id: 'tihc-export',
-      title: '导出所有 Token',
-      contexts: ['page']
-    });
-    
-    debugLog('右键菜单已创建');
-  } catch (error) {
-    debugLog('创建右键菜单失败', error);
-  }
-}
-
-// 处理右键菜单点击
-chrome.contextMenus?.onClicked?.addListener((info, tab) => {
-  debugLog('右键菜单点击', info.menuItemId);
-  
-  if (info.menuItemId === 'tihc-collect') {
-    // 在当前页面执行收集脚本
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: () => {
-        if (typeof window.collectLoginInfo === 'function') {
-          window.collectLoginInfo();
-        }
-      }
-    }).catch(error => {
-      debugLog('执行收集脚本失败', error);
-    });
-  } else if (info.menuItemId === 'tihc-export') {
-    // 触发导出功能
-    exportAllTokens();
-  }
-});
-
-// 导出所有 tokens
-async function exportAllTokens() {
-  try {
-    const data = await chrome.storage.local.get('tokens');
-    if (data.tokens && Object.keys(data.tokens).length > 0) {
-      const json = JSON.stringify(data.tokens, null, 2);
+  switch (message.type) {
+    case 'COLLECT_TARGET_DATA':
+      // 采集指定URL的数据
+      collectTargetUrlData(message.targetUrl, message.pageType, message.backendUrl)
+        .then(result => sendResponse(result))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true; // 异步响应
       
-      // 创建下载
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      
-      chrome.downloads.download({
-        url: url,
-        filename: `tihc_tokens_${new Date().toISOString().slice(0, 10)}.json`
+    case 'GET_STATE':
+      // 获取扩展状态
+      chrome.storage.local.get(['extensionState'], function(result) {
+        const state = result.extensionState || extensionState;
+        sendResponse({ success: true, state: state });
       });
+      return true; // 异步响应
       
-      debugLog('导出完成');
-    }
-  } catch (error) {
-    debugLog('导出失败', error);
+    case 'UPDATE_STATE':
+      // 更新扩展状态
+      const newState = { ...extensionState, ...message.state };
+      extensionState = newState;
+      
+      chrome.storage.local.set({
+        extensionState: newState
+      }, function() {
+        console.log('[TiHC Background] 状态已更新:', newState);
+        sendResponse({ success: true });
+      });
+      return true; // 异步响应
+      
+    case 'COLLECTION_SUCCESS':
+      // 记录采集成功
+      updateCollectionStats(message.domain, message.pageType);
+      sendResponse({ success: true });
+      break;
+      
+    case 'COLLECTION_FAILED':
+      // 记录采集失败
+      console.log('[TiHC Background] 采集失败:', message);
+      sendResponse({ success: true });
+      break;
+      
+    default:
+      sendResponse({ success: false, error: '未知消息类型' });
   }
-}
+});
 
-// 迁移旧数据格式（兼容性处理）
-async function migrateOldData() {
+// 采集指定URL的数据（使用chrome.cookies API）
+async function collectTargetUrlData(targetUrl, pageType, backendUrl) {
   try {
-    const result = await chrome.storage.local.get('tokens');
-    const tokens = result.tokens || {};
+    console.log('[TiHC Background] 开始采集目标URL数据:', targetUrl);
     
-    let needsUpdate = false;
+    const urlObj = new URL(targetUrl);
+    const domain = urlObj.hostname;
     
-    // 检查是否是旧格式的数据
-    Object.keys(tokens).forEach(domain => {
-      if (tokens[domain].token && !tokens[domain].clinic && !tokens[domain].grafana) {
-        // 这是旧格式，需要迁移
-        const oldData = tokens[domain];
-        tokens[domain] = {
-          clinic: {
-            apikey: oldData.token,
-            timestamp: Math.floor(Date.now() / 1000),
-            migrated: true
-          }
-        };
-        needsUpdate = true;
-      }
-    });
+    // 使用chrome.cookies API获取目标域名的所有cookies
+    const cookies = await getCookiesForDomain(domain);
+    console.log('[TiHC Background] 获取到cookies:', cookies.length, '条');
     
-    if (needsUpdate) {
-      await chrome.storage.local.set({ tokens });
-      debugLog('数据格式已迁移');
-    }
+    // 尝试获取当前活跃标签页的存储数据（如果是同域）
+    let localStorage = {};
+    let sessionStorage = {};
     
-  } catch (error) {
-    debugLog('数据迁移失败', error);
-  }
-}
-
-// 监听标签页更新
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    debugLog('标签页更新完成', tab.url);
-    
-    // 检查是否是目标网站
-    const url = tab.url;
-    if (url.includes('clinic.pingcap.com') || 
-        url.includes('tidbcloud.com') || 
-        url.includes('grafana') ||
-        url.includes('pingcap.com')) {
-      
-      debugLog('检测到目标网站，准备收集信息', url);
-      
-      // 延迟执行收集，确保页面完全加载
-      setTimeout(() => {
-        chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          function: () => {
-            if (typeof window.collectLoginInfo === 'function') {
-              window.collectLoginInfo();
-            }
-          }
-        }).catch(error => {
-          debugLog('自动执行收集失败', error);
-        });
-      }, 2000);
-    }
-  }
-});
-
-// 处理扩展错误
-chrome.runtime.onSuspend.addListener(() => {
-  debugLog('扩展即将暂停');
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  debugLog('扩展启动');
-  // 启动后台定期收集任务
-  startPeriodicCollection();
-});
-
-// 定期收集任务
-function startPeriodicCollection() {
-  // 每10秒检查是否有目标页面并收集数据
-  setInterval(async () => {
     try {
-      const tabs = await chrome.tabs.query({});
-      
-      for (const tab of tabs) {
-        if (tab.url && 
-            (tab.url.includes('clinic.pingcap.com') || 
-             tab.url.includes('tidbcloud.com') || 
-             tab.url.includes('grafana') ||
-             tab.url.includes('pingcap.com'))) {
+      // 查询当前活跃的标签页
+      const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+      if (tabs.length > 0) {
+        const currentTab = tabs[0];
+        const currentUrl = new URL(currentTab.url);
+        
+        // 如果当前标签页和目标URL是同域，可以获取存储数据
+        if (currentUrl.hostname === domain) {
+          console.log('[TiHC Background] 目标域名与当前页面同域，尝试获取存储数据');
           
-          debugLog('后台定期收集', { tabId: tab.id, url: tab.url });
-          
-          // 在目标页面执行收集
-          chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            function: () => {
-              if (typeof window.collectLoginInfo === 'function') {
-                window.collectLoginInfo();
+          // 向content script请求存储数据
+          const storageData = await new Promise((resolve) => {
+            chrome.tabs.sendMessage(currentTab.id, {
+              type: 'GET_STORAGE_DATA'
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.log('[TiHC Background] 获取存储数据失败:', chrome.runtime.lastError.message);
+                resolve({});
+              } else {
+                resolve(response || {});
               }
-            }
-          }).catch(error => {
-            // 忽略页面未准备好的错误
-            if (!error.message.includes('Cannot access')) {
-              debugLog('后台收集失败', error);
-            }
+            });
           });
+          
+          localStorage = storageData.localStorage || {};
+          sessionStorage = storageData.sessionStorage || {};
+          console.log('[TiHC Background] 获取到存储数据:', Object.keys(localStorage).length, '个localStorage项');
         }
       }
     } catch (error) {
-      debugLog('后台定期收集任务失败', error);
+      console.log('[TiHC Background] 获取存储数据时出错:', error);
     }
-  }, 10000); // 10秒
+    
+    // 构建采集数据
+    const collectedData = {
+      url: targetUrl,
+      domain: domain,
+      timestamp: Date.now(),
+      task_id: `tihc-${Date.now()}`,
+      page_type: pageType || 'unknown',
+      user_agent: navigator.userAgent,
+      cookies: formatCookies(cookies),
+      local_storage: localStorage,
+      session_storage: sessionStorage,
+      collection_method: 'background_api' // 标记采集方式
+    };
+    
+    console.log('[TiHC Background] 采集到的数据:', collectedData);
+    
+    // 发送到后端
+    const sendResult = await sendDataToBackend(collectedData, backendUrl);
+    
+    if (sendResult.success) {
+      // 更新统计
+      updateCollectionStats(domain, pageType);
+      
+      return {
+        success: true,
+        message: `成功采集 ${domain} 的数据`,
+        data: {
+          domain: domain,
+          pageType: pageType,
+          cookieCount: cookies.length,
+          timestamp: collectedData.timestamp
+        }
+      };
+    } else {
+      throw new Error(sendResult.error);
+    }
+    
+  } catch (error) {
+    console.error('[TiHC Background] 采集失败:', error);
+    return { success: false, error: error.message };
+  }
 }
 
-// 扩展安装后立即启动定期收集
-startPeriodicCollection();
+// 获取指定域名的cookies
+async function getCookiesForDomain(domain) {
+  try {
+    // 获取所有相关的cookies
+    const allCookies = await chrome.cookies.getAll({
+      domain: domain
+    });
+    
+    // 也获取子域名的cookies
+    const subDomainCookies = await chrome.cookies.getAll({
+      domain: '.' + domain
+    });
+    
+    // 合并并去重
+    const cookieMap = new Map();
+    [...allCookies, ...subDomainCookies].forEach(cookie => {
+      const key = `${cookie.name}_${cookie.domain}_${cookie.path}`;
+      cookieMap.set(key, cookie);
+    });
+    
+    return Array.from(cookieMap.values());
+    
+  } catch (error) {
+    console.error('[TiHC Background] 获取cookies失败:', error);
+    return [];
+  }
+}
+
+// 格式化cookies为字符串
+function formatCookies(cookies) {
+  return cookies.map(cookie => {
+    return `${cookie.name}=${cookie.value}`;
+  }).join('; ');
+}
+
+// 发送数据到后端
+async function sendDataToBackend(data, backendUrl) {
+  try {
+    const requestUrl = `${backendUrl}/api/collect`;
+    console.log('[TiHC Background] 发送请求到:', requestUrl);
+    
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    console.log('[TiHC Background] 响应状态:', response.status, response.statusText);
+    
+    if (response.ok) {
+      const responseData = await response.json();
+      console.log('[TiHC Background] 数据发送成功:', responseData);
+      return { success: true, data: responseData };
+    } else {
+      const errorText = await response.text();
+      console.error('[TiHC Background] 数据发送失败:', response.status, errorText);
+      return { 
+        success: false, 
+        error: `HTTP ${response.status}: ${errorText}` 
+      };
+    }
+  } catch (error) {
+    console.error('[TiHC Background] 网络请求失败:', error);
+    return { 
+      success: false, 
+      error: `网络错误: ${error.message}` 
+    };
+  }
+}
+
+// 更新采集统计
+function updateCollectionStats(domain, pageType) {
+  chrome.storage.local.get(['extensionState'], function(result) {
+    const state = result.extensionState || extensionState;
+    
+    // 更新统计
+    state.lastCollectionTime = Date.now();
+    state.collectionCount = (state.collectionCount || 0) + 1;
+    state.collectionDomains = state.collectionDomains || {};
+    state.collectionDomains[domain] = {
+      count: (state.collectionDomains[domain]?.count || 0) + 1,
+      pageType: pageType,
+      lastTime: Date.now()
+    };
+    
+    // 保存状态
+    extensionState = state;
+    chrome.storage.local.set({
+      extensionState: state
+    }, function() {
+      console.log('[TiHC Background] 采集统计已更新:', {
+        domain,
+        pageType,
+        totalCount: state.collectionCount
+      });
+    });
+  });
+}
+
+// 获取扩展状态（供 popup 使用）
+function getExtensionState() {
+  return extensionState;
+}
+
+console.log('[TiHC Background] Service Worker 初始化完成');
+
+// 处理数据采集
+async function handleDataCollection(data) {
+  try {
+    if (!config.backend) {
+      throw new Error('后端地址未配置');
+    }
+    
+    console.log('[TiHC Extension] 处理数据采集:', data.domain);
+    
+    // 发送到后端
+    const response = await fetch(`${config.backend}/api/collect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+      console.log('[TiHC Extension] 数据发送成功');
+      return { success: true, message: '数据发送成功' };
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('[TiHC Extension] 数据发送失败:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 扩展启动时加载配置
+chrome.storage.local.get('config', (result) => {
+  if (result.config) {
+    config = result.config;
+    console.log('[TiHC Extension] 配置已从存储加载:', config);
+  }
+});
+
+// 监听来自前端页面的外部消息 (postMessage)
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (message.type === 'TIHC_EXTENSION_CHECK') {
+    sendResponse({ installed: true, version: '1.0' });
+  }
+});
+
+console.log('[TiHC Extension] Background script 初始化完成');

@@ -3,6 +3,7 @@
 
 pub mod config;
 pub mod database;
+pub mod extension;
 pub mod logging;
 pub mod web;
 pub mod bus_client;
@@ -10,6 +11,7 @@ pub mod bus_client;
 // 重新导出基础设施组件
 pub use config::*;
 pub use database::*;
+pub use extension::*;
 pub use logging::*;
 pub use web::*;
 pub use bus_client::*;

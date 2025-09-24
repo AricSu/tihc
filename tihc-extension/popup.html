@@ -2,147 +2,225 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TiHC 扩展</title>
   <style>
     body {
-      width: 400px;
-      padding: 20px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      width: 350px;
       margin: 0;
-    }
-    
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
-    
-    .buttons {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    
-    button {
-      flex: 1;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
-      transition: background-color 0.2s;
+      background-color: #f5f5f5;
     }
-    
-    .primary-btn {
-      background-color: #007bff;
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
+      padding: 16px;
+      text-align: center;
     }
-    
-    .primary-btn:hover {
-      background-color: #0056b3;
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
     }
-    
-    .secondary-btn {
-      background-color: #6c757d;
-      color: white;
+
+    .header .version {
+      opacity: 0.8;
+      font-size: 12px;
+      margin-top: 4px;
     }
-    
-    .secondary-btn:hover {
-      background-color: #545b62;
+
+    .content {
+      padding: 16px;
+      background-color: white;
     }
-    
-    .info-container {
-      max-height: 300px;
-      overflow-y: auto;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 15px;
+
+    .status-section {
+      margin-bottom: 20px;
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .status-item:last-child {
+      border-bottom: none;
+    }
+
+    .status-label {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .status-value {
+      font-weight: 600;
+    }
+
+    .status-value.active {
+      color: #28a745;
+    }
+
+    .status-value.inactive {
+      color: #dc3545;
+    }
+
+    .status-value.warning {
+      color: #ffc107;
+    }
+
+    .page-info {
       background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
     }
-    
-    .info-item {
-      margin-bottom: 15px;
-      padding: 10px;
+
+    .page-info-title {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 8px;
+    }
+
+    .page-info-item {
+      font-size: 12px;
+      color: #6c757d;
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+
+    .stats-section {
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .stats-title {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 8px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stats-item {
+      text-align: center;
+      padding: 8px;
       background-color: white;
       border-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid #dee2e6;
     }
-    
-    .info-label {
-      font-weight: bold;
+
+    .stats-number {
+      font-size: 18px;
+      font-weight: 700;
       color: #495057;
-      margin-bottom: 5px;
     }
-    
-    .info-value {
-      font-family: monospace;
-      font-size: 12px;
-      background-color: #f1f3f4;
-      padding: 5px;
-      border-radius: 3px;
-      word-break: break-all;
-      max-height: 100px;
-      overflow-y: auto;
-    }
-    
-    .empty-state {
-      text-align: center;
+
+    .stats-label {
+      font-size: 11px;
       color: #6c757d;
-      padding: 20px;
-      font-style: italic;
+      margin-top: 2px;
     }
-    
-    .status {
-      padding: 8px;
-      border-radius: 4px;
-      margin-bottom: 15px;
+
+    .footer {
+      padding: 12px 16px;
+      background-color: #f8f9fa;
+      border-top: 1px solid #dee2e6;
       text-align: center;
-      font-size: 14px;
+      font-size: 11px;
+      color: #6c757d;
     }
-    
-    .status.success {
-      background-color: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
     }
-    
-    .status.error {
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
-    
-    .status.info {
-      background-color: #d1ecf1;
-      color: #0c5460;
-      border: 1px solid #bee5eb;
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #666eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h3>TiHC Helper</h3>
-    <p style="font-size: 12px; color: #666; margin: 5px 0;">
-      自动检测 Clinic 和 Grafana 登录信息
-      <span id="auto-refresh-indicator" style="color: #28a745;">● 自动刷新中</span>
-    </p>
+    <h1>TiHC 扩展</h1>
+    <div class="version">v1.0</div>
   </div>
-  
-  <div class="buttons">
-    <button id="refresh" class="secondary-btn">刷新显示</button>
-    <button id="export" class="secondary-btn">导出 JSON</button>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div>正在加载...</div>
   </div>
-  
-  <div id="status" class="status" style="display: none;"></div>
-  
-  <div class="info-container">
-    <div id="token-info">
-      <div class="empty-state">
-        正在自动检测当前页面的登录信息...<br>
-        <small style="color: #999;">支持 Clinic 和 Grafana 页面</small>
+
+  <div id="main-content" class="content" style="display: none;">
+    <!-- 当前页面信息 -->
+    <div class="page-info">
+      <div class="page-info-title">当前页面信息</div>
+      <div class="page-info-item">
+        <strong>域名:</strong> <span id="current-domain">-</span>
+      </div>
+    </div>
+
+    <!-- 扩展状态 -->
+    <div class="status-section">
+      <div class="status-item">
+        <span class="status-label">扩展状态</span>
+        <span id="extension-status" class="status-value active">正常运行</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">采集状态</span>
+        <span id="collection-status" class="status-value inactive">待命中</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">最近采集</span>
+        <span id="last-collection" class="status-value">暂无记录</span>
+      </div>
+    </div>
+
+    <!-- 采集统计 -->
+    <div class="stats-section">
+      <div class="stats-title">采集统计</div>
+      <div class="stats-grid">
+        <div class="stats-item">
+          <div id="total-collections" class="stats-number">0</div>
+          <div class="stats-label">总采集次数</div>
+        </div>
+        <div class="stats-item">
+          <div id="total-domains" class="stats-number">0</div>
+          <div class="stats-label">涉及域名</div>
+        </div>
       </div>
     </div>
   </div>
-  
-  <script src="popup-fixed.js"></script>
+
+  <div class="footer">
+    由 TiHC 前端控制采集，无需手动配置
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 </html>

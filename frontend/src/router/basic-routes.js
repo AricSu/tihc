@@ -25,6 +25,14 @@ export const basicRoutes = [
     },
   },
   {
+    name: 'ExtensionConfig',
+    path: '/extension-config',
+    component: () => import('@/views/extension-config/index.vue'),
+    meta: {
+      title: '扩展配置',
+    },
+  },
+  {
     name: 'SQLEditor',
     path: '/sql-editor',
     component: () => import('@/views/sql-editor/index.vue'),

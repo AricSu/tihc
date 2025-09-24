@@ -16,9 +16,7 @@ pub mod sql_editor_controllers;
 pub mod static_files;
 pub mod table_controllers;
 
-// 重新导出HTTP组件
 pub use controllers::*;
-pub use extension_controllers::*;
 pub use extractors::*;
 pub use middleware::*;
 pub use responses::*;

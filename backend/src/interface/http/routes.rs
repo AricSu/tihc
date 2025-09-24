@@ -16,7 +16,8 @@ use crate::application::table::{TableApplicationService, TableApplicationService
 use crate::application::DatabaseApplicationService;
 use crate::interface::http::database_controllers::{DatabaseController, DatabaseControllerState};
 use crate::interface::http::ddl_controllers::{DDLPrecheckController, DDLPrecheckControllerState};
-use crate::interface::http::extension_controllers::{ExtensionAppState, create_extension_routes};
+use crate::application::extension::create_extension_service;
+use crate::interface::http::extension_controllers::ExtensionController;
 use crate::interface::http::health_controllers::HealthController;
 use crate::interface::http::notifications_controllers::{
     NotificationsAppState, NotificationsController,
@@ -45,6 +46,10 @@ pub fn create_api_routes() -> Router {
         Arc::new(DatabaseApplicationServiceImpl::new());
     let sql_editor_service: Arc<dyn EditorApplicationService> =
         Arc::new(SqlEditorApplicationServiceImpl::new());
+    let extension_service = create_extension_service();
+
+    // 创建控制器
+    let extension_controller = Arc::new(ExtensionController::new(extension_service));
 
     // 创建应用状态
     let slowlog_state = SlowlogAppState::new(slowlog_service);
@@ -54,12 +59,10 @@ pub fn create_api_routes() -> Router {
     let table_state = TableAppState::new(table_service);
     let database_state = DatabaseControllerState::new();
     let sql_editor_state = SqlEditorControllerState::new(sql_editor_service);
-    
-    // 创建扩展应用状态
-    let extension_state = ExtensionAppState::new();
 
     // 组合所有路由
     Router::new()
+        .merge(ExtensionController::routes().with_state(extension_controller))
         .merge(SlowlogController::routes().with_state(slowlog_state))
         .merge(DDLPrecheckController::routes().with_state(ddl_state))
         .merge(HealthController::routes())
@@ -68,5 +71,4 @@ pub fn create_api_routes() -> Router {
         .merge(TableController::routes().with_state(table_state))
         .merge(DatabaseController::routes().with_state(database_state))
         .merge(SqlEditorController::routes().with_state(sql_editor_state))
-        .nest("/api", create_extension_routes().with_state(extension_state))
 }
