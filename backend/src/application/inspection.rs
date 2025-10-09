@@ -226,7 +226,7 @@ impl InspectionApplicationService for InspectionApplicationServiceImpl {
                     // Mock 数据 1: 正在运行的任务
                     let mock_task_1 = InspectionTask {
                         task_id: format!("inspection_{}", now - 1800), // 30分钟前创建
-                        clinic_url: "https://clinic.pingcap.com/portal/#/orgs/1372813089196930499/clusters/10297819991689593990".to_string(),
+                        clinic_url: "test3990".to_string(),
                         time_range: [two_hours_ago, one_hour_ago],
                         timezone: "Asia/Shanghai".to_string(),
                         status: TaskStatus::Running,
@@ -237,7 +237,7 @@ impl InspectionApplicationService for InspectionApplicationServiceImpl {
                     // Mock 数据 2: 已完成的任务
                     let mock_task_2 = InspectionTask {
                         task_id: format!("inspection_{}", now - 3600), // 1小时前创建
-                        clinic_url: "https://clinic.pingcap.com/portal/#/orgs/1372813089196930499/clusters/10297819991689593990".to_string(),
+                        clinic_url: "test3990".to_string(),
                         time_range: [yesterday, yesterday + 3600],
                         timezone: "UTC".to_string(),
                         status: TaskStatus::Completed,
@@ -248,7 +248,7 @@ impl InspectionApplicationService for InspectionApplicationServiceImpl {
                     // Mock 数据 3: 失败的任务
                     let mock_task_3 = InspectionTask {
                         task_id: format!("inspection_{}", now - 7200), // 2小时前创建
-                        clinic_url: "https://clinic.pingcap.com/portal/#/orgs/1372813089196930499/clusters/10297819991689593991".to_string(),
+                        clinic_url: "test3991".to_string(),
                         time_range: [yesterday - 3600, yesterday],
                         timezone: "America/New_York".to_string(),
                         status: TaskStatus::Failed,
@@ -259,7 +259,7 @@ impl InspectionApplicationService for InspectionApplicationServiceImpl {
                     // Mock 数据 4: 刚创建的任务
                     let mock_task_4 = InspectionTask {
                         task_id: format!("inspection_{}", now - 600), // 10分钟前创建
-                        clinic_url: "https://clinic.pingcap.com/portal/#/orgs/1372813089196930499/clusters/10297819991689593992".to_string(),
+                        clinic_url: "test3992".to_string(),
                         time_range: [now - 14400, now - 10800], // 4-3小时前的时间范围
                         timezone: "Asia/Tokyo".to_string(),
                         status: TaskStatus::Created,

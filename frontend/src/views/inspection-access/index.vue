@@ -350,7 +350,7 @@ async function handleSubmit(force = false) {
     const payload = {
       time_range: form.value.timeRange.map(d => Math.floor(new Date(d).getTime() / 1000)),
       timezone: form.value.timezone,
-      clinic_url: 'https://clinic.pingcap.com/portal/#/orgs/1372813089196930499/clusters/10297819991689593990'
+      clinic_url: 'test3990'
     }
 
     console.log('发送巡检请求:', payload)
