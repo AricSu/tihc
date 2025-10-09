@@ -59,7 +59,9 @@ impl TihcMcpServer {
         &self,
         Parameters(req): Parameters<crate::domain::mcp::lossy_ddl::LossyDdlRequest>,
     ) -> Result<CallToolResult, McpError> {
-        self.lossy_ddl_service.check_lossy_ddl(Parameters(req)).await
+        self.lossy_ddl_service
+            .check_lossy_ddl(Parameters(req))
+            .await
     }
 
     pub fn _create_resource_text(&self, uri: &str, name: &str) -> Resource {

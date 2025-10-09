@@ -76,13 +76,14 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 async function collectTargetUrlData(targetUrl, pageType, backendUrl) {
   try {
     console.log('[TiHC Background] 开始采集目标URL数据:', targetUrl);
+    console.log('[TiHC Background] pageType:', pageType, 'backendUrl:', backendUrl);
     
     const urlObj = new URL(targetUrl);
     const domain = urlObj.hostname;
     
     // 使用chrome.cookies API获取目标域名的所有cookies
     const cookies = await getCookiesForDomain(domain);
-    console.log('[TiHC Background] 获取到cookies:', cookies.length, '条');
+    console.log('[TiHC Background] 获取到cookies:', cookies.length, '条', cookies);
     
     // 尝试获取当前活跃标签页的存储数据（如果是同域）
     let localStorage = {};
@@ -91,9 +92,11 @@ async function collectTargetUrlData(targetUrl, pageType, backendUrl) {
     try {
       // 查询当前活跃的标签页
       const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+      console.log('[TiHC Background] 当前活跃标签页:', tabs);
       if (tabs.length > 0) {
         const currentTab = tabs[0];
         const currentUrl = new URL(currentTab.url);
+        console.log('[TiHC Background] 当前标签页URL:', currentTab.url);
         
         // 如果当前标签页和目标URL是同域，可以获取存储数据
         if (currentUrl.hostname === domain) {
@@ -115,7 +118,7 @@ async function collectTargetUrlData(targetUrl, pageType, backendUrl) {
           
           localStorage = storageData.localStorage || {};
           sessionStorage = storageData.sessionStorage || {};
-          console.log('[TiHC Background] 获取到存储数据:', Object.keys(localStorage).length, '个localStorage项');
+          console.log('[TiHC Background] 获取到存储数据:', Object.keys(localStorage).length, '个localStorage项', localStorage, sessionStorage);
         }
       }
     } catch (error) {
@@ -140,6 +143,7 @@ async function collectTargetUrlData(targetUrl, pageType, backendUrl) {
     
     // 发送到后端
     const sendResult = await sendDataToBackend(collectedData, backendUrl);
+    console.log('[TiHC Background] sendDataToBackend 返回:', sendResult);
     
     if (sendResult.success) {
       // 更新统计
@@ -204,7 +208,7 @@ function formatCookies(cookies) {
 async function sendDataToBackend(data, backendUrl) {
   try {
     const requestUrl = `${backendUrl}/api/collect`;
-    console.log('[TiHC Background] 发送请求到:', requestUrl);
+    console.log('[TiHC Background] 发送请求到:', requestUrl, '数据:', data);
     
     const response = await fetch(requestUrl, {
       method: 'POST',
@@ -214,6 +218,7 @@ async function sendDataToBackend(data, backendUrl) {
       body: JSON.stringify(data)
     });
     
+    console.log('[TiHC Background] fetch 响应:', response);
     console.log('[TiHC Background] 响应状态:', response.status, response.statusText);
     
     if (response.ok) {
@@ -229,7 +234,7 @@ async function sendDataToBackend(data, backendUrl) {
       };
     }
   } catch (error) {
-    console.error('[TiHC Background] 网络请求失败:', error);
+    console.error('[TiHC Background] 网络请求失败:', error, 'backendUrl:', backendUrl, 'data:', data);
     return { 
       success: false, 
       error: `网络错误: ${error.message}` 

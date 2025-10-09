@@ -33,6 +33,14 @@ export const basicRoutes = [
     },
   },
   {
+    name: 'RCAAssistant',
+    path: '/rca-assistant',
+    component: () => import('@/views/rca-assistant/index.vue'),
+    meta: {
+      title: 'RCA问诊台',
+    },
+  },
+  {
     name: 'SQLEditor',
     path: '/sql-editor',
     component: () => import('@/views/sql-editor/index.vue'),

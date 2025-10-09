@@ -10,5 +10,5 @@ tihc.log
 /plugins/plugin_lossy_ddl/go/libschematracker.a
 /plugins/plugin_lossy_ddl/go/libschematracker.h
 
-
+/report_dir
 test.sql

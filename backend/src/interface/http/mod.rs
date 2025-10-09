@@ -6,6 +6,7 @@ pub mod ddl_controllers;
 pub mod extension_controllers;
 pub mod extractors;
 pub mod health_controllers;
+pub mod inspection_controllers;
 pub mod middleware;
 pub mod notifications_controllers;
 pub mod responses;

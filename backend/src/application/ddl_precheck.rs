@@ -6,10 +6,10 @@ use crate::domain::{
     shared::DomainResult,
 };
 use async_trait::async_trait;
+use microkernel::platform::message_bus::{BusMessage, GLOBAL_MESSAGE_BUS};
 use microkernel::topic;
 use serde::{Deserialize, Serialize};
-    use microkernel::platform::message_bus::{BusMessage, GLOBAL_MESSAGE_BUS};
-    use serde_json::from_value;
+use serde_json::from_value;
 
 /// DDL预检查请求DTO
 #[derive(Debug, Deserialize)]
@@ -23,6 +23,17 @@ pub struct DDLPrecheckRequest {
 
 fn default_collation_enabled() -> bool {
     true
+}
+
+/// 内部分析结果结构体（通过消息总线传递）
+#[derive(Debug, Deserialize, Serialize)]
+struct PluginAnalysisResult {
+    /// 有损状态: "Safe", "Lossy", "Unknown"
+    pub lossy_status: String,
+    /// 警告信息
+    pub warnings: Vec<String>,
+    /// 错误信息
+    pub error: Option<String>,
 }
 
 /// DDL预检查响应DTO
@@ -75,29 +86,28 @@ impl DDLPrecheckApplicationServiceImpl {
         Self {}
     }
 
-    /// 将外部插件的LossyStatus转换为领域的LossyStatus
-    fn convert_lossy_status(plugin_status: &plugin_lossy_ddl::LossyStatus) -> LossyStatus {
+    /// 将外部插件的LossyStatus字符串转换为领域的LossyStatus
+    fn convert_lossy_status(plugin_status: &str) -> LossyStatus {
         match plugin_status {
-            plugin_lossy_ddl::LossyStatus::Safe => LossyStatus::Safe,
-            plugin_lossy_ddl::LossyStatus::Lossy => LossyStatus::Lossy,
-            plugin_lossy_ddl::LossyStatus::Unknown => LossyStatus::Unknown,
+            "Safe" => LossyStatus::Safe,
+            "Lossy" => LossyStatus::Lossy,
+            "Unknown" => LossyStatus::Unknown,
+            _ => LossyStatus::Unknown, // 默认为未知
         }
     }
 
     /// 解析外部插件响应，提取问题列表
-    fn extract_issues_from_plugin_response(
-        plugin_response: &plugin_lossy_ddl::AnalysisResult,
-    ) -> Vec<String> {
+    fn extract_issues_from_plugin_response(plugin_response: &PluginAnalysisResult) -> Vec<String> {
         let mut issues = plugin_response.warnings.clone();
 
         // 基于lossy status添加通用问题
-        match plugin_response.lossy_status {
-            plugin_lossy_ddl::LossyStatus::Lossy => {
+        match plugin_response.lossy_status.as_str() {
+            "Lossy" => {
                 if issues.is_empty() {
                     issues.push("Operation may cause data loss or schema changes".to_string());
                 }
             }
-            plugin_lossy_ddl::LossyStatus::Unknown => {
+            "Unknown" => {
                 issues.push("Unable to determine operation safety".to_string());
             }
             _ => {}
@@ -163,8 +173,7 @@ impl DDLPrecheckApplicationServiceImpl {
     async fn call_external_analysis(
         &self,
         request: &DDLPrecheckRequest,
-    ) -> DomainResult<plugin_lossy_ddl::AnalysisResult> {
-
+    ) -> DomainResult<PluginAnalysisResult> {
         // 构造 bus 消息
         let topic = topic!("ddl_precheck");
         let bus_msg = BusMessage::ok(
@@ -176,13 +185,18 @@ impl DDLPrecheckApplicationServiceImpl {
         );
 
         // 通过 bus 分发并等待响应
-        let reply = GLOBAL_MESSAGE_BUS.request(bus_msg, None).await.map_err(|e| {
-            crate::domain::shared::DomainError::ExternalServiceError {
-                service: format!("message_bus: {}", e),
+        let reply = GLOBAL_MESSAGE_BUS
+            .request(bus_msg, None)
+            .await
+            .map_err(
+                |e| crate::domain::shared::DomainError::ExternalServiceError {
+                    service: format!("message_bus: {}", e),
+                },
+            )?;
+        let plugin_result: PluginAnalysisResult = from_value(reply.data).map_err(|e| {
+            crate::domain::shared::DomainError::InternalError {
+                message: format!("Failed to parse DDL precheck plugin response: {}", e),
             }
-        })?;
-        let plugin_result: plugin_lossy_ddl::AnalysisResult = from_value(reply.data).map_err(|e| crate::domain::shared::DomainError::InternalError {
-            message: format!("Failed to parse DDL precheck plugin response: {}", e),
         })?;
         Ok(plugin_result)
     }

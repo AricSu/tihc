@@ -11,17 +11,20 @@ use crate::domain::extension::{
 #[async_trait::async_trait]
 pub trait ExtensionApplicationService: Send + Sync {
     /// 处理数据收集请求
-    async fn handle_collection(&self, request: CollectionRequest) -> Result<CollectionResponse, String>;
-    
+    async fn handle_collection(
+        &self,
+        request: CollectionRequest,
+    ) -> Result<CollectionResponse, String>;
+
     /// 获取特定域名的认证信息
     async fn get_auth_info(&self, domain: &str) -> Result<Option<AuthInfo>, String>;
-    
+
     /// 获取所有存储的认证信息
     async fn get_all_auth_info(&self) -> Result<Vec<AuthInfo>, String>;
-    
+
     /// 清除特定域名的数据
     async fn clear_domain_data(&self, domain: &str) -> Result<(), String>;
-    
+
     /// 清除所有数据
     async fn clear_all_data(&self) -> Result<(), String>;
 }
@@ -39,7 +42,10 @@ impl ExtensionApplicationServiceImpl {
 
 #[async_trait::async_trait]
 impl ExtensionApplicationService for ExtensionApplicationServiceImpl {
-    async fn handle_collection(&self, request: CollectionRequest) -> Result<CollectionResponse, String> {
+    async fn handle_collection(
+        &self,
+        request: CollectionRequest,
+    ) -> Result<CollectionResponse, String> {
         // 1. 验证请求
         if let Err(error) = request.validate() {
             return Ok(CollectionResponse::error(
@@ -47,7 +53,7 @@ impl ExtensionApplicationService for ExtensionApplicationServiceImpl {
                 request.task_id.clone(),
             ));
         }
-        
+
         // 2. 记录收集请求
         tracing::info!(
             "Processing collection request for domain: {}, page_type: {}, task_id: {:?}",
@@ -55,7 +61,7 @@ impl ExtensionApplicationService for ExtensionApplicationServiceImpl {
             request.data.page_type,
             request.task_id
         );
-        
+
         // 3. 存储原始数据
         if let Err(error) = self.repository.store_collected_data(&request) {
             tracing::error!("Failed to store collected data: {}", error);
@@ -64,7 +70,7 @@ impl ExtensionApplicationService for ExtensionApplicationServiceImpl {
                 request.task_id.clone(),
             ));
         }
-        
+
         // 4. 提取并存储认证信息
         let auth_info = request.extract_auth_info();
         tracing::info!(
@@ -73,21 +79,29 @@ impl ExtensionApplicationService for ExtensionApplicationServiceImpl {
             auth_info.cookies.len(),
             auth_info.domain
         );
-        
+
         // 打印详细的token和cookie信息
         if !auth_info.tokens.is_empty() {
-            tracing::info!("Extracted tokens for {}: {:?}", auth_info.domain, auth_info.tokens);
+            tracing::info!(
+                "Extracted tokens for {}: {:?}",
+                auth_info.domain,
+                auth_info.tokens
+            );
         }
         if !auth_info.cookies.is_empty() {
-            tracing::info!("Extracted cookies for {}: {:?}", auth_info.domain, auth_info.cookies);
+            tracing::info!(
+                "Extracted cookies for {}: {:?}",
+                auth_info.domain,
+                auth_info.cookies
+            );
         }
-        
+
         // 5. 记录成功
         tracing::info!(
             "Successfully processed collection request for domain: {}",
             request.domain
         );
-        
+
         Ok(CollectionResponse::success(
             format!(
                 "Successfully collected data for domain: {} (page_type: {})",
@@ -96,22 +110,22 @@ impl ExtensionApplicationService for ExtensionApplicationServiceImpl {
             request.task_id.clone(),
         ))
     }
-    
+
     async fn get_auth_info(&self, domain: &str) -> Result<Option<AuthInfo>, String> {
         tracing::debug!("Getting auth info for domain: {}", domain);
         self.repository.get_auth_info(domain)
     }
-    
+
     async fn get_all_auth_info(&self) -> Result<Vec<AuthInfo>, String> {
         tracing::debug!("Getting all auth info");
         self.repository.get_all_auth_info()
     }
-    
+
     async fn clear_domain_data(&self, domain: &str) -> Result<(), String> {
         tracing::info!("Clearing data for domain: {}", domain);
         self.repository.clear_domain_data(domain)
     }
-    
+
     async fn clear_all_data(&self) -> Result<(), String> {
         tracing::info!("Clearing all extension data");
         self.repository.clear_all_data()
@@ -129,17 +143,17 @@ mod tests {
     use super::*;
     use crate::domain::extension::CollectedData;
     use std::collections::HashMap;
-    
+
     struct MockExtensionRepository {
         should_fail: bool,
     }
-    
+
     impl MockExtensionRepository {
         fn new(should_fail: bool) -> Self {
             Self { should_fail }
         }
     }
-    
+
     impl ExtensionRepository for MockExtensionRepository {
         fn store_collected_data(&self, _request: &CollectionRequest) -> Result<(), String> {
             if self.should_fail {
@@ -148,29 +162,29 @@ mod tests {
                 Ok(())
             }
         }
-        
+
         fn get_auth_info(&self, _domain: &str) -> Result<Option<AuthInfo>, String> {
             Ok(None)
         }
-        
+
         fn get_all_auth_info(&self) -> Result<Vec<AuthInfo>, String> {
             Ok(vec![])
         }
-        
+
         fn clear_domain_data(&self, _domain: &str) -> Result<(), String> {
             Ok(())
         }
-        
+
         fn clear_all_data(&self) -> Result<(), String> {
             Ok(())
         }
     }
-    
+
     #[tokio::test]
     async fn test_handle_collection_success() {
         let repository = Arc::new(MockExtensionRepository::new(false));
         let service = ExtensionApplicationServiceImpl::new(repository);
-        
+
         let request = CollectionRequest {
             url: "https://grafana.example.com".to_string(),
             domain: "grafana.example.com".to_string(),
@@ -184,20 +198,20 @@ mod tests {
                 session_storage: None,
             },
         };
-        
+
         let result = service.handle_collection(request).await;
         assert!(result.is_ok());
-        
+
         let response = result.unwrap();
         assert!(response.success);
         assert!(response.message.contains("grafana.example.com"));
     }
-    
+
     #[tokio::test]
     async fn test_handle_collection_validation_failure() {
         let repository = Arc::new(MockExtensionRepository::new(false));
         let service = ExtensionApplicationServiceImpl::new(repository);
-        
+
         let invalid_request = CollectionRequest {
             url: "".to_string(), // Empty URL should fail validation
             domain: "example.com".to_string(),
@@ -211,20 +225,20 @@ mod tests {
                 session_storage: None,
             },
         };
-        
+
         let result = service.handle_collection(invalid_request).await;
         assert!(result.is_ok());
-        
+
         let response = result.unwrap();
         assert!(!response.success);
         assert!(response.message.contains("Invalid request"));
     }
-    
+
     #[tokio::test]
     async fn test_handle_collection_storage_failure() {
         let repository = Arc::new(MockExtensionRepository::new(true));
         let service = ExtensionApplicationServiceImpl::new(repository);
-        
+
         let request = CollectionRequest {
             url: "https://example.com".to_string(),
             domain: "example.com".to_string(),
@@ -238,10 +252,10 @@ mod tests {
                 session_storage: None,
             },
         };
-        
+
         let result = service.handle_collection(request).await;
         assert!(result.is_ok());
-        
+
         let response = result.unwrap();
         assert!(!response.success);
         assert!(response.message.contains("Failed to store data"));

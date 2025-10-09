@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Args;
+use microkernel::platform::message_bus::BusMessage;
 use microkernel::platform::message_bus::GLOBAL_MESSAGE_BUS;
-use microkernel::platform::message_bus::{BusMessage};
 
 #[derive(Args, Debug)]
 pub struct DDLCheckOptions {
@@ -29,7 +29,9 @@ pub async fn handle_ddlcheck(opts: &DDLCheckOptions) -> Result<()> {
         "collation": opts.collation,
     });
     let bus_msg = BusMessage::ok(topic, data);
-    let reply = GLOBAL_MESSAGE_BUS.request(bus_msg, Some(std::time::Duration::from_secs(5))).await?;
+    let reply = GLOBAL_MESSAGE_BUS
+        .request(bus_msg, Some(std::time::Duration::from_secs(5)))
+        .await?;
     println!("DDL Precheck Result: {:?}", reply);
     Ok(())
 }

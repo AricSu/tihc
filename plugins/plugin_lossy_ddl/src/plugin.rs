@@ -1,10 +1,12 @@
 use crate::precheck_sql_with_collation;
 use anyhow::Result;
-use microkernel::{platform::message_bus::{BusMessage, HandlerMode, GLOBAL_MESSAGE_BUS}, topic};
-use serde_json::to_value;
 use microkernel::platform::plugin_manager::Plugin;
+use microkernel::{
+    platform::message_bus::{BusMessage, HandlerMode, GLOBAL_MESSAGE_BUS},
+    topic,
+};
+use serde_json::to_value;
 use serde_json::Value;
-
 
 fn fn_handler<F>(f: F) -> std::sync::Arc<dyn microkernel::platform::message_bus::MessageHandler>
 where
@@ -31,7 +33,10 @@ fn init_lossy_ddl_plugin_bus() {
     let handler = move |msg: BusMessage| {
         let req = msg.data;
         let sql = req.get("sql").and_then(|v| v.as_str()).unwrap_or("");
-        let collation_enabled = req.get("collation").and_then(|v| v.as_bool()).unwrap_or(false);
+        let collation_enabled = req
+            .get("collation")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let result = precheck_sql_with_collation(sql, collation_enabled);
         let value = to_value(result)?;
         Ok(BusMessage::ok(handler_topic.clone(), value))

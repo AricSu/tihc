@@ -1,4 +1,10 @@
-use axum::{extract::State, http::StatusCode, response::Json, routing::{get, post}, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::Json,
+    routing::{get, post},
+    Router,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
@@ -16,11 +22,12 @@ impl ExtensionController {
     pub fn new(extension_service: Arc<dyn ExtensionApplicationService>) -> Self {
         Self { extension_service }
     }
-    
+
     /// 创建扩展相关的路由
     pub fn routes() -> Router<Arc<ExtensionController>> {
         Router::new()
             .route("/api/collect", post(collect_data))
+            .route("/api/extension/ping", get(ping))
             .route("/api/extension/stats", get(get_collection_stats))
             .route("/api/extension/clear", post(clear_collection_data))
     }
@@ -96,10 +103,7 @@ pub async fn collect_data(
             Ok(Json(JsonResponse::success(response)))
         }
         Err(e) => {
-            error!(
-                "扩展数据采集失败 - 域名: {}, 错误: {}",
-                payload.domain, e
-            );
+            error!("扩展数据采集失败 - 域名: {}, 错误: {}", payload.domain, e);
 
             let error_response = format!("数据采集失败: {}", e);
             Err((
@@ -116,11 +120,7 @@ pub async fn get_collection_stats(
 ) -> Result<Json<JsonResponse<serde_json::Value>>, (StatusCode, Json<JsonResponse<String>>)> {
     info!("收到获取采集统计请求");
 
-    match controller
-        .extension_service
-        .get_all_auth_info()
-        .await
-    {
+    match controller.extension_service.get_all_auth_info().await {
         Ok(auth_infos) => {
             let stats = serde_json::json!({
                 "total_domains": auth_infos.len(),
@@ -132,7 +132,7 @@ pub async fn get_collection_stats(
                     "unknown": auth_infos.iter().filter(|info| matches!(info.page_type, crate::domain::extension::PageType::Unknown)).count(),
                 }
             });
-            
+
             info!("采集统计获取成功: {} 个域名", auth_infos.len());
             Ok(Json(JsonResponse::success(stats)))
         }
@@ -167,4 +167,14 @@ pub async fn clear_collection_data(
             ))
         }
     }
+}
+
+/// 心跳检测 - 检查扩展服务是否运行正常
+pub async fn ping(
+    State(_controller): State<Arc<ExtensionController>>,
+) -> Result<Json<JsonResponse<String>>, (StatusCode, Json<JsonResponse<String>>)> {
+    info!("收到扩展心跳检测请求");
+
+    // 简单的心跳响应，表示服务正常运行
+    Ok(Json(JsonResponse::success("pong".to_string())))
 }

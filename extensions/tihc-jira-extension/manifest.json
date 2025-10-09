@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Jira Copilot Sidebar",
+  "version": "0.2",
+  "description": "点击扩展图标，在 Jira 页面右侧弹出 Copilot 聊天窗口",
+  "permissions": ["scripting", "activeTab"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.atlassian.net/*"],
+      "js": ["content.js"],
+      "css": ["panel.css"]
+    }
+  ],
+  "action": {
+    "default_title": "Open Jira Copilot"
+  }
+}

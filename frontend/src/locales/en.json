@@ -242,6 +242,7 @@
     "menu": {
         "home": "Home",
         "inspection": "Inspection Report",
+        "rcaAssistant": "RCA Assistant",
         "sqlEditor": "SQL Editor",
         "ddlCheck": "DDL Check"
     },

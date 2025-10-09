@@ -1,7 +1,7 @@
+use anyhow::Result;
 use microkernel::platform::message_bus::{BusMessage, Topic, GLOBAL_MESSAGE_BUS};
 use serde_json::Value;
 use std::time::Duration;
-use anyhow::Result;
 
 /// MCP/HTTP 与 Plugin 通用的 BusClient 抽象
 #[derive(Clone)]
@@ -30,11 +30,7 @@ impl InfraBusClient {
     }
 
     /// 发送 Broadcast（无返回）
-    pub async fn broadcast<T: Into<Value>>(
-        &self,
-        topic: &str,
-        data: T,
-    ) -> Result<()> {
+    pub async fn broadcast<T: Into<Value>>(&self, topic: &str, data: T) -> Result<()> {
         let topic = Topic::new(topic, None::<&str>);
         let bus = GLOBAL_MESSAGE_BUS.clone();
         bus.send(BusMessage::ok(topic, data)).await

@@ -1,0 +1,27 @@
+[package]
+name = "plugin_autoflow_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 异步运行时
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# HTTP 客户端
+reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest-eventsource = "0.4"
+
+# 序列化 (启用 derive 功能)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 错误处理
+thiserror = "1.0"
+
+# 工具
+uuid = { version = "1.0", features = ["v4"] }
+tracing = "0.1"
+futures = "0.3"
+tokio-stream = "0.1"
+urlencoding = "2.1"

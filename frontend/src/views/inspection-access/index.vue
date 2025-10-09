@@ -34,6 +34,16 @@
               >
                 配置扩展
               </n-button>
+              
+              <!-- 调试按钮 -->
+              <n-button 
+                size="small" 
+                type="info"
+                text
+                @click="debugExtensionStatus"
+              >
+                调试状态
+              </n-button>
             </div>
             
             <n-space>
@@ -44,6 +54,17 @@
                 :disabled="!canGenerate"
               >
                 生成报告
+              </n-button>
+              
+              <!-- 强制启用按钮（调试用） -->
+              <n-button 
+                v-if="!canGenerate"
+                type="warning" 
+                @click="forceGenerate" 
+                :loading="loading"
+                secondary
+              >
+                强制生成
               </n-button>
               
               <n-button @click="resetForm" secondary>
@@ -147,7 +168,16 @@ const extensionStatusText = computed(() => {
 })
 
 const hasValidConfig = computed(() => {
-  if (extensionData.connectionStatus !== 'connected') return false
+  // 调试信息
+  console.log('检查配置有效性:')
+  console.log('- 扩展连接状态:', extensionData.connectionStatus)
+  console.log('- tokens 数据:', extensionData.tokens)
+  
+  // 临时：如果扩展未连接，仍然允许生成报告（用于调试）
+  if (extensionData.connectionStatus !== 'connected') {
+    console.log('扩展未连接，但允许继续操作')
+    return true // 临时改为 true
+  }
   
   const tokens = extensionData.tokens || {}
   for (const domainData of Object.values(tokens)) {
@@ -159,10 +189,19 @@ const hasValidConfig = computed(() => {
 })
 
 const canGenerate = computed(() => {
-  return form.value.timeRange && 
+  const result = form.value.timeRange && 
          form.value.timeRange.length === 2 && 
          form.value.timezone && 
          hasValidConfig.value
+  
+  // 调试信息
+  console.log('生成报告按钮可用性检查:')
+  console.log('- 时间范围有效:', !!(form.value.timeRange && form.value.timeRange.length === 2))
+  console.log('- 时区已选择:', !!form.value.timezone)
+  console.log('- 配置有效:', hasValidConfig.value)
+  console.log('- 最终结果:', result)
+  
+  return result
 })
 
 // 表格列定义
@@ -188,16 +227,22 @@ const columns = [
       const statusColors = {
         Healthy: 'success',
         Warning: 'warning', 
-        Critical: 'error'
+        Critical: 'error',
+        Processing: 'info',
+        Pending: 'default'
       }
       const statusText = {
         Healthy: '健康',
         Warning: '警告',
-        Critical: '严重'
+        Critical: '严重',
+        Processing: '执行中',
+        Pending: '待执行'
       }
       return h(NTag, { 
         type: statusColors[row.healthStatus] || 'default' 
-      }, statusText[row.healthStatus] || row.healthStatus)
+      }, {
+        default: () => statusText[row.healthStatus] || row.healthStatus
+      })
     }
   },
   { 
@@ -245,7 +290,9 @@ const columns = [
               size: 'small',
               onClick: () => viewReport(row)
             },
-            '查看详情'
+            {
+              default: () => '查看详情'
+            }
           ),
           default: () => h('div', {
             style: {
@@ -260,6 +307,21 @@ const columns = [
 ]
 
 // 方法
+function getHealthStatusFromItem(item) {
+  switch (item.type) {
+    case 'inspection_report':
+      return item.healthStatus || 'Healthy'
+    case 'failed_task':
+      return 'Critical'
+    case 'running_task':
+      return 'Processing'
+    case 'created_task':
+      return 'Pending'
+    default:
+      return 'Pending'
+  }
+}
+
 function disableFutureDates(date) {
   return date.getTime() > Date.now()
 }
@@ -276,49 +338,40 @@ function resetForm() {
   window.$message?.info('配置已重置')
 }
 
-async function handleSubmit() {
-  if (!canGenerate.value) {
+async function handleSubmit(force = false) {
+  if (!force && !canGenerate.value) {
     window.$message?.error('请完善配置信息或配置扩展')
     return
   }
 
   loading.value = true
   try {
+    // 准备请求数据
     const payload = {
       time_range: form.value.timeRange.map(d => Math.floor(new Date(d).getTime() / 1000)),
-      timezone: form.value.timezone
+      timezone: form.value.timezone,
+      clinic_url: 'https://clinic.pingcap.com/portal/#/orgs/1372813089196930499/clusters/10297819991689593990'
     }
 
-    // 获取扩展配置
-    const tokens = extensionData.tokens || {}
-    for (const [domain, domainData] of Object.entries(tokens)) {
-      if (domainData.grafana) {
-        const protocol = domain.includes('localhost') ? 'http' : 'https'
-        payload.grafana_url = `${protocol}://${domain}`
-        
-        const cookies = []
-        const data = domainData.grafana
-        if (data.session_id) cookies.push(`grafana_session=${data.session_id}`)
-        if (data.csrf_token) cookies.push(`grafana_session_expiry=${data.csrf_token}`)
-        if (data.auth_token) cookies.push(`grafana_token=${data.auth_token}`)
-        
-        payload.grafana_cookie = cookies.join('; ')
-      }
-      
-      if (domainData.clinic) {
-        payload.clinic_config = domainData.clinic
-      }
-    }
+    console.log('发送巡检请求:', payload)
 
-    await axios.post('/api/report/generate', payload)
-    window.$message?.success('巡检报告生成请求已提交')
+    // 调用新的巡检API
+    const response = await axios.post('/api/inspection/create', payload)
     
-    // 刷新报告列表
-    await fetchReports()
+    if (response.data.success) {
+      window.$message?.success(`巡检任务创建成功！任务ID: ${response.data.task_id}`)
+      console.log('巡检任务创建成功，任务ID:', response.data.task_id)
+      
+      // 刷新任务列表
+      await fetchReports()
+    } else {
+      window.$message?.error(`创建失败: ${response.data.message}`)
+    }
     
   } catch (error) {
-    console.error('生成报告失败:', error)
-    window.$message?.error('生成报告失败')
+    console.error('创建巡检任务失败:', error)
+    const errorMessage = error.response?.data?.message || error.message || '创建巡检任务失败'
+    window.$message?.error(errorMessage)
   } finally {
     loading.value = false
   }
@@ -327,14 +380,31 @@ async function handleSubmit() {
 async function fetchReports() {
   reportsLoading.value = true
   try {
-    const response = await axios.get('/api/report/summary')
-    if (response.status === 200 && Array.isArray(response.data)) {
-      generatedReports.value = response.data
+    // 使用新的统一API获取巡检摘要（包含任务和报告）
+    const response = await axios.get('/api/inspection/summary')
+    if (response.data.success && response.data.summary && Array.isArray(response.data.summary.items)) {
+      // 转换统一摘要数据为报告格式
+      generatedReports.value = response.data.summary.items.map(item => ({
+        reportId: item.id,
+        reportName: item.title,
+        timeRange: item.timeRange,
+        healthStatus: getHealthStatusFromItem(item),
+        recommendations: item.type === 'inspection_report' ? 
+                        (item.recommendations || `针对 ${item.clinicUrl} 的巡检建议`) :
+                        `任务状态: ${item.status}, Clinic URL: ${item.clinicUrl}`,
+        createTime: item.createTime,
+        taskType: item.type,
+        status: item.status
+      }))
+      console.log('获取到巡检摘要:', generatedReports.value)
+      console.log('统计信息 - 总计:', response.data.summary.total)
     } else {
       console.error('Invalid response format:', response.data)
+      generatedReports.value = []
     }
   } catch (error) {
-    console.error('Error fetching reports:', error)
+    console.error('Error fetching inspection summary:', error)
+    generatedReports.value = []
   } finally {
     reportsLoading.value = false
   }
@@ -354,6 +424,25 @@ function viewReport(row) {
   } else {
     window.$message?.warning('报告ID不存在')
   }
+}
+
+// 强制生成报告（忽略配置验证）
+function forceGenerate() {
+  console.log('强制生成报告，忽略配置验证')
+  handleSubmit(true) // 传递 force 参数
+}
+
+// 调试扩展状态的函数
+function debugExtensionStatus() {
+  console.log('=== 扩展状态调试信息 ===')
+  console.log('连接状态:', extensionData.connectionStatus)
+  console.log('扩展数据:', extensionData)
+  console.log('配置有效性:', hasValidConfig.value)
+  console.log('可生成报告:', canGenerate.value)
+  console.log('===================')
+  
+  // 显示消息提示
+  window.$message?.info(`扩展状态: ${extensionStatusText.value}`)
 }
 
 // 组件挂载时获取报告列表

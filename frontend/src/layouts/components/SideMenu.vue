@@ -29,6 +29,12 @@ const staticMenus = computed(() => [
     icon: () => h('i', { class: 'i-mdi-home text-16' }),
   },
   {
+    label: t('menu.rcaAssistant'),
+    key: 'rca-assistant',
+    path: '/rca-assistant',
+    icon: () => h('i', { class: 'i-mdi-robot-excited text-16' }),
+  },
+  {
     label: t('menu.inspection'),
     key: 'inspection',
     path: '/inspection',

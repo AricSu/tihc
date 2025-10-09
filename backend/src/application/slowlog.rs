@@ -2,10 +2,10 @@
 
 use crate::domain::shared::DomainResult;
 use async_trait::async_trait;
+use microkernel::platform::message_bus::{BusMessage, GLOBAL_MESSAGE_BUS};
 use microkernel::topic;
-use serde_json::Value;
 use serde_json::from_value;
-       use microkernel::platform::message_bus::{BusMessage, GLOBAL_MESSAGE_BUS};
+use serde_json::Value;
 #[async_trait]
 pub trait SlowlogApplicationService: Send + Sync {
     async fn scan_files(&self, log_dir: &str, pattern: &str) -> DomainResult<Value>;
@@ -39,11 +39,14 @@ impl SlowlogApplicationService for SlowlogApplicationServiceImpl {
         let args = vec![log_dir.to_string(), pattern.to_string()];
         let topic = topic!("slowlog-scan");
         let bus_msg = BusMessage::ok(topic, serde_json::json!({"args": args}));
-        let reply = GLOBAL_MESSAGE_BUS.request(bus_msg, None).await.map_err(|e| {
-            crate::domain::shared::DomainError::ExternalServiceError {
-                service: format!("message_bus: {}", e),
-            }
-        })?;
+        let reply = GLOBAL_MESSAGE_BUS
+            .request(bus_msg, None)
+            .await
+            .map_err(
+                |e| crate::domain::shared::DomainError::ExternalServiceError {
+                    service: format!("message_bus: {}", e),
+                },
+            )?;
         let result: Vec<Value> = from_value(reply.data).map_err(|e| {
             crate::domain::shared::DomainError::ExternalServiceError {
                 service: format!("serde_json error: {}", e),
@@ -59,8 +62,6 @@ impl SlowlogApplicationService for SlowlogApplicationServiceImpl {
         log_dir: &str,
         pattern: &str,
     ) -> DomainResult<Value> {
- 
-
         tracing::info!(target: "slowlog_service", "Processing slowlog for connection: {}, dir: {}, pattern: {}", 
                       connection_id, log_dir, pattern);
 
@@ -68,11 +69,14 @@ impl SlowlogApplicationService for SlowlogApplicationServiceImpl {
         let conn_args = vec![connection_id.to_string()];
         let topic = topic!("editor-connections-get");
         let conn_bus_msg = BusMessage::ok(topic, serde_json::json!({"args": conn_args}));
-        let reply = GLOBAL_MESSAGE_BUS.request(conn_bus_msg, None).await.map_err(|e| {
-            crate::domain::shared::DomainError::ExternalServiceError {
-                service: format!("connection_service: {}", e),
-            }
-        })?;
+        let reply = GLOBAL_MESSAGE_BUS
+            .request(conn_bus_msg, None)
+            .await
+            .map_err(
+                |e| crate::domain::shared::DomainError::ExternalServiceError {
+                    service: format!("connection_service: {}", e),
+                },
+            )?;
         let mut conn_vec: Vec<Value> = from_value(reply.data).map_err(|e| {
             crate::domain::shared::DomainError::ExternalServiceError {
                 service: format!("serde_json error: {}", e),
@@ -94,11 +98,14 @@ impl SlowlogApplicationService for SlowlogApplicationServiceImpl {
 
         let topic = topic!("slowlog-import");
         let import_bus_msg = BusMessage::ok(topic, serde_json::json!({"args": args}));
-        let reply = GLOBAL_MESSAGE_BUS.request(import_bus_msg, None).await.map_err(|e| {
-            crate::domain::shared::DomainError::ExternalServiceError {
-                service: format!("slowlog_import: {}", e),
-            }
-        })?;
+        let reply = GLOBAL_MESSAGE_BUS
+            .request(import_bus_msg, None)
+            .await
+            .map_err(
+                |e| crate::domain::shared::DomainError::ExternalServiceError {
+                    service: format!("slowlog_import: {}", e),
+                },
+            )?;
         let import_vec: Vec<Value> = from_value(reply.data).map_err(|e| {
             crate::domain::shared::DomainError::ExternalServiceError {
                 service: format!("serde_json error: {}", e),

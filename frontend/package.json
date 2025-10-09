@@ -21,6 +21,7 @@
     "axios": "^1.10.0",
     "codemirror": "^6.0.2",
     "dayjs": "^1.11.13",
+    "deep-chat": "^2.2.2",
     "echarts": "^6.0.0",
     "highlight.js": "^11.11.1",
     "lodash-es": "^4.17.21",

@@ -3,8 +3,8 @@ pub mod data_source;
 
 // 重新导出统一抽象
 pub use data_source::{
-    DataSourceConfig, QueryResult, ConnectionTestResult, 
-    DataSource, HttpDataSource, create_data_source, DataProcessor
+    ConnectionTestResult, DataProcessor, DataSource, DataSourceConfig, HttpDataSource, QueryResult,
+    create_data_source,
 };
 
 // 保留简化的类型别名，用于向后兼容
@@ -53,10 +53,13 @@ impl UnifiedDataManager {
                     results.insert(name.clone(), result);
                 }
                 Err(e) => {
-                    results.insert(name.clone(), ConnectionTestResult {
-                        success: false,
-                        message: format!("Connection test failed: {}", e),
-                    });
+                    results.insert(
+                        name.clone(),
+                        ConnectionTestResult {
+                            success: false,
+                            message: format!("Connection test failed: {}", e),
+                        },
+                    );
                 }
             }
         }
@@ -65,10 +68,10 @@ impl UnifiedDataManager {
 
     /// 统一查询接口
     pub async fn query(
-        &self, 
-        source_name: &str, 
-        query: &str, 
-        params: Option<HashMap<&str, String>>
+        &self,
+        source_name: &str,
+        query: &str,
+        params: Option<HashMap<&str, String>>,
     ) -> Result<QueryResult, String> {
         match self.data_sources.get(source_name) {
             Some(data_source) => data_source.query(query, params).await,

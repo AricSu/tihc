@@ -242,6 +242,7 @@
     "menu": {
         "home": "首页",
         "inspection": "巡检报告",
+        "rcaAssistant": "RCA问诊台",
         "sqlEditor": "SQL 编辑器",
         "ddlCheck": "DDL 检查"
     },

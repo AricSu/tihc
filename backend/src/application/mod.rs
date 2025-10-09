@@ -5,6 +5,7 @@ pub mod database;
 pub mod ddl_precheck;
 pub mod editor;
 pub mod extension;
+pub mod inspection;
 pub mod mcp;
 pub mod notifications;
 pub mod settings;

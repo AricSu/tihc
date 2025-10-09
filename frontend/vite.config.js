@@ -18,7 +18,14 @@ export default defineConfig(({ mode }) => {
   return {
     base: VITE_PUBLIC_PATH || '/',
     plugins: [
-      Vue(),
+      Vue({
+        template: {
+          compilerOptions: {
+            // 将 deep-chat 识别为自定义元素
+            isCustomElement: (tag) => tag === 'deep-chat'
+          }
+        }
+      }),
       VueJsx(),
       monacoEditorPlugin(),
       VueDevTools(),

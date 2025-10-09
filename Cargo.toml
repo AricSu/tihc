@@ -8,6 +8,6 @@ members = [
     "plugins/plugin_inspection_engine", 
     "plugins/plugin_observability", 
     "plugins/plugin_causality_engine"
-]
+, "plugins/plugin_autoflow_client"]
 resolver = "2"
 

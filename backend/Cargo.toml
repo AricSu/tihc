@@ -6,8 +6,6 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 microkernel = { path = "../microkernel" }
-plugin_slowlog = { path = "../plugins/plugin_slowlog" }
-plugin_lossy_ddl = { path = "../plugins/plugin_lossy_ddl", features = ["tidb-engine"] }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
@@ -38,4 +36,5 @@ serde-aux = "4.7.0"
 schemars = "1.0.4"
 
 [dev-dependencies]
+tracing-subscriber = "0.3"
 

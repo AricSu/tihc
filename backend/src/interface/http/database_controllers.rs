@@ -5,9 +5,8 @@ use crate::application::services::{
     ColumnResponse, ConnectionResponse, CreateConnectionRequest, TableResponse,
     UpdateConnectionRequest,
 };
-use crate::interface::http::responses::ApiResponse;
 use crate::infrastructure::bus_client::InfraBusClient;
-use serde_json::from_value;
+use crate::interface::http::responses::ApiResponse;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -16,6 +15,7 @@ use axum::{
     Router,
 };
 use serde::Deserialize;
+use serde_json::from_value;
 
 #[derive(Debug, Clone)]
 pub struct DatabaseControllerState {}
@@ -78,24 +78,27 @@ pub async fn create_connection(
 ) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
 {
     let bus = InfraBusClient::new();
-    match bus.request(
-        "sql_editor.add_connection",
-        None,
-        serde_json::to_value(create_request).map_err(|e| {
-            let api_response = ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
-        })?,
-        None,
-    ).await {
-        Ok(value) => {
-            match from_value::<ConnectionResponse>(value) {
-                Ok(connection) => Ok(Json(ApiResponse::success(connection))),
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request(
+            "sql_editor.add_connection",
+            None,
+            serde_json::to_value(create_request).map_err(|e| {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
+            })?,
+            None,
+        )
+        .await
+    {
+        Ok(value) => match from_value::<ConnectionResponse>(value) {
+            Ok(connection) => Ok(Json(ApiResponse::success(connection))),
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
             }
-        }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -111,19 +114,21 @@ pub async fn list_connections(
     (StatusCode, Json<ApiResponse<serde_json::Value>>),
 > {
     let bus = InfraBusClient::new();
-    match bus.request("sql_editor.list_connection", None, (), None).await {
-        Ok(value) => {
-            match from_value::<Vec<ConnectionResponse>>(value) {
-                Ok(connections) => {
-                    let response_data = ConnectionListResponse { connections };
-                    Ok(Json(ApiResponse::success(response_data)))
-                }
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request("sql_editor.list_connection", None, (), None)
+        .await
+    {
+        Ok(value) => match from_value::<Vec<ConnectionResponse>>(value) {
+            Ok(connections) => {
+                let response_data = ConnectionListResponse { connections };
+                Ok(Json(ApiResponse::success(response_data)))
             }
-        }
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+            }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -138,16 +143,18 @@ pub async fn get_connection(
 ) -> Result<Json<ApiResponse<ConnectionResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
 {
     let bus = InfraBusClient::new();
-    match bus.request("sql_editor.get_connection", None, connection_id, None).await {
-        Ok(value) => {
-            match from_value::<ConnectionResponse>(value) {
-                Ok(connection) => Ok(Json(ApiResponse::success(connection))),
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request("sql_editor.get_connection", None, connection_id, None)
+        .await
+    {
+        Ok(value) => match from_value::<ConnectionResponse>(value) {
+            Ok(connection) => Ok(Json(ApiResponse::success(connection))),
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
             }
-        }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -166,16 +173,18 @@ pub async fn update_connection(
         let api_response = ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
     })?;
-    match bus.request("sql_editor.update_connection", None, update_value, None).await {
-        Ok(value) => {
-            match from_value::<ConnectionResponse>(value) {
-                Ok(connection) => Ok(Json(ApiResponse::success(connection))),
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request("sql_editor.update_connection", None, update_value, None)
+        .await
+    {
+        Ok(value) => match from_value::<ConnectionResponse>(value) {
+            Ok(connection) => Ok(Json(ApiResponse::success(connection))),
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
             }
-        }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -189,7 +198,10 @@ pub async fn delete_connection(
     Path(connection_id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)> {
     let bus = InfraBusClient::new();
-    match bus.request("sql_editor.delete_connection", None, connection_id, None).await {
+    match bus
+        .request("sql_editor.delete_connection", None, connection_id, None)
+        .await
+    {
         Ok(_) => Ok(Json(ApiResponse::success(()))),
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
@@ -207,19 +219,26 @@ pub async fn test_connection(
     (StatusCode, Json<ApiResponse<serde_json::Value>>),
 > {
     let bus = InfraBusClient::new();
-    match bus.request("sql_editor.test_connection", None, test_request.connection_id.clone(), None).await {
-        Ok(value) => {
-            match from_value::<bool>(value) {
-                Ok(success) => {
-                    let test_response = TestConnectionResponse { success };
-                    Ok(Json(ApiResponse::success(test_response)))
-                }
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request(
+            "sql_editor.test_connection",
+            None,
+            test_request.connection_id.clone(),
+            None,
+        )
+        .await
+    {
+        Ok(value) => match from_value::<bool>(value) {
+            Ok(success) => {
+                let test_response = TestConnectionResponse { success };
+                Ok(Json(ApiResponse::success(test_response)))
             }
-        }
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+            }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -234,19 +253,21 @@ pub async fn get_tables(
 ) -> Result<Json<ApiResponse<TableListResponse>>, (StatusCode, Json<ApiResponse<serde_json::Value>>)>
 {
     let bus = InfraBusClient::new();
-    match bus.request("sql_editor.get_tables", None, connection_id, None).await {
-        Ok(value) => {
-            match from_value::<Vec<TableResponse>>(value) {
-                Ok(tables) => {
-                    let response_data = TableListResponse { tables };
-                    Ok(Json(ApiResponse::success(response_data)))
-                }
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request("sql_editor.get_tables", None, connection_id, None)
+        .await
+    {
+        Ok(value) => match from_value::<Vec<TableResponse>>(value) {
+            Ok(tables) => {
+                let response_data = TableListResponse { tables };
+                Ok(Json(ApiResponse::success(response_data)))
             }
-        }
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+            }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
@@ -275,19 +296,21 @@ pub async fn get_table_columns(
         let api_response = ApiResponse::error(&format!("Failed to serialize request: {}", e), 500);
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(api_response));
     })?;
-    match bus.request("sql_editor.get_table_columns", None, request_value, None).await {
-        Ok(value) => {
-            match from_value::<Vec<ColumnResponse>>(value) {
-                Ok(columns) => {
-                    let response_data = ColumnListResponse { columns };
-                    Ok(Json(ApiResponse::success(response_data)))
-                }
-                Err(e) => {
-                    let api_response = ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
-                    Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
-                }
+    match bus
+        .request("sql_editor.get_table_columns", None, request_value, None)
+        .await
+    {
+        Ok(value) => match from_value::<Vec<ColumnResponse>>(value) {
+            Ok(columns) => {
+                let response_data = ColumnListResponse { columns };
+                Ok(Json(ApiResponse::success(response_data)))
             }
-        }
+            Err(e) => {
+                let api_response =
+                    ApiResponse::error(&format!("Failed to parse response: {}", e), 500);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))
+            }
+        },
         Err(e) => {
             let api_response = ApiResponse::error(&format!("Message bus error: {}", e), 500);
             Err((StatusCode::INTERNAL_SERVER_ERROR, Json(api_response)))

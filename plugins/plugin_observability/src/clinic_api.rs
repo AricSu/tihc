@@ -4,9 +4,7 @@
 
 //! 业务逻辑已迁移到 data_source.rs 的统一抽象中//! 此模块已废弃，逻辑迁移到 data_source.rs 的统一抽象中
 
-
-
-use serde::{Deserialize, Serialize};// 保留类型定义供其他模块使用
+use serde::{Deserialize, Serialize}; // 保留类型定义供其他模块使用
 use std::collections::HashMap;
 
 /// Clinic 客户端配置
