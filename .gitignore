@@ -12,3 +12,30 @@ tihc.log
 
 /report_dir
 test.sql
+
+# Logs
+extensions/tihc-extension/logs
+extensions/tihc-extension/*.log
+extensions/tihc-extension/npm-debug.log*
+extensions/tihc-extension/yarn-debug.log*
+extensions/tihc-extension/yarn-error.log*
+extensions/tihc-extension/pnpm-debug.log*
+extensions/tihc-extension/lerna-debug.log*
+
+extensions/tihc-extension/node_modules
+extensions/tihc-extension/.output
+extensions/tihc-extension/stats.html
+extensions/tihc-extension/stats-*.json
+extensions/tihc-extension/.wxt
+extensions/tihc-extension/web-ext.config.ts
+
+extensions/tihc-extension/# Editor directories and files
+extensions/tihc-extension/.vscode/*
+extensions/tihc-extension/!.vscode/extensions.json
+extensions/tihc-extension/.idea
+extensions/tihc-extension/.DS_Store
+extensions/tihc-extension/*.suo
+extensions/tihc-extension/*.ntvs*
+extensions/tihc-extension/*.njsproj
+extensions/tihc-extension/*.sln
+extensions/tihc-extension/*.sw?
