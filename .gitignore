@@ -39,3 +39,35 @@ extensions/tihc-extension/*.ntvs*
 extensions/tihc-extension/*.njsproj
 extensions/tihc-extension/*.sln
 extensions/tihc-extension/*.sw?
+
+
+
+
+# Logs
+extensions/tihc-jira-extension/logs
+extensions/tihc-jira-extension/*.log
+extensions/tihc-jira-extension/npm-debug.log*
+extensions/tihc-jira-extension/yarn-debug.log*
+extensions/tihc-jira-extension/yarn-error.log*
+extensions/tihc-jira-extension/pnpm-debug.log*
+extensions/tihc-jira-extension/lerna-debug.log*
+
+extensions/tihc-jira-extension/node_modules
+extensions/tihc-jira-extension/.output
+extensions/tihc-jira-extension/stats.html
+extensions/tihc-jira-extension/stats-*.json
+extensions/tihc-jira-extension/.wxt
+extensions/tihc-jira-extension/web-ext.config.ts
+
+extensions/tihc-jira-extension/# Editor directories and files
+extensions/tihc-jira-extension/.vscode/*
+extensions/tihc-jira-extension/!.vscode/extensions.json
+extensions/tihc-jira-extension/.idea
+extensions/tihc-jira-extension/.DS_Store
+extensions/tihc-jira-extension/*.suo
+extensions/tihc-jira-extension/*.ntvs*
+extensions/tihc-jira-extension/*.njsproj
+extensions/tihc-jira-extension/*.sln
+extensions/tihc-jira-extension/*.sw?
+
+extensions/tihc-jira-extension/result
