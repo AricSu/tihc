@@ -1,0 +1,16 @@
+[package]
+name = "backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+
+[dependencies]
+microkernel = { path = "../../microkernel" }
+tokio = { workspace = true }
+rust-embed = { version = "8.7", features = ["axum"] }
+axum = { workspace = true }
+mime_guess = "2"
+tracing =  {workspace = true}
+tower =  {workspace = true}
