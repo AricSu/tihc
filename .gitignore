@@ -6,3 +6,8 @@
 # Ignore Config and OS files
 config.toml
 .DS_Store
+
+# Ignore frontend build artifacts and node modules
+
+
+/frontend/tihc-jira-extension/node_modules

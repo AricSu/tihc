@@ -1,1 +1,0 @@
-import{c as o,o as a,r as s,n as t}from"./index-CQZOGmuN.js";const d={__name:"AppCard",props:{bordered:Boolean},setup(e){return(r,n)=>(a(),o("div",{class:t(["auto-bg",{"card-border":e.bordered}])},[s(r.$slots,"default")],2))}};export{d as _};
