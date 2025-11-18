@@ -1,4 +1,10 @@
+// 强制链接 backend 插件 crate，确保 inventory 注册生效
+#[allow(unused_imports)]
+use backend as _;
+
 use microkernel::PluginRegistry;
+use microkernel::plugin::PluginFactory;
+
 fn init_logging(
     log_file: Option<&String>,
     log_level: &str,
@@ -155,11 +161,29 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // === 4. Init plugin registry and register static handler ===
-    let plugin_registry = std::sync::Arc::new(PluginRegistry::new());
-    register_static_handler_via_eventbus(plugin_registry.clone()).await;
+    // === 4. Init EventBus, PluginRegistry
+    use microkernel::plugin::PluginEvent;
+    use microkernel::EventBus;
+    use std::sync::Arc;
+    let bus = EventBus::<PluginEvent>::new(1024, 256);
+    let plugin_registry = Arc::new(PluginRegistry::new());
+    let mut bus_rx = bus.subscribe();
+    tokio::spawn(async move {
+        while let Ok(event) = bus_rx.recv().await {
+            let PluginEvent::RegisterHttpRoute(reg) = event.payload;
+            tracing::info!(target: "microkernel", "[microkernel] Registered plugin HTTP route: {}", reg.path);
+        }
+    });
 
-    // === 5. Build axum app and run server ===
+    // === 5. register plugins
+    
+    for factory in inventory::iter::<PluginFactory> {
+        let plugin = (factory.0)();
+        plugin.register(bus.clone(), plugin_registry.clone());
+    }
+
+
+    // === 6. Build axum app and run server ===
     let plugin_router = Some(microkernel::plugin::plugin_router(plugin_registry.clone()));
     let (address, port) = merge_address_port(&cli, config.as_ref());
     println!("[INFO] tihc microkernel server starting...");
@@ -171,11 +195,4 @@ async fn main() -> anyhow::Result<()> {
     let result = run_axum_server(address, port, plugin_router).await;
     println!("[INFO] tihc microkernel server exited.");
     result
-}
-
-/// Register the static handler via EventBus before server starts
-async fn register_static_handler_via_eventbus(plugin_registry: std::sync::Arc<PluginRegistry>) {
-    // 这里应由插件自身在运行时通过 EventBus 注册静态路由
-    // microkernel 不再直接依赖 backend，也不负责静态路由注册
-    // 若需要可留空或实现插件发现机制
 }

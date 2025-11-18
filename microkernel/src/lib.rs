@@ -70,25 +70,17 @@ impl<T: Clone + Send + 'static> EventBus<T> {
 		resp_rx.await.map_err(|e| e.to_string())
 	}
 	/// 注册 RPC handler（只允许注册一次）
-	pub async fn register_rpc_handler<F>(self: &Arc<Self>, mut handler: F)
+	pub async fn register_rpc_handler<F>(self: &Arc<Self>, handler: F)
 	where
 		F: FnMut(EventEnvelope<T>) -> T + Send + 'static,
 	{
-		let mut rpc_rx = self.rpc_tx.clone();
-		let bus = Arc::clone(self);
-		tokio::spawn(async move {
-			let (mut rx, _) = mpsc::channel::<(EventEnvelope<T>, oneshot::Sender<T>)>(1);
-			// 这里实际应替换为共享的 rpc_rx
-			// 但 tokio::mpsc::Receiver 不能 clone，只能通过外部传递
-			// 这里仅为接口示例，实际用法需调整
-			loop {
-				// 这里应从外部传入的 rpc_rx 接收
-				// let Some((envelope, resp_tx)) = rx.recv().await else { break; };
-				// let resp = handler(envelope);
-				// let _ = resp_tx.send(resp);
-				break;
-			}
-		});
+		// 占位接口，避免未使用变量警告
+		let _ = handler;
+		// let _rpc_rx = self.rpc_tx.clone();
+		// let _bus = Arc::clone(self);
+		// tokio::spawn(async move {
+		//     // ...
+		// });
 	}
 }
 
