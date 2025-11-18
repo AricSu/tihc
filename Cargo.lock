@@ -906,14 +906,11 @@ name = "tihc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum",
- "backend",
  "clap",
  "microkernel",
  "serde",
  "serde_json",
  "tokio",
- "tower",
  "tracing",
  "tracing-subscriber",
 ]

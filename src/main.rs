@@ -1,6 +1,4 @@
-use tower::util::ServiceExt;
 use microkernel::PluginRegistry;
-use axum::response::IntoResponse;
 fn init_logging(
     log_file: Option<&String>,
     log_level: &str,
@@ -177,35 +175,7 @@ async fn main() -> anyhow::Result<()> {
 
 /// Register the static handler via EventBus before server starts
 async fn register_static_handler_via_eventbus(plugin_registry: std::sync::Arc<PluginRegistry>) {
-    use microkernel::plugin::{PluginEvent, RegisterHttpRoute};
-    use backend::static_dist_router;
-    use axum::extract::Request;
-    use microkernel::{EventBus, EventEnvelope};
-    let bus = EventBus::<PluginEvent>::new(1024, 256);
-    let plugin_registry_clone = plugin_registry.clone();
-    let static_router = static_dist_router();
-    let handler: microkernel::plugin::PluginHandler = std::sync::Arc::new(
-        move |req: Request<axum::body::Body>| {
-            let router = static_router.clone();
-            Box::pin(async move { router.oneshot(req).await.into_response() })
-        },
-    );
-    let mut bus_rx = bus.subscribe();
-    let reg_handle = tokio::spawn(async move {
-        while let Ok(event) = bus_rx.recv().await {
-            let PluginEvent::RegisterHttpRoute(reg) = event.payload;
-            plugin_registry_clone.register_route(&reg.path, handler.clone());
-            println!("[microkernel] Registered plugin HTTP route: {}", reg.path);
-        }
-    });
-    let reg_event = EventEnvelope::new(
-        "plugin_register_http_route",
-        PluginEvent::RegisterHttpRoute(RegisterHttpRoute {
-            path: "/".to_string(),
-        }),
-        None,
-    );
-    let _ = bus.broadcast(reg_event);
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    let _ = reg_handle.await;
+    // 这里应由插件自身在运行时通过 EventBus 注册静态路由
+    // microkernel 不再直接依赖 backend，也不负责静态路由注册
+    // 若需要可留空或实现插件发现机制
 }

@@ -9,5 +9,8 @@ config.toml
 
 # Ignore frontend build artifacts and node modules
 
+/frontend/shared/node_modules
+/frontend/shared/dist
 
 /frontend/tihc-jira-extension/node_modules
+/frontend/tihc-jira-extension/dist
