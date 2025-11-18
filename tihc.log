@@ -1,4 +1,0 @@
-2025-11-18T22:46:47.425812Z  INFO main ThreadId(01) microkernel::startup: microkernel/src/startup.rs:16: tihc server listening on 127.0.0.1:8080
-2025-11-18T22:46:49.312345Z  INFO tokio-runtime-worker ThreadId(02) plugin_dispatch: microkernel/src/plugin.rs:33: Received HTTP request: /
-2025-11-18T22:46:49.312368Z  WARN tokio-runtime-worker ThreadId(02) plugin_dispatch: microkernel/src/plugin.rs:38: No plugin handler found for path: /
-2025-11-18T22:46:54.356810Z  INFO tokio-runtime-worker ThreadId(02) microkernel::startup: microkernel/src/startup.rs:21: [TiHC] Web server received shutdown signal, exiting...
