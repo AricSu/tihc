@@ -22,3 +22,4 @@ config.toml
 /frontend/tihc-extension/jsconfig.json
 /frontend/tihc-extension/yarn.lock
 /frontend/tihc-extension/result
+/frontend/tihc-extension/src
