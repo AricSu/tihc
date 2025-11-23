@@ -34,9 +34,9 @@ pub struct DiContainer {
 
 impl DiContainer {
     /// 创建完整的依赖图
-    pub async fn new() -> Result<Self> {
-        // 加载配置
-        let config = AppConfig::load()?;
+    pub async fn new(config_value: &toml::Value) -> Result<Self> {
+        // 通过 microkernel 传递的 toml::Value 构建 config
+        let config = AppConfig::from_toml_value(config_value)?;
 
         // 创建数据库连接池
         let database_url = config.to_database_url();
@@ -89,7 +89,7 @@ impl DiContainer {
         run_migrations(&pool).await?;
 
         // 配置仓储和服务
-        let config_repository = Arc::new(FileConfigRepository::new());
+        let config_repository = Arc::new(FileConfigRepository::new(config_value.clone()));
         let config_service = Arc::new(AppConfigService::new(config_repository.clone()));
 
         // 仓储层 - 使用真实的MySQL仓储和内存验证码仓储

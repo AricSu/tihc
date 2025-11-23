@@ -1,0 +1,29 @@
+# TiHC Configuration File
+
+[log]
+level = "info"
+file = "tihc.log"
+enable_rotation = false
+
+[kernel]
+eventbus_broadcast_capacity = 1024
+eventbus_rpc_capacity = 256
+
+[server]
+enable = true
+address = "0.0.0.0"
+port = 8080
+
+[server.database]
+host = "127.0.0.1"
+port = 4000
+username = "root" 
+password = ""
+database = "tihc_server"
+max_connections = 20
+use_tls = true
+
+
+[jwt]
+secret = ""
+expiry_hours = 24

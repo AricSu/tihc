@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::fs;
-use std::path::Path;
+use toml::Value;
 
 /// 配置值对象
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,30 +83,50 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn load() -> Result<Self, ConfigError> {
-        // 尝试从多个位置加载配置文件
-        let config_paths = ["_config.toml"];
+    pub fn from_toml_value(config: &Value) -> Result<Self, ConfigError> {
+        // 只解析 plugins.backend 下的配置
+        let db_cfg = config.get("database").ok_or_else(|| ConfigError::ParseError("Missing [plugins.backend.database] section".to_string()))?;
+        let host = db_cfg.get("host").and_then(Value::as_str).unwrap_or("127.0.0.1").to_string();
+        let port = db_cfg.get("port").and_then(Value::as_integer).unwrap_or(3306) as u16;
+        let username = db_cfg.get("username").and_then(Value::as_str).unwrap_or("root").to_string();
+        let password = db_cfg.get("password").and_then(Value::as_str).unwrap_or("").to_string();
+        let name = db_cfg.get("name").and_then(Value::as_str).unwrap_or("tihc").to_string();
+        let max_connections = db_cfg.get("max_connections").and_then(Value::as_integer).map(|v| v as u32);
+        let use_tls = db_cfg.get("use_tls").and_then(Value::as_bool).unwrap_or(false);
 
-        for path in &config_paths {
-            if Path::new(path).exists() {
-                tracing::info!("📄 Loading configuration from: {}", path);
-                return Self::load_from_file(path);
-            }
-        }
+        let database = DatabaseConfig {
+            host,
+            port,
+            username,
+            password,
+            name,
+            max_connections,
+            use_tls,
+        };
 
-        // 如果没有找到配置文件，创建默认配置
-        tracing::warn!("⚠️  No configuration file found, using defaults");
-        Ok(Self::default())
-    }
+        // 其他配置项可按需解析
+        // 这里只解析 database，其他如 jwt、captcha、oauth 可扩展
 
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
-        let content =
-            fs::read_to_string(path.as_ref()).map_err(|e| ConfigError::FileRead(e.to_string()))?;
-
-        let config: AppConfig =
-            toml::from_str(&content).map_err(|e| ConfigError::ParseError(e.to_string()))?;
-
-        Ok(config)
+        Ok(Self {
+            database,
+            server: ServerConfig {
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+            },
+            jwt: JwtConfig {
+                secret: "dev-jwt-secret-change-in-production".to_string(),
+                expiry_hours: 24,
+            },
+            github_oauth: None,
+            google_oauth: None,
+            captcha: CaptchaConfig {
+                expiry_seconds: 300,
+            },
+            log: LogConfig {
+                level: "info".to_string(),
+                style: "always".to_string(),
+            },
+        })
     }
 
     pub fn to_database_url(&self) -> String {

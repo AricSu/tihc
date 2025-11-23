@@ -1,9 +1,15 @@
-// 强制链接 backend 插件 crate，确保 inventory 注册生效
+// force include the backend plugin
 #[allow(unused_imports)]
 use backend as _;
 
+// TiHC Microkernel Main Entry Point
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use microkernel::PluginRegistry;
+use microkernel::config::KernelConfig;
+use microkernel::context::set_global_config;
+use microkernel::log::init;
 use microkernel::plugin::PluginFactory;
+use microkernel::startup::run_axum_server;
 
 fn init_logging(
     log_file: Option<&String>,
@@ -62,11 +68,6 @@ fn validate_socket_address(address: &str, port: u16) -> anyhow::Result<()> {
     }
     Ok(())
 }
-
-use clap::{Args, CommandFactory, Parser, Subcommand};
-use microkernel::config::KernelConfig;
-use microkernel::log::init;
-use microkernel::run_axum_server;
 
 #[derive(Parser, Debug)]
 #[command(name = "tihc", version, about = "TiDB Healthy Checker")]
@@ -137,62 +138,69 @@ async fn main() -> anyhow::Result<()> {
         .config
         .as_deref()
         .map(KernelConfig::from_file)
-        .transpose()?;
+        .transpose()?
+        .unwrap_or_else(|| KernelConfig::default());
+
+    set_global_config(Arc::new(config.clone()));
 
     // === 2. Init logging ===
     let default_log_file = microkernel::config::LogConfig::default().file.unwrap();
-    let log_file: Option<&String> = cli.log_file.as_ref()
-        .or_else(|| config.as_ref().and_then(|cfg| cfg.log.file.as_ref()))
+    let log_file: Option<&String> = cli
+        .log_file
+        .as_ref()
+        .or_else(|| config.log.file.as_ref())
         .or(Some(&default_log_file));
     let log_level = if !cli.log_level.is_empty() {
         cli.log_level.as_str()
     } else {
-        config.as_ref().map(|c| c.log.level.as_str()).unwrap_or("info")
+        config.log.level.as_str()
     };
-    let enable_log_rotation = cli.enable_log_rotation
-        || config.as_ref().map(|c| c.log.enable_rotation).unwrap_or(false);
+    let enable_log_rotation = cli.enable_log_rotation || config.log.enable_rotation;
     init_logging(log_file, log_level, enable_log_rotation)?;
 
     // === 3. Check server enable ===
-    if let Some(cfg) = config.as_ref() {
-        if !cfg.server.enable {
-            println!("[INFO] Server is disabled by config. Exiting.");
-            return Ok(());
-        }
+    if !config.server.enable {
+        println!("[INFO] Server is disabled by config. Exiting.");
+        return Ok(());
     }
 
     // === 4. Init EventBus, PluginRegistry
-    use microkernel::plugin::PluginEvent;
     use microkernel::EventBus;
+    use microkernel::plugin::PluginEvent;
     use std::sync::Arc;
     let bus = EventBus::<PluginEvent>::new(1024, 256);
     let plugin_registry = Arc::new(PluginRegistry::new());
-    let mut bus_rx = bus.subscribe();
+    let bus_rx = bus.subscribe();
     tokio::spawn(async move {
+        let mut bus_rx = bus_rx;
         while let Ok(event) = bus_rx.recv().await {
-            let PluginEvent::RegisterHttpRoute(reg) = event.payload;
-            tracing::info!(target: "microkernel", "[microkernel] Registered plugin HTTP route: {}", reg.path);
+            match event.payload {
+                PluginEvent::RegisterHttpRoute(reg) => {
+                    tracing::info!(target: "microkernel", "[microkernel] Registered plugin HTTP route: {}", reg.path);
+                }
+                PluginEvent::GracefulShutdown => {
+                    tracing::info!(target: "microkernel", "[microkernel] Received shutdown event");
+                }
+            }
         }
     });
 
     // === 5. register plugins
-    
+
     for factory in inventory::iter::<PluginFactory> {
         let plugin = (factory.0)();
         plugin.register(bus.clone(), plugin_registry.clone());
     }
 
-
     // === 6. Build axum app and run server ===
-    let plugin_router = Some(microkernel::plugin::plugin_router(plugin_registry.clone()));
-    let (address, port) = merge_address_port(&cli, config.as_ref());
+    let (address, port) = merge_address_port(&cli, Some(&config));
     println!("[INFO] tihc microkernel server starting...");
     println!("[INFO] Listen on http://{}:{}", address, port);
     if let Some(log_file) = log_file {
         println!("[INFO] Log file: {}", log_file);
     }
     validate_socket_address(&address, port)?;
-    let result = run_axum_server(address, port, plugin_router).await;
+    let result = run_axum_server(address, port, plugin_registry.clone(), Some(bus)).await;
     println!("[INFO] tihc microkernel server exited.");
     result
 }

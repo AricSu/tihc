@@ -1,6 +1,8 @@
 use crate::EventBus;
 use inventory;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+
 
 pub trait KernelPlugin: Send + Sync {
     fn register(&self, bus: Arc<EventBus<PluginEvent>>, registry: Arc<PluginRegistry>);
@@ -10,35 +12,28 @@ pub struct PluginFactory(pub fn() -> Box<dyn KernelPlugin>);
 
 inventory::collect!(PluginFactory);
 
-// === 插件事件定义 ===
-use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PluginEvent {
     RegisterHttpRoute(RegisterHttpRoute),
-    // ...可扩展更多事件
+    GracefulShutdown
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegisterHttpRoute {
     pub path: String,
-    // handler 不能序列化，这里只传 path，handler 由插件注册时通过全局注册表传递
 }
 
-// === 路由分发与注册 ===
 use axum::{extract::Request, response::Response};
 use dashmap::DashMap;
 use std::future::Future;
 use std::pin::Pin;
 
-/// 插件 handler 类型
 pub type PluginHandler = Arc<
     dyn Fn(Request<axum::body::Body>) -> Pin<Box<dyn Future<Output = Response> + Send>>
         + Send
         + Sync,
 >;
 
-/// 插件 handler 注册表
 pub struct PluginRegistry {
     pub routes: DashMap<String, PluginHandler>,
 }

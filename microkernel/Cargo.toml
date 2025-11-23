@@ -16,3 +16,5 @@ toml = { workspace = true }
 dashmap = { workspace = true }
 tracing-appender = { workspace = true }
 inventory = {workspace = true}
+tower = { workspace = true }
+once_cell = { workspace = true }

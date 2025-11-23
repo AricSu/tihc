@@ -9,10 +9,10 @@ BIN_DIR = bin
 LOG_PATH = tihc.log
 
 # Default target: build all
-all: frontend server 
+all: dashboard server 
 
 # Build Rust backend (all workspace crates) and copy binary to bin/
-server: 
+server:
 	@echo "\033[1;36m[BUILD] Building Rust backend ...\033[0m"
 	rm -rf $(BIN_DIR)
 	rm -rf $(LOG_PATH)
@@ -22,7 +22,7 @@ server:
 	@echo "\033[1;32m[SUCCESS] Rust backend built.\033[0m"
 
 # Build frontend
-frontend:
+dashboard:
 	@echo "\033[1;36m[BUILD] Building frontend ...\033[0m"
 	rm -rf $(FRONTEND_DIR_DIST)
 	cd $(FRONTEND_DIR) && $(PNPM) install
@@ -36,6 +36,6 @@ clean-server:
 	$(CARGO) clean
 	rm -rf $(BIN_DIR)
 
-clean-frontend:
+clean-dashboard:
 	@echo "\033[1;33m[CLEAN] Cleaning frontend build ...\033[0m"
 	cd $(FRONTEND_DIR) && $(PNPM) clean || rm -rf $(FRONTEND_DIR_DIST)

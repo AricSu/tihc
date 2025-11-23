@@ -1,8 +1,8 @@
+pub mod startup;
 pub mod config;
 pub mod log;
-pub mod startup;
 pub mod plugin;
-pub use startup::run_axum_server;
+pub mod context;
 pub use log::*;
 pub use plugin::{PluginRegistry, PluginHandler};
 

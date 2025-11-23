@@ -31,7 +31,7 @@ impl InfraState {
     }
 }
 
-pub async fn create_infra_state() -> anyhow::Result<InfraState> {
-    let container = DiContainer::new().await?;
+pub async fn create_infra_state(config_value: &toml::Value) -> anyhow::Result<InfraState> {
+    let container = DiContainer::new(config_value).await?;
     Ok(InfraState::from_di_container(container))
 }

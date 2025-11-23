@@ -1,5 +1,7 @@
 //! microkernel 配置模块，支持从文件/env 加载配置。
 use serde::Deserialize;
+use std::collections::HashMap;
+use toml::Value;
 use std::{fs, path::Path};
 
 /// Kernel configuration for microkernel core.
@@ -19,12 +21,18 @@ pub struct KernelConfig {
     #[serde(default)]
     pub kernel: KernelSection,
 
+    /// Plugins configuration ([plugins] table, dynamic)
+    #[serde(default)]
+    pub plugins: HashMap<String, Value>,
+
     /// Config file path (for reload/self-inspect)
     #[serde(default = "KernelConfig::default_config_file")]
     pub config_file: String,
-
-    // Add more fields as needed
 }
+
+// PluginsConfig is now a dynamic HashMap<String, toml::Value>.
+// Each plugin can access its config via: config.plugins.get("autoflow")
+// and use serde or toml::Value API to parse its own config.
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct KernelSection {
@@ -70,6 +78,7 @@ impl Default for KernelConfig {
             server: ServerConfig::default(),
             log: LogConfig::default(),
             kernel: KernelSection::default(),
+            plugins: HashMap::new(),
             config_file: Self::default_config_file(),
         }
     }
