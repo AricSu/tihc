@@ -7,7 +7,12 @@ authors.workspace = true
 
 
 [dependencies]
+toml = { workspace = true }
+anyhow = {workspace = true}
 inventory = {workspace = true}
+serde_json = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
 microkernel = { path = "../../microkernel" }
 tokio = { workspace = true }
 rust-embed = { version = "8.7", features = ["axum"] }
@@ -15,3 +20,54 @@ axum = { workspace = true }
 mime_guess = "2"
 tracing =  {workspace = true}
 tower =  {workspace = true}
+rmcp = { version = "0.8", features = [
+    "server",
+    "transport-streamable-http-server",
+    "schemars"
+] }
+schemars = "1.0.4"
+serde-aux = "4.7.0"
+
+thiserror = "2.0"
+async-trait = "0.1"
+tokio-stream = "0.1"
+sha2 = "0.10"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "mysql", "chrono", "json", "time", "migrate"] }
+
+# Password hashing
+bcrypt = "0.17"
+
+# JWT
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+
+# Validation
+validator = { version = "0.20", features = ["derive"] }
+
+# Image generation for captcha
+captcha = "1"
+image = "0.25"
+rand = "0.9"
+
+# Hex encoding
+oauth2 = { version = "5", features = ["reqwest","reqwest-blocking"] }
+hex = "0.4"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Session management
+tower-http = { version = "0.6", features = ["cors"] }
+
+# Streaming
+futures = "0.3"
+
+# Configuration
+config = "0.15"
+
+# URL encoding
+urlencoding = "2.1"
+reqwest = { version = "0.12.24", features = ["json"] }
+base64 = "0.22.1"
+

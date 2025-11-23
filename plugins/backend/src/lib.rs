@@ -1,12 +1,21 @@
+mod startup;
+mod interface;
+mod infrastructure;
+mod domain;
+mod application;
+
 use microkernel::plugin::{KernelPlugin, PluginEvent, PluginRegistry};
 use std::sync::Arc;
 
-pub struct BackendPlugin;
+struct BackendPlugin;
 
 impl KernelPlugin for BackendPlugin {
     fn register(&self, bus: Arc<microkernel::EventBus<PluginEvent>>, registry: Arc<PluginRegistry>) {
-        tracing::info!(target: "backend", "BackendPlugin::register called");
-        crate::startup::register_static_embed_via_bus(bus, registry);
+        // 注册静态资源路由
+        crate::startup::register_static_embed_via_bus(bus.clone(), registry.clone());
+        // 可在此扩展更多插件注册逻辑
+        // 例如：
+        // crate::startup::register_other_plugin_via_bus(bus, registry);
     }
 }
 
@@ -17,13 +26,3 @@ fn backend_plugin_factory() -> Box<dyn KernelPlugin> {
 inventory::submit! {
     microkernel::plugin::PluginFactory(backend_plugin_factory)
 }
-mod static_embed;
-
-pub use static_embed::static_dist_router;
-pub mod startup;
-pub mod interface;
-pub mod infrastructure;
-pub mod application;
-pub mod domain;
-
-pub use startup::*;
