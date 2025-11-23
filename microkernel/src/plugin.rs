@@ -45,10 +45,10 @@ impl PluginRegistry {
         }
     }
     pub fn register_route(&self, path: &str, handler: PluginHandler) {
-        tracing::info!(target: "plugin_registry", "Registering route: {}", path);
+        tracing::debug!(target: "plugin_registry", "Registering route: {}", path);
         self.routes.insert(path.to_string(), handler);
         let keys: Vec<_> = self.routes.iter().map(|r| r.key().clone()).collect();
-        tracing::info!(target: "plugin_registry", "Current registered routes: {:?}", keys);
+        tracing::debug!(target: "plugin_registry", "Current registered routes: {:?}", keys);
     }
     pub fn unregister_plugin(&self, plugin_prefix: &str) {
         let keys: Vec<_> = self
@@ -62,20 +62,20 @@ impl PluginRegistry {
         }
     }
     pub fn get_handler(&self, path: &str) -> Option<PluginHandler> {
-        tracing::info!(target: "plugin_registry", "get_handler lookup: {}", path);
+        tracing::debug!(target: "plugin_registry", "get_handler lookup: {}", path);
         // 优先精确匹配
         if let Some(h) = self.routes.get(path) {
-            tracing::info!(target: "plugin_registry", "Matched exact route: {}", path);
+            tracing::debug!(target: "plugin_registry", "Matched exact route: {}", path);
             return Some(h.value().clone());
         }
         // fallback 到 '/{*path}'
         if let Some(h) = self.routes.get("/{*path}") {
-            tracing::info!(target: "plugin_registry", "Matched wildcard route: /{{*path}} for {}", path);
+            tracing::debug!(target: "plugin_registry", "Matched wildcard route: /{{*path}} for {}", path);
             return Some(h.value().clone());
         }
         // fallback 到 '/'
         if let Some(h) = self.routes.get("/") {
-            tracing::info!(target: "plugin_registry", "Matched fallback route: / for {}", path);
+            tracing::debug!(target: "plugin_registry", "Matched fallback route: / for {}", path);
             return Some(h.value().clone());
         }
         tracing::warn!(target: "plugin_registry", "No handler found for: {}", path);

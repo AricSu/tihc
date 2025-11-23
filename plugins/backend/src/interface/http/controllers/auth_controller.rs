@@ -69,6 +69,7 @@ pub async fn login_handler(
     State(app_state): State<Arc<AppState>>,
     Json(request): Json<LoginRequest>,
 ) -> impl IntoResponse {
+    tracing::info!(target: "login_handler", "login_handler called");
     let auth_service = &app_state.auth_service;
     match auth_service.login(request).await {
         Ok(response) => ApiResponse::success(response).into_response(),

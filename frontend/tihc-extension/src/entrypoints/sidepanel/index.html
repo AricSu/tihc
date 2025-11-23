@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="manifest.default_icon" content='{"tihc":"logo.svg"}' />
+    <title>TiHC Sidepanel</title>
+    <style>
+      /* Ensure host page doesn't add scrollbars — keep body/html full height */
+      html,
+      body,
+      #app {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: hidden; /* plugin shouldn't scroll the whole page */
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Mount point for the Vue app -->
+    <div id="app"></div>
+
+    <!-- Vite / WXT will replace/serve the module during dev and bundle it for production -->
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

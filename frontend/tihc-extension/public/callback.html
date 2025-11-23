@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OAuth Callback</title>
+  </head>
+  <body>
+    <script>
+      // 日志：OAuth Callback 页面加载
+      console.log('[OAuth] callback.html loaded:', window.location.href)
+      // 解析 code 和 state
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+      const state = params.get('state')
+      // 日志：code/state
+      console.log('[OAuth] code:', code, 'state:', state)
+      // 向 opener 发送消息
+      if (window.opener) {
+        window.opener.postMessage(
+          {
+            type: 'oauth-callback',
+            code,
+            state,
+            href: window.location.href,
+          },
+          '*',
+        )
+        console.log('[OAuth] Sent code to opener, closing window.')
+        window.close()
+      } else {
+        console.log('[OAuth] No window.opener found')
+      }
+    </script>
+    <p>授权完成，请关闭此窗口。</p>
+  </body>
+</html>

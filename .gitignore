@@ -13,5 +13,12 @@ config.toml
 /frontend/shared/node_modules
 /frontend/shared/dist
 
-/frontend/tihc-jira-extension/node_modules
-/frontend/tihc-jira-extension/dist
+/frontend/tihc-extension/node_modules
+/frontend/tihc-extension/dist
+/frontend/tihc-extension/.output
+/frontend/tihc-extension/.wxt
+/frontend/tihc-extension/.env.development
+/frontend/tihc-extension/.env.production
+/frontend/tihc-extension/jsconfig.json
+/frontend/tihc-extension/yarn.lock
+/frontend/tihc-extension/result

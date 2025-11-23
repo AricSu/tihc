@@ -19,19 +19,18 @@ pub fn register_static_embed_via_bus(
         Box::pin(async move { router.oneshot(req).await.into_response() })
     });
     // register routes
-    for path in ["/", "/{*path}"] {
-        tracing::info!(target: "backend", "Registering static embed route: {}", path);
-        registry.register_route(path, handler.clone());
-        // use EventBus to broadcast registration event
-        let reg_event = EventEnvelope::new(
-            "plugin_register_http_route",
-            PluginEvent::RegisterHttpRoute(RegisterHttpRoute {
-                path: path.to_string(),
-            }),
-            None,
-        );
-        let _ = bus.broadcast(reg_event);
-    }
+    let path = "/";
+    tracing::info!(target: "backend", "Registering static embed route: {}", path);
+    registry.register_route(path, handler.clone());
+    // use EventBus to broadcast registration event
+    let reg_event = EventEnvelope::new(
+        "plugin_register_http_route",
+        PluginEvent::RegisterHttpRoute(RegisterHttpRoute {
+            path: path.to_string(),
+        }),
+        None,
+    );
+    let _ = bus.broadcast(reg_event);
 }
 
 /// 注册 API 路由到微内核 PluginRegistry，并广播事件
@@ -51,7 +50,7 @@ pub async fn register_api_routes_via_bus(
         let router = api_router.clone();
         Box::pin(async move { router.oneshot(req).await.into_response() })
     });
-    let path = "/api/{*path}";
+    let path = "/{*path}";
     registry.register_route(path, handler.clone());
     let reg_event = EventEnvelope::new(
         "plugin_register_http_route",

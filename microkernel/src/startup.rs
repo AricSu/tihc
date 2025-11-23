@@ -26,9 +26,9 @@ pub async fn run_axum_server(
 		});
 	}
 
-	// 2. 构建 axum Router，仅挂一个 handler，所有路由走 PluginRegistry
+	// 2. 构建 axum Router，仅挂一个 handler，所有路由走 PluginRegistry，支持所有 HTTP 方法
 	let app = Router::new().fallback(
-		axum::routing::get(|req: Request<axum::body::Body>| async move {
+		axum::routing::any(|req: Request<axum::body::Body>| async move {
 			let path = req.uri().path().to_string();
 			if let Some(handler) = registry.get_handler(&path) {
 				handler(req).await.into_response()
