@@ -8,8 +8,7 @@
       "@/*": ["src/*"],
       "~/*": ["./*"]
     },
-    "allowJs": true,
-    "ignoreDeprecations": "6.0"
+    "allowJs": true
   },
   "exclude": ["node_modules", "dist"]
 }

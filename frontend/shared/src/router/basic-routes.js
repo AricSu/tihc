@@ -24,7 +24,6 @@ export const basicRoutes = [
     component: () => import('@/views/assistant/ChatHome.vue'),
     meta: {
       title: '聊天',
-      layout: 'extension',
     },
   },
 

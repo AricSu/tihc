@@ -1,5 +1,5 @@
 [package]
-name = "backend"
+name = "plugin_backend"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,9 +7,10 @@ authors.workspace = true
 
 
 [dependencies]
+async-stream = { workspace = true }
 toml = { workspace = true }
-anyhow = {workspace = true}
-inventory = {workspace = true}
+anyhow = { workspace = true }
+inventory = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 uuid = { workspace = true }
@@ -18,12 +19,12 @@ tokio = { workspace = true }
 rust-embed = { version = "8.7", features = ["axum"] }
 axum = { workspace = true }
 mime_guess = "2"
-tracing =  {workspace = true}
-tower =  {workspace = true}
+tracing = { workspace = true }
+tower = { workspace = true }
 rmcp = { version = "0.8", features = [
     "server",
     "transport-streamable-http-server",
-    "schemars"
+    "schemars",
 ] }
 schemars = "1.0.4"
 serde-aux = "4.7.0"
@@ -34,7 +35,14 @@ tokio-stream = "0.1"
 sha2 = "0.10"
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "mysql", "chrono", "json", "time", "migrate"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "mysql",
+    "chrono",
+    "json",
+    "time",
+    "migrate",
+] }
 
 # Password hashing
 bcrypt = "0.17"
@@ -51,7 +59,7 @@ image = "0.25"
 rand = "0.9"
 
 # Hex encoding
-oauth2 = { version = "5", features = ["reqwest","reqwest-blocking"] }
+oauth2 = { version = "5", features = ["reqwest", "reqwest-blocking"] }
 hex = "0.4"
 
 # Time handling
@@ -70,6 +78,3 @@ config = "0.15"
 urlencoding = "2.1"
 reqwest = { version = "0.12.24", features = ["json"] }
 base64 = "0.22.1"
-
-
-

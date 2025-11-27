@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import { addChatMessage, createChatSession, getChatHistory, streamChat } from '@/api/chat'
+import chatApi from '@/api/chat'
 import { useAuthStore, useUserStore } from '@/store'
 
 // 浏览器存储工具函数
@@ -53,9 +53,6 @@ function clearMessagesFromStorage(userId) {
 let _singleton = null
 
 export function useChat() {
-  if (_singleton)
-    return _singleton
-
   const authStore = useAuthStore()
   const userStore = useUserStore()
   const loggedInUser = userStore.userInfo
@@ -115,49 +112,55 @@ export function useChat() {
   const activeListeners = new Map()
 
   function addMessages(_reset = false) {
+    console.log('[useChat] addMessages called, reset:', _reset)
     // 保留此函数以保持兼容性
     return []
   }
 
   async function ensureChatSession(title = 'default') {
-    if (currentSessionId.value)
+    if (currentSessionId.value) {
+      console.log('[useChat] Existing sessionId:', currentSessionId.value)
       return currentSessionId.value
-
+    }
     try {
-      const response = await createChatSession(backendUserId.value, title)
+      console.log('[useChat] Creating new chat session for user:', backendUserId.value, 'title:', title)
+      const response = await chatApi.createChatSession(backendUserId.value, title)
       const session = response?.data
-      if (session?.id)
+      if (session?.id) {
         currentSessionId.value = session.id
+        console.log('[useChat] New sessionId:', session.id)
+      }
     }
     catch (error) {
-      console.error('Failed to create chat session:', error)
+      console.error('[useChat] Failed to create chat session:', error)
     }
-
     return currentSessionId.value
   }
 
   async function loadChatHistory(reset = false) {
-    if (loadingHistory.value)
+    if (loadingHistory.value) {
+      console.log('[useChat] Already loading history, abort')
       return
+    }
     loadingHistory.value = true
-
     try {
+      console.log('[useChat] Attempting to load chat history, reset:', reset)
       // 首先尝试从浏览器存储加载数据
       const storedMessages = loadMessagesFromStorage(backendUserId.value)
-
       if (storedMessages.length > 0 && reset) {
-        console.warn('📱 Loading messages from browser storage:', storedMessages.length)
+        console.warn('📱 [useChat] Loading messages from browser storage:', storedMessages.length)
         messages.value = storedMessages
         messagesLoaded.value = true
         loadingHistory.value = false
         return
       }
-
       // 如果没有存储的数据或不是重置操作，从服务器获取
-      console.warn('🌐 Loading messages from server...')
+      console.warn('🌐 [useChat] Loading messages from server...')
       const sessionId = await ensureChatSession()
-      const historyResponse = await getChatHistory(backendUserId.value, { sessionId, limit: 5 })
+      console.log('[useChat] Using sessionId for history:', sessionId)
+      const historyResponse = await chatApi.getChatHistory(backendUserId.value, { sessionId, limit: 5 })
       const histories = Array.isArray(historyResponse?.data) ? historyResponse.data : []
+      console.log('[useChat] Server returned histories:', histories)
       if (!currentSessionId.value && histories.length > 0)
         currentSessionId.value = histories[0].sessionId
       // 转换历史记录格式 - 只显示AI回复，隐藏用户消息
@@ -166,7 +169,6 @@ export function useChat() {
         const timestamp = h.timestamp ? new Date(h.timestamp) : new Date()
         const timeStr = timestamp.toString().substring(16, 21)
         const dateStr = timestamp.toDateString()
-
         // 只添加助手回复，用户问题作为replyMessage展示上下文
         if (h.assistant) {
           historyMessages.push({
@@ -187,64 +189,67 @@ export function useChat() {
           })
         }
       })
-
+      console.log('[useChat] Parsed historyMessages:', historyMessages)
       if (reset) {
         messages.value = historyMessages
+        console.log('[useChat] Messages reset to historyMessages')
       }
       else {
         messages.value = [...messages.value, ...historyMessages]
+        console.log('[useChat] Messages appended with historyMessages')
       }
-
       // 保存到浏览器存储
       if (historyMessages.length > 0) {
         saveMessagesToStorage(backendUserId.value, historyMessages)
-        console.warn('💾 Messages saved to browser storage')
+        console.warn('💾 [useChat] Messages saved to browser storage')
       }
-
       messagesLoaded.value = true
     }
     catch (error) {
-      console.error('Failed to load chat history:', error)
+      console.error('[useChat] Failed to load chat history:', error)
     }
     finally {
       loadingHistory.value = false
+      console.log('[useChat] Finished loading history')
     }
   }
 
   function handleFetchMessages(detail) {
     const [{ options = {} } = {}] = detail || []
+    console.log('[useChat] handleFetchMessages called, options:', options)
     // 使用真实的历史记录替代模拟数据
     loadChatHistory(options.reset)
   }
 
   async function handleSendMessage(detail) {
     const [message] = detail || []
-    if (!message)
+    console.log('[useChat] handleSendMessage called, message:', message)
+    if (!message) {
+      console.log('[useChat] No message provided, abort')
       return
-
+    }
     const sessionId = await ensureChatSession()
+    console.log('[useChat] Using sessionId for sendMessage:', sessionId)
     const userMessageContent = message.content
-
     // 不显示用户消息，直接开始AI回复
-    console.warn('📤 Processing user message (hidden):', userMessageContent.slice(0, 50))
-
+    console.warn('📤 [useChat] Processing user message (hidden):', userMessageContent.slice(0, 50))
     // 使用流式 API
     const token = authStore?.accessToken
-    streamChat(backendUserId.value, [{ role: 'user', content: userMessageContent }], {
+    chatApi.streamChat(backendUserId.value, [{ role: 'user', content: userMessageContent }], {
       token,
       onData: (data) => {
-        console.warn('📨 Received stream data:', data?.choices?.[0]?.message?.content?.slice(0, 50)) // Debug log
-
+        console.warn('📨 [useChat] Received stream data:', data?.choices?.[0]?.message?.content?.slice(0, 50)) // Debug log
         try {
           const content = data?.choices?.[0]?.message?.content || ''
-          if (!content)
+          if (!content) {
+            console.log('[useChat] No content in stream data')
             return
-
+          }
           const lastMessage = messages.value[messages.value.length - 1]
           if (lastMessage && lastMessage.senderId === 'assistant') {
             // 追加内容到现有回复
             lastMessage.content += content
-            console.warn('📝 Updated existing message, new length:', lastMessage.content.length) // Debug log
+            console.warn('📝 [useChat] Updated existing message, new length:', lastMessage.content.length) // Debug log
           }
           else {
             // 创建新的助手回复
@@ -258,15 +263,15 @@ export function useChat() {
               date: new Date().toDateString(),
             }
             messages.value.push(newMessage)
-            console.warn('📝 Created new assistant message, total messages:', messages.value.length) // Debug log
+            console.warn('📝 [useChat] Created new assistant message, total messages:', messages.value.length) // Debug log
           }
         }
         catch (error) {
-          console.error('Error processing stream data:', error)
+          console.error('[useChat] Error processing stream data:', error)
         }
       },
       onError: (error) => {
-        console.error('Chat stream error:', error)
+        console.error('[useChat] Chat stream error:', error)
         messages.value.push({
           _id: messages.value.length,
           content: '抱歉，回答生成失败，请重试',
@@ -282,26 +287,27 @@ export function useChat() {
         const assistantMessage = messages.value[messages.value.length - 1]?.senderId === 'assistant'
           ? messages.value[messages.value.length - 1].content
           : ''
-        if (!assistantMessage || !sessionId)
+        if (!assistantMessage || !sessionId) {
+          console.log('[useChat] No assistantMessage or sessionId, abort persist')
           return
+        }
         try {
-          await addChatMessage({
+          await chatApi.addChatMessage({
             userId: backendUserId.value,
             sessionId,
             userMessage: userMessageContent,
             assistantMessage,
           })
-
           // 保存最新消息到浏览器存储
           saveMessagesToStorage(backendUserId.value, messages.value)
-          console.warn('💾 Updated messages saved to browser storage')
+          console.warn('💾 [useChat] Updated messages saved to browser storage')
         }
         catch (error) {
-          console.error('Failed to persist chat history:', error)
+          console.error('[useChat] Failed to persist chat history:', error)
         }
       })
       .catch((error) => {
-        console.error('Failed to start stream chat:', error)
+        console.error('[useChat] Failed to start stream chat:', error)
       })
   }
 
@@ -395,8 +401,36 @@ export function useChat() {
       }
 
       if (runtimeApi?.runtime?.onMessage?.addListener) {
-        activeListeners.set(requestId, onRuntime)
+        // 支持 abort/cancel
         runtimeApi.runtime.onMessage.addListener(onRuntime)
+        // 启动流式聊天（可根据实际参数调整）
+        const userMessageContent = composer.value || ''
+        const streamPromise = chatApi.streamChat(
+          backendUserId.value,
+          [{ role: 'user', content: userMessageContent }],
+          {
+            onData: (data) => {
+              // 处理流式数据
+              const msgObj = messages.value[aiIndex]
+              if (msgObj) {
+                msgObj.content = (msgObj.content || '') + (data.chunk || '')
+              }
+            },
+            onError: (error) => {
+              cleanup()
+              reject(error)
+            },
+            onComplete: () => {
+              cleanup()
+              resolve()
+            },
+            token,
+          },
+        )
+        // 支持 abort/cancel
+        streamPromise.abort = () => {
+          cleanup()
+        }
       }
 
       // safety timeout

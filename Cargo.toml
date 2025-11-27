@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-microkernel = {path = "./microkernel"}
-backend = { path = "./plugins/backend" }
+microkernel = { path = "./microkernel" }
+plugin_backend = { path = "./plugins/plugin_backend" }
+plugin_autoflow_client = { path = "./plugins/plugin_autoflow_client" }
 
 clap = { version = "4", features = ["derive"] }
 tracing = { workspace = true }
@@ -14,18 +15,25 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing-subscriber = { workspace = true }
-inventory = {workspace = true}
-
+inventory = { workspace = true }
+async-stream = { workspace = true }
 
 
 [workspace]
 members = [
-"microkernel",
-"plugins/backend",
-"plugins/ddl_checker"]
+    "microkernel",
+    "plugins/plugin_backend",
+    "plugins/plugin_ddl_checker",
+    "plugins/plugin_autoflow_client",
+]
 
 [workspace.dependencies]
-tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "signal"] }
+tokio = { version = "1", features = [
+    "sync",
+    "rt-multi-thread",
+    "macros",
+    "signal",
+] }
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"
@@ -39,7 +47,7 @@ dashmap = "6.1.0"
 tower = "0.5.2"
 inventory = { version = "0.3" }
 once_cell = "1.21.3"
-
+async-stream = "0.3.6"
 
 [workspace.package]
 version = "0.1.0"

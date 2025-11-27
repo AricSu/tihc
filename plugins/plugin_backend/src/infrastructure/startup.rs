@@ -4,6 +4,8 @@ use crate::infrastructure::auth::di::{
 };
 use crate::infrastructure::repositories::{ChatHistoryRepository, MySqlMenuRepository};
 use std::sync::Arc;
+use microkernel::event_bus::EventBus;
+use microkernel::plugin::PluginEvent;
 
 /// 只负责基础设施对象，不 new 任何 Service
 /// InfraState 从 DiContainer 中获取所有需要的组件
@@ -18,7 +20,7 @@ pub struct InfraState {
 }
 
 impl InfraState {
-    pub fn from_di_container(container: DiContainer) -> Self {
+    pub fn from_di_container(container: DiContainer, bus: Arc<EventBus<PluginEvent>>) -> Self {
         Self {
             auth_service: container.auth_service,
             oauth_service: container.oauth_service,
@@ -26,12 +28,12 @@ impl InfraState {
             menu_repo: container.menu_repo,
             chat_history_repo: container.chat_history_repo,
             auth_token_store: container.auth_token_store,
-            ai_service: Arc::new(crate::application::ai::AiService::new()),
+            ai_service: Arc::new(crate::application::ai::AiService::new(bus)),
         }
     }
 }
 
-pub async fn create_infra_state(config_value: &toml::Value) -> anyhow::Result<InfraState> {
+pub async fn create_infra_state(config_value: &toml::Value, bus: Arc<EventBus<PluginEvent>>) -> anyhow::Result<InfraState> {
     let container = DiContainer::new(config_value).await?;
-    Ok(InfraState::from_di_container(container))
+    Ok(InfraState::from_di_container(container, bus))
 }

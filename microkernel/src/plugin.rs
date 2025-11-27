@@ -1,3 +1,4 @@
+use serde_json;
 use crate::EventBus;
 use inventory;
 use std::sync::Arc;
@@ -15,7 +16,8 @@ inventory::collect!(PluginFactory);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PluginEvent {
     RegisterHttpRoute(RegisterHttpRoute),
-    GracefulShutdown
+    GracefulShutdown,
+    Custom(String, serde_json::Value),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,21 +37,26 @@ pub type PluginHandler = Arc<
 >;
 
 pub struct PluginRegistry {
+    /// 路由表：保存所有插件注册的路由及 handler
+    /// 通过事件驱动注册，主服务与插件完全解耦
     pub routes: DashMap<String, PluginHandler>,
 }
 
 impl PluginRegistry {
+    /// 创建新的插件注册表
     pub fn new() -> Self {
         Self {
             routes: DashMap::new(),
         }
     }
+    /// 注册路由及 handler。推荐仅由插件通过事件驱动调用。
     pub fn register_route(&self, path: &str, handler: PluginHandler) {
         tracing::debug!(target: "plugin_registry", "Registering route: {}", path);
         self.routes.insert(path.to_string(), handler);
         let keys: Vec<_> = self.routes.iter().map(|r| r.key().clone()).collect();
         tracing::debug!(target: "plugin_registry", "Current registered routes: {:?}", keys);
     }
+    /// 注销插件相关路由（按前缀）。用于插件卸载或热重载场景。
     pub fn unregister_plugin(&self, plugin_prefix: &str) {
         let keys: Vec<_> = self
             .routes
@@ -61,6 +68,7 @@ impl PluginRegistry {
             self.routes.remove(&k);
         }
     }
+    /// 获取路由对应的 handler。优先精确匹配，支持 /api 前缀、/{*path} 和 SPA fallback。
     pub fn get_handler(&self, path: &str) -> Option<PluginHandler> {
         tracing::debug!(target: "plugin_registry", "get_handler lookup: {}", path);
         // 优先精确匹配
@@ -68,12 +76,19 @@ impl PluginRegistry {
             tracing::debug!(target: "plugin_registry", "Matched exact route: {}", path);
             return Some(h.value().clone());
         }
-        // fallback 到 '/{*path}'
+        // /api 前缀匹配（API 路由）
+        if path == "/api" || path.starts_with("/api/") {
+            if let Some(h) = self.routes.get("/api") {
+                tracing::debug!(target: "plugin_registry", "Matched API prefix route: /api for {}", path);
+                return Some(h.value().clone());
+            }
+        }
+        // fallback 到 '/{*path}'（全局通配）
         if let Some(h) = self.routes.get("/{*path}") {
-            tracing::debug!(target: "plugin_registry", "Matched wildcard route: /{{*path}} for {}", path);
+            tracing::debug!(target: "plugin_registry", "Matched global wildcard route: /{{*path}} for {}", path);
             return Some(h.value().clone());
         }
-        // fallback 到 '/'
+        // fallback 到 '/'（SPA 静态资源）
         if let Some(h) = self.routes.get("/") {
             tracing::debug!(target: "plugin_registry", "Matched fallback route: / for {}", path);
             return Some(h.value().clone());

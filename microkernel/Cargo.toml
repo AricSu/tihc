@@ -18,3 +18,4 @@ tracing-appender = { workspace = true }
 inventory = {workspace = true}
 tower = { workspace = true }
 once_cell = { workspace = true }
+serde_json = { workspace = true }

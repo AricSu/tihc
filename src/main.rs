@@ -1,6 +1,7 @@
 // force include the backend plugin
 #[allow(unused_imports)]
-use backend as _;
+use plugin_backend as _;
+use plugin_autoflow_client as _;
 
 // TiHC Microkernel Main Entry Point
 use clap::{Args, CommandFactory, Parser, Subcommand};
@@ -126,8 +127,15 @@ pub struct ServerOptions {
 }
 
 #[tokio::main]
+/// TiHC 微内核主服务启动流程
+/// 1. 解析 CLI 参数与配置文件
+/// 2. 初始化全局配置与日志
+/// 3. 检查服务启用状态
+/// 4. 初始化事件总线与插件注册表，实现插件解耦
+/// 5. 通过 inventory 自动注册所有插件，插件通过事件驱动注册路由
+/// 6. 启动 axum 服务，所有 HTTP 路由统一分发到 PluginRegistry
 async fn main() -> anyhow::Result<()> {
-    // === 1. Parse CLI and config ===
+    // === 1. 解析 CLI 参数与配置文件 ===
     let cli = Cli::parse();
     if cli.command.is_none() {
         Cli::command().print_help()?;
@@ -140,10 +148,9 @@ async fn main() -> anyhow::Result<()> {
         .map(KernelConfig::from_file)
         .transpose()?
         .unwrap_or_else(|| KernelConfig::default());
-
     set_global_config(Arc::new(config.clone()));
 
-    // === 2. Init logging ===
+    // === 2. 初始化日志 ===
     let default_log_file = microkernel::config::LogConfig::default().file.unwrap();
     let log_file: Option<&String> = cli
         .log_file
@@ -158,41 +165,45 @@ async fn main() -> anyhow::Result<()> {
     let enable_log_rotation = cli.enable_log_rotation || config.log.enable_rotation;
     init_logging(log_file, log_level, enable_log_rotation)?;
 
-    // === 3. Check server enable ===
+    // === 3. 检查服务启用状态 ===
     if !config.server.enable {
         println!("[INFO] Server is disabled by config. Exiting.");
         return Ok(());
     }
 
-    // === 4. Init EventBus, PluginRegistry
+    // === 4. 初始化事件总线与插件注册表 ===
     use microkernel::EventBus;
     use microkernel::plugin::PluginEvent;
     use std::sync::Arc;
     let bus = EventBus::<PluginEvent>::new(1024, 256);
     let plugin_registry = Arc::new(PluginRegistry::new());
+    // 事件监听：用于插件路由注册、优雅停机等扩展
     let bus_rx = bus.subscribe();
     tokio::spawn(async move {
         let mut bus_rx = bus_rx;
         while let Ok(event) = bus_rx.recv().await {
             match event.payload {
                 PluginEvent::RegisterHttpRoute(reg) => {
-                    tracing::info!(target: "microkernel", "[microkernel] Registered plugin HTTP route: {}", reg.path);
+                    tracing::debug!(target: "microkernel", "[microkernel] Registered plugin HTTP route: {}", reg.path);
                 }
                 PluginEvent::GracefulShutdown => {
                     tracing::info!(target: "microkernel", "[microkernel] Received shutdown event");
+                }
+                PluginEvent::Custom(topic, value) => {
+                    tracing::info!(target: "microkernel", "[microkernel] Custom event: topic={}, value={:?}", topic, value);
                 }
             }
         }
     });
 
-    // === 5. register plugins
-
+    // === 5. 自动注册所有插件（事件驱动） ===
     for factory in inventory::iter::<PluginFactory> {
         let plugin = (factory.0)();
+        // 插件通过事件驱动注册路由，主服务无需关心具体业务
         plugin.register(bus.clone(), plugin_registry.clone());
     }
 
-    // === 6. Build axum app and run server ===
+    // === 6. 启动 axum 服务，统一路由分发 ===
     let (address, port) = merge_address_port(&cli, Some(&config));
     println!("[INFO] tihc microkernel server starting...");
     println!("[INFO] Listen on http://{}:{}", address, port);

@@ -9,11 +9,11 @@
 import { request } from '@/utils'
 
 export default {
-  create: data => request.post('/user', data),
-  read: (params = {}) => request.get('/user', { params }),
+  create: data => request.post('/api/user', data),
+  read: (params = {}) => request.get('/api/user', { params }),
   update: data => request.patch(`/user/${data.id}`, data),
   delete: id => request.delete(`/user/${id}`),
   resetPwd: (id, data) => request.patch(`/user/password/reset/${id}`, data),
 
-  getAllRoles: () => request.get('/role?enable=1'),
+  getAllRoles: () => request.get('/api/role?enable=1'),
 }

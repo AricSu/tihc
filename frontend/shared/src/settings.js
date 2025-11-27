@@ -1,4 +1,4 @@
-export const defaultLayout = 'extension'
+export const defaultLayout = 'normal'
 
 export const defaultPrimaryColor = '#316C72'
 

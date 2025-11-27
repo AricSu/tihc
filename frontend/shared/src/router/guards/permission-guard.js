@@ -68,7 +68,16 @@ export function createPermissionGuard(router) {
     if (!token) {
       if (WHITE_LIST.includes(to.path))
         return true
-      return { path: 'login', query: { ...to.query, redirect: to.path } }
+      // 只用站内路径作为 redirect，防止拼接完整 URL
+      let redirectPath = to.path
+      console.warn('[permission-guard] 当前 to.path:', to.path)
+      console.warn('[permission-guard] 当前 window.location.href:', window.location.href)
+      if (typeof redirectPath !== 'string' || !redirectPath.startsWith('/')) {
+        console.warn('[permission-guard] redirectPath 非站内路径，重置为 /')
+        redirectPath = '/'
+      }
+      console.warn('[permission-guard] 最终重定向到 /login?redirect=', redirectPath)
+      return { path: '/login', query: { ...to.query, redirect: redirectPath } }
     }
 
     // 有token的情况

@@ -216,5 +216,9 @@ async function handleEnable(row) {
 }
 
 const permissionTree = ref([])
-api.getAllPermissionTree().then(({ data = [] }) => (permissionTree.value = data))
+api.getAllPermissionTree()
+  .then(({ data = [] }) => (permissionTree.value = data))
+  .catch((err) => {
+    console.error('权限树 API 请求失败:', err)
+  })
 </script>

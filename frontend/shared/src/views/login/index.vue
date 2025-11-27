@@ -129,7 +129,7 @@ const captchaSessionId = ref('')
 const initCaptcha = throttle(async () => {
   try {
     console.warn('[captcha] VITE_AXIOS_BASE_URL:', import.meta.env.VITE_AXIOS_BASE_URL)
-    const captchaApiUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/auth/captcha`
+    const captchaApiUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/api/auth/captcha`
     console.warn('[captcha] 请求验证码接口:', captchaApiUrl)
     console.warn('[captcha] 当前 window.location:', window.location.href)
     if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.id) {
@@ -183,12 +183,13 @@ async function quickLogin() {
 
     // 获取GitHub OAuth授权URL
     const redirectUrl = encodeURIComponent(currentPath)
-    let startUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/auth/oauth/github/start?redirect=${redirectUrl}`
+    let startUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/api/auth/oauth/github/start?redirect=${redirectUrl}`
     // 检测 extension 环境，自动带上 source
     if (typeof window.chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
       startUrl += `&source=extension`
       console.warn('[login] 检测到 extension 环境，附加参数:', startUrl)
-    } else {
+    }
+    else {
       startUrl += `&source=frontend`
     }
     console.warn('[login] 获取 GitHub 授权 URL:', startUrl)
@@ -267,7 +268,7 @@ async function quickLogin() {
               return
             }
             // 调用后端换 token，后端现在直接返回 JSON
-            const callbackUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/auth/oauth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}`
+            const callbackUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/api/auth/oauth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}`
             const resp = await fetch(callbackUrl, { credentials: 'include' })
             let data
             try {
@@ -344,7 +345,7 @@ async function googleLogin() {
 
     // 获取Google OAuth授权URL
     const redirectUrl = encodeURIComponent(currentPath)
-    const startUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/auth/oauth/google/start?redirect=${redirectUrl}`
+    const startUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/api/auth/oauth/google/start?redirect=${redirectUrl}`
     const resp = await fetch(startUrl)
 
     const result = await resp.json()
@@ -404,7 +405,7 @@ async function handleLogin() {
       captcha,
       captcha_session_id: captchaSessionId.value,
     }
-    const loginUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/auth/login`
+    const loginUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/api/auth/login`
     console.warn('[login] 请求登录接口:', loginUrl)
     console.warn('[login] 登录参数:', loginParams)
     const { data } = await api.login(loginParams)
@@ -435,13 +436,17 @@ async function onLoginSuccess(data = {}) {
   $message.loading('登录中...', { key: 'login' })
   try {
     $message.success('登录成功', { key: 'login' })
-    if (route.query.redirect) {
-      const path = route.query.redirect
-      delete route.query.redirect
+    const path = route.query.redirect || '/'
+    console.warn('[login] onLoginSuccess 跳转分析:')
+    console.warn('[login] 当前 route.query.redirect:', route.query.redirect)
+    console.warn('[login] 当前 window.location.href:', window.location.href)
+    delete route.query.redirect
+    if (typeof path === 'string' && path.startsWith('/')) {
+      // 站内跳转
       console.warn('[login] 跳转 redirect:', path)
       router.push({ path, query: route.query })
-    }
-    else {
+    } else {
+      // 非站内跳转，跳首页（如需站外跳转可扩展 window.location.href = path）
       console.warn('[login] 跳转首页')
       router.push('/')
     }

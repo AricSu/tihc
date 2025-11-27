@@ -25,7 +25,8 @@ export function createAxios(options = {}) {
   }, (err) => {
     if (err?.config) {
       console.error('[axios] 响应失败:', err.config.url, err)
-    } else {
+    }
+    else {
       console.error('[axios] 响应失败:', err)
     }
     throw err

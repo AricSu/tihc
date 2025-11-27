@@ -22,7 +22,12 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
 
     tracing::info!(target: "static_files", "static_handler: HTTP request path = {}", path);
 
-    if let Some(content) = StaticFiles::get(path) {
+    // 详细日志：判断资源是否存在
+    let exists = StaticFiles::get(path).is_some();
+    tracing::info!(target: "static_files", "Resource exists: {} => {}", path, exists);
+
+    if exists {
+        let content = StaticFiles::get(path).unwrap();
         let mime_type = mime_guess::from_path(path).first_or_octet_stream();
         tracing::info!(target: "static_files", "Serving embedded file: {} (mime: {})", path, mime_type);
         return Response::builder()
@@ -33,25 +38,28 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
             )
             .body(Body::from(content.data.to_vec()))
             .unwrap();
-    }
-
-    // For SPA routing, serve index.html for unknown routes
-    if let Some(content) = StaticFiles::get("index.html") {
-        tracing::warn!(target: "static_files", "File not found: {}, fallback to index.html", path);
-        Response::builder()
-            .status(StatusCode::OK)
-            .header(
-                header::CONTENT_TYPE,
-                HeaderValue::from_str("text/html").unwrap(),
-            )
-            .body(Body::from(content.data.to_vec()))
-            .unwrap()
     } else {
-        tracing::error!(target: "static_files", "index.html not found in embedded files!");
-        Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Body::from("404 Not Found"))
-            .unwrap()
+        tracing::warn!(target: "static_files", "File not found: {}, fallback to index.html", path);
+        // For SPA routing, serve index.html for unknown routes
+        let index_exists = StaticFiles::get("index.html").is_some();
+        tracing::info!(target: "static_files", "index.html exists: {}", index_exists);
+        if index_exists {
+            let content = StaticFiles::get("index.html").unwrap();
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_str("text/html").unwrap(),
+                )
+                .body(Body::from(content.data.to_vec()))
+                .unwrap()
+        } else {
+            tracing::error!(target: "static_files", "index.html not found in embedded files!");
+            Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::from("404 Not Found"))
+                .unwrap()
+        }
     }
 }
 

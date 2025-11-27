@@ -114,18 +114,22 @@ pub async fn stream_chat_handler(
     State(state): State<Arc<InfraState>>,
     Query(query): Query<StreamChatQuery>,
 ) -> Sse<ReceiverStream<Result<Event, Infallible>>> {
-    let incoming_messages: Vec<IncomingMessage> =
-        serde_json::from_str(&query.messages).unwrap_or_default();
-
-    // 提取最新的用户消息
-    let user_message = incoming_messages
-        .iter()
-        .rev()
-        .find(|msg| msg.role.eq_ignore_ascii_case("user"))
-        .map(|msg| msg.content.trim().to_string())
-        .unwrap_or_else(|| "你好".to_string());
-
-    tracing::info!("🔔 [HTTP] /chat/stream requested. user_message={}", user_message);
+    // 校验参数
+    if query.messages.trim().is_empty() || query.user_id.is_none() {
+        let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(1);
+        let error_payload = json!({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": "参数错误：messages 或 userId 不能为空。"
+                }
+            }],
+            "error": "missing messages or userId"
+        }).to_string();
+        let _ = tx.send(Ok(Event::default().data(error_payload))).await;
+        let _ = tx.send(Ok(Event::default().event("complete").data("{}"))).await;
+        return Sse::new(ReceiverStream::new(rx));
+    }
 
     let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(32);
 
@@ -135,17 +139,19 @@ pub async fn stream_chat_handler(
         // 创建一个临时会话ID（实际项目中应该从请求中获取或创建）
         let session_id = format!("stream_session_{}", chrono::Utc::now().timestamp());
         tracing::debug!("🔧 [HTTP] Starting AI stream for session_id={}", session_id);
+        tracing::trace!(target: "chat_controller", "[HTTP] stream_chat_handler loop start");
 
-        match ai_service.send_chat_stream(session_id.clone(), user_message.clone(), None).await {
+        match ai_service.send_chat_stream(session_id.clone(), query.messages, query.user_id).await {
             Ok(mut stream) => {
                 tracing::debug!("📡 [HTTP] AI stream started for session_id={}", session_id);
                 // 处理流式响应
                 let mut chunk_idx: usize = 0;
                 while let Some(chunk_result) = stream.next().await {
                     chunk_idx += 1;
+                    tracing::trace!(target: "chat_controller", "[HTTP] Waiting for next chunk... idx={}", chunk_idx);
                     match chunk_result {
                         Ok(chunk) => {
-                            tracing::trace!("📨 [HTTP] session={} chunk_index={} text_len={} finished={}", session_id, chunk_idx, chunk.text.len(), chunk.finished);
+                            tracing::trace!(target: "chat_controller", "[HTTP] Got chunk: session_id={:?}, chunk_index={}, text_len={}, finished={}", chunk.session_id, chunk_idx, chunk.text.len(), chunk.finished);
                             let payload = json!({
                                 "choices": [{
                                     "message": {
@@ -156,6 +162,7 @@ pub async fn stream_chat_handler(
                                 "finished": chunk.finished
                             }).to_string();
 
+                            tracing::trace!(target: "chat_controller", "[HTTP] Sending SSE event: session_id={:?}, chunk_index={}, text_len={}, finished={}", chunk.session_id, chunk_idx, chunk.text.len(), chunk.finished);
                             if tx.send(Ok(Event::default().data(payload))).await.is_err() {
                                 tracing::warn!("⚠️ [HTTP] SSE client disconnected for session={}", session_id);
                                 break;
@@ -210,6 +217,7 @@ pub async fn stream_chat_handler(
                     .await;
             }
         }
+        tracing::trace!(target: "chat_controller", "[HTTP] stream_chat_handler loop end");
     });
 
     Sse::new(ReceiverStream::new(rx))
