@@ -129,7 +129,7 @@ const captchaSessionId = ref('')
 const initCaptcha = throttle(async () => {
   try {
     console.warn('[captcha] VITE_AXIOS_BASE_URL:', import.meta.env.VITE_AXIOS_BASE_URL)
-    const captchaApiUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/api/auth/captcha`
+    const captchaApiUrl = `${import.meta.env.VITE_AXIOS_BASE_URL}/auth/captcha`
     console.warn('[captcha] 请求验证码接口:', captchaApiUrl)
     console.warn('[captcha] 当前 window.location:', window.location.href)
     if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.id) {
