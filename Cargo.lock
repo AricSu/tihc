@@ -4176,6 +4176,16 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "tihc-serverless"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "microkernel",
+ "serde",
+ "serde_json",
  "vercel_runtime",
 ]
 

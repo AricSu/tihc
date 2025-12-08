@@ -4,7 +4,7 @@ import { useAuthStore, useUserStore } from '@/store'
 
 // 浏览器存储工具函数（仅业务层使用）
 const CHAT_STORAGE_KEY = 'tihc_chat_messages'
-const MAX_STORED_MESSAGES = 5
+const MAX_STORED_MESSAGES = 2
 
 function loadMessagesFromStorage(userId) {
   try {

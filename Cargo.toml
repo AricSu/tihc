@@ -20,7 +20,6 @@ inventory = { workspace = true }
 async-stream = { workspace = true }
 async-trait = { workspace = true}
 thiserror = { workspace = true}
-vercel_runtime = "2"
 
 
 [workspace]
@@ -28,7 +27,8 @@ members = [
     "microkernel",
     "plugins/plugin_backend",
     "plugins/plugin_ddl_checker",
-    "plugins/plugin_autoflow_client",
+    "plugins/plugin_autoflow_client", 
+    "tihc-serverless",
 ]
 
 [workspace.dependencies]
