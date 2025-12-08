@@ -65,8 +65,9 @@ export default {
     }
 
     function fetchMessages(evt) {
-      // vue-advanced-chat emits detail as an array; forward to composable
-      chat.handleFetchMessages([evt.detail && evt.detail[0] ? evt.detail[0] : undefined])
+      // 统一事件参数处理，直接调用 chat.fetchMessages
+      const options = evt?.detail?.[0]?.options || {}
+      chat.fetchMessages({ reset: !!options.reset })
     }
 
     function addMessages(reset) {
@@ -75,9 +76,8 @@ export default {
     }
 
     function sendMessage(evt) {
-      const msg = evt.detail && evt.detail[0] ? evt.detail[0] : evt.detail
-      chat.handleSendMessage([msg])
-      // clear any active reply anchor
+      const msg = evt?.detail?.[0] || evt?.detail
+      chat.sendMessage(msg)
       roomMessage.value = ''
     }
 
@@ -97,7 +97,6 @@ export default {
       roomMessage,
       menuActionHandler,
       clearStorageAndReload,
-      // expose for template / debugging
       isDevice,
       screenHeight,
     }

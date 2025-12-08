@@ -4003,7 +4003,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
  "windows-sys 0.59.0",
 ]
 
@@ -4177,6 +4176,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "vercel_runtime",
 ]
 
 [[package]]
@@ -4633,6 +4633,26 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "vercel_runtime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69193472f4f27685f726935d7811e5d66be2941edae8dd3f129b281c28b1baaa"
+dependencies = [
+ "base64 0.22.1",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "lazy_static",
+ "libc",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tower",
+]
 
 [[package]]
 name = "version_check"

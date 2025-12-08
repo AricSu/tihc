@@ -1,20 +1,12 @@
 import { request } from '@/utils/http'
 
-/**
- * Chat API 模块，统一导出所有聊天相关方法
- */
+// Chat API 模块：只负责与后端接口通信，不做本地缓存或业务逻辑
 const chatApi = {}
 
 /**
  * 发起普通聊天请求
  * @param {number} userId - 用户ID
- * @param {Array} messages - 消息数组，格式: [{ role: 'user', content: string }]
- * @returns {Promise<{ id: string, choices: Array<{ message: { role: string, content: string } }> }>}
- */
-/**
- * 发起普通聊天请求
- * @param {number} userId - 用户ID
- * @param {Array} messages - 消息数组
+ * @param {Array} messages - 消息数组 [{ role: 'user', content: string }]
  * @returns {Promise}
  */
 chatApi.startChat = function (userId, messages) {
@@ -28,21 +20,10 @@ chatApi.startChat = function (userId, messages) {
 }
 
 /**
- * 发起流式聊天请求
- * @param {number} userId - 用户ID
- * @param {Array} messages - 消息数组
- * @param {object} options - 选项对象
- * @param {Function} [options.onData] - 处理每个数据片段的回调
- * @param {Function} [options.onError] - 错误处理回调
- * @param {Function} [options.onComplete] - 完成时的回调
- * @param {string} [options.token] - 认证token
- * @returns {Promise<void>} Promise对象
- */
-/**
  * 发起流式聊天请求（支持 abort）
  * @param {number} userId
  * @param {Array} messages
- * @param {object} options
+ * @param {object} options { onData, onError, onComplete, token }
  * @returns {Promise<{ abort: Function }>} Promise对象，含 abort 方法
  */
 chatApi.streamChat = function (userId, messages, { onData, onError, onComplete, token } = {}) {
@@ -93,14 +74,9 @@ chatApi.streamChat = function (userId, messages, { onData, onError, onComplete, 
 
 /**
  * 获取用户的最近聊天记录
- * @param {string} userId - 用户ID
- * @param {object} options - 可选参数
- * @param {string} [options.sessionId] - 会话ID，未提供时后端返回最近一次会话记录
- * @param {number} [options.limit] - 返回的记录数量，默认5条，最大10条
- * @returns {Promise<ApiResponse>} 包含历史记录数组的统一响应结构
- */
-/**
- * 获取用户的最近聊天记录
+ * @param {number} userId - 用户ID
+ * @param {object} options { sessionId, limit }
+ * @returns {Promise}
  */
 chatApi.getChatHistory = function (userId, { sessionId, limit = 5 } = {}) {
   if (!userId)
@@ -120,10 +96,7 @@ chatApi.getChatHistory = function (userId, { sessionId, limit = 5 } = {}) {
  * 创建聊天会话
  * @param {number} userId - 用户ID
  * @param {string} [title] - 会话标题
- * @returns {Promise<ApiResponse>} 包含新创建会话信息的响应
- */
-/**
- * 创建聊天会话
+ * @returns {Promise}
  */
 chatApi.createChatSession = function (userId, title) {
   if (!userId)
@@ -138,12 +111,8 @@ chatApi.createChatSession = function (userId, title) {
 /**
  * 获取用户的聊天会话列表
  * @param {number} userId - 用户ID
- * @param {object} options - 可选参数
- * @param {number} [options.limit] - 返回的会话数量限制，默认20
- * @returns {Promise<ApiResponse>} 包含会话列表的响应
- */
-/**
- * 获取用户的聊天会话列表
+ * @param {object} options { limit }
+ * @returns {Promise}
  */
 chatApi.listChatSessions = function (userId, { limit = 20 } = {}) {
   if (!userId)
@@ -157,6 +126,8 @@ chatApi.listChatSessions = function (userId, { limit = 20 } = {}) {
 
 /**
  * 添加聊天消息
+ * @param {object} params { userId, sessionId, userMessage, assistantMessage }
+ * @returns {Promise}
  */
 chatApi.addChatMessage = function ({ userId, sessionId, userMessage, assistantMessage }) {
   if (!userId || !sessionId || !userMessage)
@@ -168,13 +139,8 @@ chatApi.addChatMessage = function ({ userId, sessionId, userMessage, assistantMe
   })
 }
 
-/**
- * 管理员相关API
- */
+// 管理员相关API
 chatApi.admin = {
-  /**
-   * 获取当前API Key信息（脱敏显示）
-   */
   /** 获取当前API Key信息（脱敏显示） */
   getCurrentKey() {
     return request({
@@ -182,11 +148,6 @@ chatApi.admin = {
       method: 'get',
     })
   },
-
-  /**
-   * 更新API Key
-   * @param {string} key - 新的API Key
-   */
   /** 更新API Key */
   updateKey(key) {
     return request({
@@ -195,10 +156,6 @@ chatApi.admin = {
       data: { key },
     })
   },
-
-  /**
-   * 删除当前API Key
-   */
   /** 删除API Key */
   deleteKey() {
     return request({

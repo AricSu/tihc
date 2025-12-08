@@ -20,6 +20,7 @@ inventory = { workspace = true }
 async-stream = { workspace = true }
 async-trait = { workspace = true}
 thiserror = { workspace = true}
+vercel_runtime = "2"
 
 
 [workspace]
