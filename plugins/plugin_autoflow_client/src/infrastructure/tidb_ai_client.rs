@@ -321,7 +321,31 @@ impl StreamProcessor {
             }
 
             debug!(target: "autoflow::stream", line = %truncate_debug(trimmed), "processing stream line");
-            self.handle_line(trimmed)?;
+
+            // 兼容 Autoflow tag:payload 和标准 SSE event/data 格式
+            if let Some((_tag, _payload)) = trimmed.split_once(':') {
+                // Autoflow 协议
+                self.handle_line(trimmed)?;
+            } else if trimmed.starts_with("event:") || trimmed.starts_with("data:") {
+                // 简单 SSE 兼容：收集 event/data 字段
+                // 这里只处理单行 event/data，若有多行可扩展为状态机
+                let mut _event_type: Option<&str> = None;
+                let mut data: Option<&str> = None;
+                for part in trimmed.split('\n') {
+                    if let Some(ev) = part.strip_prefix("event:") {
+                        _event_type = Some(ev.trim());
+                    } else if let Some(da) = part.strip_prefix("data:") {
+                        data = Some(da.trim());
+                    }
+                }
+                if let Some(data) = data {
+                    // 你可以根据 event_type 做更细致的分发
+                    self.handle_line(data)?;
+                }
+            } else {
+                // 兜底：直接按 Autoflow 处理
+                self.handle_line(trimmed)?;
+            }
         }
 
         Ok(())
@@ -404,11 +428,16 @@ impl StreamProcessor {
             "processed state envelopes",
         );
 
-        if states
-            .iter()
-            .any(|state| state.state.as_deref() == Some("FINISHED"))
-        {
-            self.emit_finished();
+        // 合并遍历：遇到 FINISHED emit_finished，否则 emit 状态 StreamChunk
+        for state in &states {
+            if let Some(state_name) = &state.state {
+                if state_name == "FINISHED" {
+                    self.emit_finished();
+                } else {
+                    let chunk = self.conversation.as_chunk(state_name.clone(), false);
+                    self.send_chunk(chunk);
+                }
+            }
         }
 
         Ok(())
