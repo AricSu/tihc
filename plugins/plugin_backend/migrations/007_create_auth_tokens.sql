@@ -1,15 +1,11 @@
--- Create table to store issued authentication tokens with TiDB cache acceleration
-CREATE TABLE IF NOT EXISTS auth_tokens (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE tihc_tokens (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    token_hash CHAR(64) NOT NULL,
+    token VARCHAR(512) NOT NULL,
     expires_at DATETIME NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked TINYINT(1) NOT NULL DEFAULT 0,
-    revoked_at DATETIME NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uniq_token_hash (token_hash),
-    KEY idx_auth_tokens_user (user_id),
-    KEY idx_auth_tokens_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  /* CACHED ON */ ;
-
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_tihc_tokens_user_id ON tihc_tokens(user_id);
+CREATE UNIQUE INDEX uniq_tihc_tokens_token ON tihc_tokens(token);

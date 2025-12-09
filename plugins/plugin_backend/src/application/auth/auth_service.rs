@@ -89,9 +89,6 @@ impl<R: CaptchaRepository, T: crate::domain::auth::token::TokenRepository + ?Siz
                 message: "用户 ID 缺失".to_string(),
             })?;
 
-        // 单点登录：撤销所有旧 token
-        self.token_service.revoke_all_tokens_for_user(user_id).await?;
-
         let token = self
             .jwt_service
             .generate_token(

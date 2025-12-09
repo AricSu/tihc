@@ -3,16 +3,6 @@ use crate::domain::auth::token::TokenRepository;
 // 实现领域层 TokenRepository trait
 #[async_trait::async_trait]
 impl TokenRepository for MySqlTokenRepository {
-        async fn revoke_all_tokens_for_user(&self, user_id: i64) -> crate::domain::shared::DomainResult<()> {
-            sqlx::query(
-                r#"UPDATE auth_tokens SET revoked = 1, revoked_at = NOW(), updated_at = NOW() WHERE user_id = ? AND revoked = 0"#
-            )
-            .bind(user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| crate::domain::shared::DomainError::InternalError { message: format!("Database error: {}", e) })?;
-            Ok(())
-        }
     async fn store_token(&self, user_id: i64, token: &str, expires_at: DateTime<Utc>) -> crate::domain::shared::DomainResult<()> {
         self.store_token(user_id, token, expires_at).await
     }
