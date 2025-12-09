@@ -4,9 +4,8 @@ use futures::stream::Stream;
 use futures::{StreamExt};
 use microkernel::event_bus::EventBus;
 use microkernel::plugin::PluginEvent;
-use serde_json::{Value, to_value};
+use serde_json::Value;
 use std::pin::Pin;
-use std::time::Duration;
 use tracing::debug;
 
 #[derive(Debug, Clone)]
@@ -18,14 +17,12 @@ pub struct BusMessage {
 use std::sync::Arc;
 
 pub struct AiService {
-    default_timeout: Duration,
     event_bus: Arc<EventBus<PluginEvent>>,
 }
 
 impl AiService {
     pub fn new(event_bus: Arc<EventBus<PluginEvent>>) -> Self {
         Self {
-            default_timeout: Duration::from_secs(30),
             event_bus,
         }
     }

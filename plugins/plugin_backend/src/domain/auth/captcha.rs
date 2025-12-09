@@ -5,10 +5,8 @@ use captcha::{
 
 use crate::infrastructure::CaptchaRepository;
 
-/// 验证码信息值对象
 #[derive(Debug, Clone)]
 pub struct CaptchaInfo {
-    pub text: String,
     pub image_data: Vec<u8>,
     pub session_id: String,
 }
@@ -59,7 +57,6 @@ impl<R: CaptchaRepository> CaptchaService<R> {
             .save(&session_id, &text.to_uppercase(), self.expiry_seconds);
 
         Ok(CaptchaInfo {
-            text: text.to_uppercase(),
             image_data,
             session_id,
         })

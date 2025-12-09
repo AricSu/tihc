@@ -64,10 +64,6 @@ impl ConfigSnapshot {
         format!("{}/chats/{}", self.base_url, chat_id)
     }
 
-    fn health_url(&self) -> String {
-        format!("{}/healthz", self.base_url)
-    }
-
     fn default_engine(&self) -> &str {
         &self.default_engine
     }
@@ -153,26 +149,6 @@ impl AutoflowPort for TiDBAIClient {
         ctx.send(ctx.delete_chat_builder(chat_id)).await?;
         Ok(())
     }
-
-    async fn health_check(&self) -> Result<bool, AutoflowError> {
-        let ctx = self.context().await;
-        let response = ctx.send(ctx.health_builder()).await?;
-        Ok(response.status().is_success())
-    }
-
-    async fn update_config(&self, new_config: AutoflowConfig) -> Result<(), AutoflowError> {
-        let new_client = build_http_client(&new_config).map_err(AutoflowError::HttpError)?;
-
-        let mut state = self.state.write().await;
-        state.http = new_client;
-        state.config = new_config;
-
-        Ok(())
-    }
-
-    async fn get_config(&self) -> AutoflowConfig {
-        self.state.read().await.config.clone()
-    }
 }
 
 #[derive(Clone)]
@@ -217,13 +193,6 @@ impl HttpContext {
         apply_auth(builder, self.config.api_key())
     }
 
-    fn health_builder(&self) -> RequestBuilder {
-        let builder = self
-            .client
-            .get(self.config.health_url())
-            .header("Accept", "application/json");
-        apply_auth(builder, self.config.api_key())
-    }
 
     async fn send(&self, builder: RequestBuilder) -> Result<Response, AutoflowError> {
         let response = builder.send().await.map_err(map_reqwest_error)?;

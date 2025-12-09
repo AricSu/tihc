@@ -1,5 +1,5 @@
 use crate::application::auth::dtos::{
-    ChangePasswordRequest, CreateUserRequest, UpdateUserRequest, UserDetailResponse, UserListItem,
+    ChangePasswordRequest, UserDetailResponse, UserListItem,
     UserListRequest, UserListResponse,
 };
 use crate::domain::auth::Claims;
@@ -10,7 +10,7 @@ use crate::{
 };
 use axum::{
     Json,
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -90,79 +90,6 @@ pub async fn get_user_list_handler(
 
             ApiResponse::success(response).into_response()
         }
-        Err(e) => {
-            let code = AuthErrorMapper::map_error_code(&e);
-            let message = AuthErrorMapper::get_user_message(&e);
-            ApiResponse::<()>::error(code, message).into_response()
-        }
-    }
-}
-
-/// 创建用户处理器
-pub async fn create_user_handler(
-    State(app_state): State<Arc<AppState>>,
-    Extension(_claims): Extension<Claims>,
-    Json(request): Json<CreateUserRequest>,
-) -> impl IntoResponse {
-    // 验证请求参数
-    if let Err(e) = request.validate() {
-        return ApiResponse::<()>::error(400, format!("参数验证失败: {:?}", e)).into_response();
-    }
-
-    let user_service = &app_state.user_service;
-
-    match user_service
-        .create_user(
-            request.username,
-            request.password,
-            request.email,
-            request.nick_name,
-        )
-        .await
-    {
-        Ok(user_id) => ApiResponse::success(user_id).into_response(),
-        Err(e) => {
-            let code = AuthErrorMapper::map_error_code(&e);
-            let message = AuthErrorMapper::get_user_message(&e);
-            ApiResponse::<()>::error(code, message).into_response()
-        }
-    }
-}
-
-/// 更新用户处理器
-pub async fn update_user_handler(
-    State(app_state): State<Arc<AppState>>,
-    Extension(_claims): Extension<Claims>,
-    Path(user_id): Path<i64>,
-    Json(request): Json<UpdateUserRequest>,
-) -> impl IntoResponse {
-    // 验证请求参数
-    if let Err(e) = request.validate() {
-        return ApiResponse::<()>::error(400, format!("参数验证失败: {:?}", e)).into_response();
-    }
-
-    let user_service = &app_state.user_service;
-
-    match user_service.update_user(user_id, request).await {
-        Ok(()) => ApiResponse::success(true).into_response(),
-        Err(e) => {
-            let code = AuthErrorMapper::map_error_code(&e);
-            let message = AuthErrorMapper::get_user_message(&e);
-            ApiResponse::<()>::error(code, message).into_response()
-        }
-    }
-}
-
-/// 删除用户处理器
-pub async fn delete_user_handler(
-    State(app_state): State<Arc<AppState>>,
-    Extension(_claims): Extension<Claims>,
-    Path(user_id): Path<i64>,
-) -> impl IntoResponse {
-    let user_service = &app_state.user_service;
-
-    match user_service.delete_user(user_id).await {
-        Ok(()) => ApiResponse::success(true).into_response(),
         Err(e) => {
             let code = AuthErrorMapper::map_error_code(&e);
             let message = AuthErrorMapper::get_user_message(&e);

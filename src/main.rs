@@ -2,7 +2,6 @@
 #[allow(unused_imports)]
 use plugin_backend as _;
 use plugin_autoflow_client as _;
-use plugin_ddl_checker as _;
 
 
 

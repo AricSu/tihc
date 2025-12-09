@@ -5,7 +5,6 @@ use crate::EventBus;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-/// 启动 axum 服务，事件驱动动态路由分发，主服务与插件完全解耦
 pub async fn run_axum_server(
 	listen: String,
 	port: u16,

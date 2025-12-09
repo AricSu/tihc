@@ -33,6 +33,7 @@ bytes = "1.10.1"
 async-trait = "0.1"
 inventory = {workspace = true}
 axum = { workspace = true }
+eventsource-stream = "0.2"
 
 [dev-dependencies]
 toml = "0.9"

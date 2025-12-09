@@ -39,9 +39,6 @@ pub trait UserRepository: Send + Sync {
 
     /// 更新用户
     async fn update(&self, user: &User) -> DomainResult<()>;
-
-    /// 删除用户（软删除）
-    async fn delete(&self, user_id: i64) -> DomainResult<()>;
 }
 
 /// 用户提供商仓储接口
@@ -49,16 +46,6 @@ pub trait UserRepository: Send + Sync {
 pub trait UserProviderRepository: Send + Sync {
     /// 保存用户提供商关联
     async fn save(&self, provider: &UserProvider) -> DomainResult<()>;
-
-    /// 根据用户 ID 和提供商查找
-    async fn find_by_user_and_provider(
-        &self,
-        user_id: i64,
-        provider: &str,
-    ) -> DomainResult<Option<UserProvider>>;
-
-    /// 更新提供商信息
-    async fn update(&self, provider: &UserProvider) -> DomainResult<()>;
 }
 
 /// 用户实体：纯业务对象，不包含基础设施关注点
@@ -152,38 +139,6 @@ impl User {
         self.updated_at = Utc::now();
     }
 
-    /// 更新 GitHub 相关信息
-    pub fn update_github_info(&mut self, github_name: Option<String>, avatar: Option<String>) {
-        if github_name.is_some() {
-            self.github_name = github_name;
-        }
-
-        // 如果用户没有头像，使用 GitHub 头像
-        if self.avatar.is_none() && avatar.is_some() {
-            self.avatar = avatar;
-        }
-
-        self.updated_at = Utc::now();
-    }
-
-    /// 激活用户
-    pub fn activate(&mut self) {
-        self.status = "active".to_string();
-        self.updated_at = Utc::now();
-    }
-
-    /// 禁用用户
-    pub fn deactivate(&mut self) {
-        self.status = "inactive".to_string();
-        self.updated_at = Utc::now();
-    }
-
-    /// 封禁用户
-    pub fn ban(&mut self) {
-        self.status = "banned".to_string();
-        self.updated_at = Utc::now();
-    }
-
     /// 检查用户是否可用
     pub fn is_available(&self) -> bool {
         self.status == "active"
@@ -259,12 +214,6 @@ impl UserProvider {
             created_at: now,
             updated_at: now,
         }
-    }
-
-    /// 更新同步时间
-    pub fn update_sync_time(&mut self) {
-        self.last_synced_at = Some(Utc::now());
-        self.updated_at = Utc::now();
     }
 }
 

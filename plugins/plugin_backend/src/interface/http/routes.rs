@@ -10,15 +10,14 @@ use crate::interface::http::controllers::{
     },
     role_controller::permission_tree_handler,
     user_controller::{
-        change_password_handler, create_user_handler, delete_user_handler, get_user_detail_handler,
-        get_user_list_handler, update_user_handler,
+        change_password_handler, get_user_detail_handler,get_user_list_handler
     },
 };
 use crate::interface::http::middleware::auth_middleware;
 use axum::http::{HeaderName, HeaderValue, Method};
 use axum::{
     Router, middleware,
-    routing::{delete, get, post, put},
+    routing::{get, post},
 };
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -52,9 +51,6 @@ pub fn create_api_routes(app_state: Arc<AppState>) -> Router {
         // User management routes
         .route("/user/detail", get(get_user_detail_handler))
         .route("/user/list", get(get_user_list_handler))
-        .route("/user", post(create_user_handler))
-        .route("/user/{id}", put(update_user_handler))
-        .route("/user/{id}", delete(delete_user_handler))
         .route("/user/password", post(change_password_handler))
         .route("/role/permissions/tree", get(permission_tree_handler))
         // Chat routes

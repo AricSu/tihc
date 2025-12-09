@@ -3,13 +3,13 @@ use axum::{
     extract::{Query, State},
     response::{
         IntoResponse,
-        sse::{Event, KeepAlive, Sse},
+        sse::{Event, Sse},
     },
 };
 use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::json;
-use std::{convert::Infallible, sync::Arc, time::Duration};
+use std::{convert::Infallible, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 

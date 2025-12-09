@@ -1,8 +1,7 @@
 use axum::{
     Json,
     extract::{Extension, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
 };
 use base64::Engine;
 use std::sync::Arc;
@@ -13,30 +12,17 @@ use crate::{
     infrastructure::InfraState as AppState,
     interface::http::ApiResponse,
 };
-use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct GitHubOAuthStartQuery {
-    pub redirect: String,
     pub is_extension: Option<bool>,
     pub extension_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GoogleOAuthStartQuery {
-    pub redirect: String,
-}
+pub struct GoogleOAuthStartQuery {}
 
-#[derive(Debug, Serialize)]
-pub struct GitHubOAuthStartResponse {
-    pub authorize_url: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct GoogleOAuthStartResponse {
-    pub authorize_url: String,
-}
 
 #[derive(Debug, Serialize)]
 pub struct CaptchaResponse {
@@ -45,24 +31,13 @@ pub struct CaptchaResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GitHubOAuthCallbackQuery {
+pub struct OAuthCallbackQuery {
     pub code: Option<String>,
-    pub state: Option<String>,
     pub error: Option<String>,
 }
-
-#[derive(Debug, Deserialize)]
-pub struct GoogleOAuthCallbackQuery {
-    pub code: Option<String>,
-    pub state: Option<String>,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GitHubTokenResponse {
-    pub access_token: String,
-    pub token_type: String,
-    pub scope: Option<String>,
+// 统一错误响应辅助函数
+fn error_response(code: i32, msg: impl ToString) -> axum::response::Response {
+    ApiResponse::<()>::error(code.try_into().unwrap(), msg.to_string()).into_response()
 }
 
 pub async fn login_handler(
@@ -137,39 +112,28 @@ pub async fn github_oauth_start_handler(
 
 pub async fn github_oauth_callback_handler(
     State(app_state): State<Arc<AppState>>,
-    Query(query): Query<GitHubOAuthCallbackQuery>,
+    Query(query): Query<OAuthCallbackQuery>,
 ) -> impl IntoResponse {
     let auth_service = &app_state.auth_service;
     let oauth_service = &app_state.oauth_service;
     if let Some(error) = query.error {
-        return ApiResponse::<()>::error(400, format!("OAuth error: {}", error)).into_response();
+        return error_response(400, format!("OAuth error: {}", error));
     }
-
     let code = match query.code {
         Some(code) => code,
-        None => return ApiResponse::<()>::error(400, "Missing authorization code".to_string()).into_response(),
+        None => return error_response(400, "Missing authorization code"),
     };
-
-    // Exchange code for access token
     let access_token = match oauth_service.exchange_code_for_token(&code).await {
         Ok(token) => token,
-        Err(e) => {
-            return ApiResponse::<()>::error(500, format!("Failed to get access token: {}", e)).into_response();
-        }
+        Err(e) => return error_response(500, format!("Failed to get access token: {}", e)),
     };
-
-    // Get user info from GitHub
     let github_user = match oauth_service.get_github_user_info(&access_token).await {
         Ok(user) => user,
-        Err(e) => {
-            return ApiResponse::<()>::error(500, format!("Failed to get user info: {}", e)).into_response();
-        }
+        Err(e) => return error_response(500, format!("Failed to get user info: {}", e)),
     };
-
-    // Login or create user
     match auth_service.github_oauth_login(github_user).await {
         Ok(response) => ApiResponse::success(response).into_response(),
-        Err(e) => ApiResponse::<()>::error(500, e.to_string()).into_response(),
+        Err(e) => error_response(500, e.to_string()),
     }
 }
 
@@ -209,40 +173,28 @@ pub async fn google_oauth_start_handler(
 
 pub async fn google_oauth_callback_handler(
     State(app_state): State<Arc<AppState>>,
-    Query(query): Query<GoogleOAuthCallbackQuery>,
+    Query(query): Query<OAuthCallbackQuery>,
 ) -> impl IntoResponse {
     let auth_service = &app_state.auth_service;
     let oauth_service = &app_state.oauth_service;
-
     if let Some(error) = query.error {
-        return ApiResponse::<()>::error(400, format!("OAuth error: {}", error)).into_response();
+        return error_response(400, format!("OAuth error: {}", error));
     }
-
     let code = match query.code {
         Some(code) => code,
-        None => return ApiResponse::<()>::error(400, "Missing authorization code".to_string()).into_response(),
+        None => return error_response(400, "Missing authorization code"),
     };
-
-    // Exchange code for access token
     let access_token = match oauth_service.exchange_google_code_for_token(&code).await {
         Ok(token) => token,
-        Err(e) => {
-            return ApiResponse::<()>::error(500, format!("Failed to get access token: {}", e)).into_response();
-        }
+        Err(e) => return error_response(500, format!("Failed to get access token: {}", e)),
     };
-
-    // Get user info from Google
     let google_user = match oauth_service.get_google_user_info(&access_token).await {
         Ok(user) => user,
-        Err(e) => {
-            return ApiResponse::<()>::error(500, format!("Failed to get user info: {}", e)).into_response();
-        }
+        Err(e) => return error_response(500, format!("Failed to get user info: {}", e)),
     };
-
-    // Login or create user
     match auth_service.google_oauth_login(google_user).await {
         Ok(response) => ApiResponse::success(response).into_response(),
-        Err(e) => ApiResponse::<()>::error(500, e.to_string()).into_response(),
+        Err(e) => error_response(500, e.to_string()),
     }
 }
 /// 退出登录处理器

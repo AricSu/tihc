@@ -20,9 +20,7 @@ use crate::infrastructure::repositories::{
 pub type ConcreteAuthService = AuthService<InMemoryCaptchaRepository>;
 pub type ConcreteOAuthService = OAuthService<AppConfigService>;
 pub type ConcreteUserService = UserService;
-pub type ConcreteCaptchaService = CaptchaService<InMemoryCaptchaRepository>;
 
-/// 依赖注入容器
 pub struct DiContainer {
     pub auth_service: Arc<ConcreteAuthService>,
     pub oauth_service: Arc<ConcreteOAuthService>,

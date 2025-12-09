@@ -50,7 +50,6 @@ impl SessionState {
     }
 }
 
-/// 会话仓储接口 - 领域服务端口
 #[async_trait::async_trait]
 pub trait SessionRepository: Send + Sync {
     async fn create_session(&self) -> SessionState;

@@ -281,20 +281,6 @@ impl UserRepository for MySqlUserRepository {
         Ok(dto.map(User::from))
     }
 
-    async fn delete(&self, user_id: i64) -> DomainResult<()> {
-        sqlx::query(
-            "UPDATE tihc_users SET status = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        )
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| DomainError::InternalError {
-            message: format!("Database error: {}", e),
-        })?;
-
-        Ok(())
-    }
-
     async fn find_users_paginated(
         &self,
         page: i32,
@@ -402,47 +388,4 @@ impl UserProviderRepository for MySqlUserProviderRepository {
         Ok(())
     }
 
-    async fn find_by_user_and_provider(
-        &self,
-        user_id: i64,
-        provider: &str,
-    ) -> DomainResult<Option<UserProvider>> {
-        let dto = sqlx::query_as::<_, UserProviderDto>(
-            "SELECT id, user_id, provider, provider_user_id, provider_email, provider_raw, refresh_token_encrypted, scope, token_expires_at, last_synced_at, created_at, updated_at FROM tihc_user_providers WHERE user_id = ? AND provider = ?"
-        )
-        .bind(user_id)
-        .bind(provider)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DomainError::InternalError { 
-            message: format!("Database error: {}", e) 
-        })?;
-
-        Ok(dto.map(UserProvider::from))
-    }
-
-    async fn update(&self, provider: &UserProvider) -> DomainResult<()> {
-        let provider_id = provider.id.ok_or_else(|| DomainError::ValidationError {
-            message: "用户提供商 ID 不能为空".to_string(),
-        })?;
-
-        sqlx::query(
-            "UPDATE tihc_user_providers SET provider_email = ?, provider_raw = ?, refresh_token_encrypted = ?, scope = ?, token_expires_at = ?, last_synced_at = ?, updated_at = ? WHERE id = ?"
-        )
-        .bind(&provider.provider_email)
-        .bind(&provider.provider_raw)
-        .bind(&provider.refresh_token_encrypted)
-        .bind(&provider.scope)
-        .bind(provider.token_expires_at)
-        .bind(provider.last_synced_at)
-        .bind(provider.updated_at)
-        .bind(provider_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| DomainError::InternalError { 
-            message: format!("Database error: {}", e) 
-        })?;
-
-        Ok(())
-    }
 }

@@ -182,8 +182,6 @@ impl Default for AppConfig {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    #[error("Failed to read config file: {0}")]
-    FileRead(String),
     #[error("Failed to parse config: {0}")]
     ParseError(String),
 }

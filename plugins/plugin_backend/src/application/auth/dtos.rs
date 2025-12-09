@@ -1,6 +1,3 @@
-// 应用层 DTOs：定义应用服务的输入输出格式
-// 符合 DDD 原则：应用层负责协调和数据转换
-
 use crate::domain::auth::UserInfo;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -56,14 +53,6 @@ impl From<UserInfo> for UserDetailResponse {
         }
     }
 }
-
-/// 错误响应 DTO
-#[derive(Debug, Serialize)]
-pub struct ErrorResponse {
-    pub code: u32,
-    pub message: String,
-}
-
 /// 用户列表请求 DTO
 #[derive(Debug, Deserialize, Validate)]
 pub struct UserListRequest {
@@ -102,30 +91,6 @@ pub struct UserListItem {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
-}
-
-/// 创建用户请求 DTO
-#[derive(Debug, Deserialize, Validate)]
-pub struct CreateUserRequest {
-    #[validate(length(min = 3, max = 50))]
-    pub username: String,
-    #[validate(email)]
-    pub email: String,
-    #[validate(length(min = 6, max = 100))]
-    pub password: String,
-    pub nick_name: Option<String>,
-    pub avatar: Option<String>,
-}
-
-/// 更新用户请求 DTO
-#[derive(Debug, Deserialize, Validate)]
-pub struct UpdateUserRequest {
-    pub username: Option<String>,
-    #[validate(email)]
-    pub email: Option<String>,
-    pub nick_name: Option<String>,
-    pub avatar: Option<String>,
-    pub status: Option<String>,
 }
 
 /// 修改密码请求 DTO

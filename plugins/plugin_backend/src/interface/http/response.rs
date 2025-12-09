@@ -30,15 +30,6 @@ where
         }
     }
 
-    /// 创建成功响应（无数据）
-    pub fn success_without_data() -> ApiResponse<()> {
-        ApiResponse {
-            code: 200,
-            message: "OK".to_string(),
-            data: None,
-        }
-    }
-
     /// 创建错误响应
     pub fn error(code: u32, message: String) -> ApiResponse<()> {
         ApiResponse {
@@ -85,5 +76,3 @@ macro_rules! error_response {
     };
 }
 
-pub use error_response;
-pub use ok_response;

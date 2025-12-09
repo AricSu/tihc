@@ -3,7 +3,6 @@ use std::pin::Pin;
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 
-use crate::AutoflowConfig;
 
 use super::AutoflowError;
 
@@ -16,9 +15,6 @@ pub trait AutoflowPort: Send + Sync {
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, AutoflowError>;
     async fn chat_stream(&self, request: ChatRequest) -> Result<ChatStream, AutoflowError>;
     async fn delete_chat(&self, chat_id: &str) -> Result<(), AutoflowError>;
-    async fn health_check(&self) -> Result<bool, AutoflowError>;
-    async fn update_config(&self, new_config: AutoflowConfig) -> Result<(), AutoflowError>;
-    async fn get_config(&self) -> AutoflowConfig;
 }
 
 

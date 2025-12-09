@@ -7,7 +7,6 @@ edition = "2024"
 microkernel = { path = "./microkernel" }
 plugin_backend = { path = "./plugins/plugin_backend" }
 plugin_autoflow_client = { path = "./plugins/plugin_autoflow_client" }
-plugin_ddl_checker = { path = "./plugins/plugin_ddl_checker" }
 
 clap = { version = "4", features = ["derive"] }
 tracing = { workspace = true }
@@ -26,9 +25,7 @@ thiserror = { workspace = true}
 members = [
     "microkernel",
     "plugins/plugin_backend",
-    "plugins/plugin_ddl_checker",
     "plugins/plugin_autoflow_client", 
-    "tihc-serverless",
 ]
 
 [workspace.dependencies]

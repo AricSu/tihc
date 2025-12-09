@@ -112,7 +112,6 @@ impl AutoflowPlugin {
         registry: Arc<PluginRegistry>,
     ) {
         info!("📋 [AUTOFLOW_PLUGIN] Registering /chat/stream route...");
-        let service = self.service.clone();
         // 注册 /chat/stream 路由
         let handler: PluginHandler = Arc::new(move |req: Request<axum::body::Body>| {
             Box::pin(async move {
@@ -164,7 +163,7 @@ impl AutoflowPlugin {
                             };
                             match serde_json::from_value::<AiChatRequest>(ai_req_val.clone()) {
                                 Ok(mut request) => {
-                                    // 判断 session_id 是否为空，若为空则自动创建 session 并补全
+                                    // Verify session_id
                                     if request.session_id.trim().is_empty() {
                                         request.session_id = service.create_session_id().await;
                                     }
@@ -200,7 +199,6 @@ impl AutoflowPlugin {
                     }
                 }
             }
-            tracing::trace!(target: "plugin_autoflow_client::plugin", "[AUTOFLOW_PLUGIN] EventBus main loop end");
         });
     }
 }

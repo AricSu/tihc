@@ -1,7 +1,6 @@
 use axum::routing::get;
 use axum::Router;
 
-/// 提供静态资源路由，挂载到 / 或 /static
 pub fn static_dist_router() -> Router {
     Router::new()
         .route("/{*path}", get(static_handler))
@@ -13,7 +12,7 @@ use axum::response::IntoResponse;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
-#[folder = "../../frontend/shared/dist"] // 指向Vue项目的dist目录
+#[folder = "../../frontend/shared/dist"]
 pub struct StaticFiles;
 
 pub async fn static_handler(uri: Uri) -> impl IntoResponse {
@@ -22,14 +21,11 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
 
     tracing::info!(target: "static_files", "static_handler: HTTP request path = {}", path);
 
-    // 详细日志：判断资源是否存在
     let exists = StaticFiles::get(path).is_some();
-    tracing::info!(target: "static_files", "Resource exists: {} => {}", path, exists);
 
     if exists {
         let content = StaticFiles::get(path).unwrap();
         let mime_type = mime_guess::from_path(path).first_or_octet_stream();
-        tracing::info!(target: "static_files", "Serving embedded file: {} (mime: {})", path, mime_type);
         return Response::builder()
             .status(StatusCode::OK)
             .header(
