@@ -2,7 +2,6 @@ use crate::domain::auth::UserInfo;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-/// 登录请求 DTO
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 1, max = 50))]

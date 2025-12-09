@@ -1,4 +1,3 @@
-use crate::domain::auth::AuthTokenStore;
 use crate::infrastructure::auth::di::{
     ConcreteAuthService, ConcreteOAuthService, ConcreteUserService, DiContainer,
 };
@@ -15,8 +14,8 @@ pub struct InfraState {
     pub user_service: Arc<ConcreteUserService>,
     pub menu_repo: Arc<MySqlMenuRepository>,
     pub chat_history_repo: Arc<ChatHistoryRepository>,
-    pub auth_token_store: Arc<dyn AuthTokenStore>,
     pub ai_service: Arc<crate::application::ai::AiService>,
+    pub token_service: Arc<crate::application::auth::token_service::TokenService<crate::infrastructure::repositories::token::MySqlTokenRepository>>,
 }
 
 impl InfraState {
@@ -27,8 +26,8 @@ impl InfraState {
             user_service: container.user_service,
             menu_repo: container.menu_repo,
             chat_history_repo: container.chat_history_repo,
-            auth_token_store: container.auth_token_store,
             ai_service: Arc::new(crate::application::ai::AiService::new(bus)),
+            token_service: container.token_service,
         }
     }
 }

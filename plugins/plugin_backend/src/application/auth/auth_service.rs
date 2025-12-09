@@ -3,7 +3,6 @@ use validator::Validate;
 
 use crate::application::auth::UserService;
 use crate::application::auth::dtos::LoginRequest;
-use crate::domain::auth::AuthTokenStore;
 use crate::domain::auth::{
     CaptchaService, GitHubUser, GoogleUser, LoginResponse, UserInfo, jwt::JwtService,
 };
@@ -11,25 +10,25 @@ use crate::domain::shared::{DomainError, DomainResult};
 use crate::infrastructure::CaptchaRepository;
 use chrono::{DateTime, Utc};
 
-pub struct AuthService<R: CaptchaRepository> {
+pub struct AuthService<R: CaptchaRepository, T: crate::domain::auth::token::TokenRepository + ?Sized> {
     user_service: Arc<UserService>,
     jwt_service: Arc<dyn JwtService>,
     captcha_service: Arc<CaptchaService<R>>,
-    token_repository: Arc<dyn AuthTokenStore>,
+    token_service: Arc<crate::application::auth::token_service::TokenService<T>>,
 }
 
-impl<R: CaptchaRepository> AuthService<R> {
+impl<R: CaptchaRepository, T: crate::domain::auth::token::TokenRepository + ?Sized> AuthService<R, T> {
     pub fn new(
         user_service: Arc<UserService>,
         jwt_service: Arc<dyn JwtService>,
         captcha_service: Arc<CaptchaService<R>>,
-        token_repository: Arc<dyn AuthTokenStore>,
+        token_service: Arc<crate::application::auth::token_service::TokenService<T>>,
     ) -> Self {
         Self {
             user_service,
             jwt_service,
             captcha_service,
-            token_repository,
+            token_service,
         }
     }
 
@@ -89,6 +88,9 @@ impl<R: CaptchaRepository> AuthService<R> {
             .ok_or_else(|| crate::domain::shared::DomainError::InternalError {
                 message: "用户 ID 缺失".to_string(),
             })?;
+
+        // 单点登录：撤销所有旧 token
+        self.token_service.revoke_all_tokens_for_user(user_id).await?;
 
         let token = self
             .jwt_service
@@ -227,7 +229,7 @@ impl<R: CaptchaRepository> AuthService<R> {
     }
 
     pub async fn revoke_token(&self, token: &str) -> DomainResult<()> {
-        self.token_repository
+        self.token_service
             .revoke_token(token)
             .await
             .map_err(|e| DomainError::InternalError {
@@ -243,7 +245,7 @@ impl<R: CaptchaRepository> AuthService<R> {
         })?;
 
         let expires_at = Self::exp_to_datetime(claims.exp)?;
-        self.token_repository
+        self.token_service
             .store_token(user_id, token, expires_at)
             .await
             .map_err(|e| DomainError::InternalError {

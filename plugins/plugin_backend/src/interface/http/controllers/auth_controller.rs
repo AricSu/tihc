@@ -49,9 +49,24 @@ pub async fn login_handler(
     match auth_service.login(request).await {
         Ok(response) => ApiResponse::success(response).into_response(),
         Err(e) => {
+            use crate::domain::shared::DomainError;
             let code = AuthErrorMapper::map_error_code(&e);
             let message = AuthErrorMapper::get_user_message(&e);
-            ApiResponse::<()>::error(code, message).into_response()
+            let status = match &e {
+                DomainError::ValidationError { .. } => axum::http::StatusCode::BAD_REQUEST,
+                DomainError::NotFound { .. } => axum::http::StatusCode::NOT_FOUND,
+                DomainError::BusinessRuleViolation { .. } => axum::http::StatusCode::BAD_REQUEST,
+                DomainError::AuthenticationError { .. } => axum::http::StatusCode::UNAUTHORIZED,
+                DomainError::InternalError { .. } => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            tracing::debug!(target: "login_handler", "登录失败: {:?}, message: {}", e, message);
+            axum::response::Response::builder()
+                .status(status)
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_string(&ApiResponse::<()>::error(code, message)).unwrap()
+                ))
+                .unwrap()
         }
     }
 }

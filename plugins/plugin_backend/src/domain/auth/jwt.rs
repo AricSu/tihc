@@ -16,9 +16,6 @@ pub trait JwtService: Send + Sync {
 
     /// 验证JWT令牌
     async fn validate_token(&self, token: &str) -> DomainResult<Claims>;
-
-    /// 刷新JWT令牌
-    async fn refresh_token(&self, old_token: &str) -> DomainResult<String>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

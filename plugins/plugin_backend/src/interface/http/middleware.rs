@@ -5,7 +5,6 @@ use axum::{
     response::IntoResponse,
 };
 use std::sync::Arc;
-use tracing::error;
 use urlencoding::decode;
 
 use crate::infrastructure::InfraState as AppState;
@@ -16,6 +15,7 @@ pub async fn auth_middleware(
     next: Next,
 ) -> impl IntoResponse {
     let auth_service = &app_state.auth_service;
+    let token_service = &app_state.token_service;
 
     if request.method() == Method::OPTIONS {
         return next.run(request).await;
@@ -63,33 +63,18 @@ pub async fn auth_middleware(
         }
     };
 
-    match app_state.auth_token_store.is_token_active(&token).await {
-        Ok(true) => {}
-        Ok(false) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                "Token has expired or been revoked",
-            )
-                .into_response();
-        }
-        Err(err) => {
-            error!("token persistence lookup failed: {}", err);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Token verification failed",
-            )
-                .into_response();
-        }
-    }
-
     // Validate token
     match auth_service.validate_token(&token).await {
         Ok(claims) => {
-            // Add claims to request extensions
-            request.extensions_mut().insert(claims);
-            // Also insert raw access token so downstream handlers (eg. logout) can access it
-            request.extensions_mut().insert(token);
-            next.run(request).await
+            let user_id = claims.sub.parse::<i64>().unwrap_or(0);
+            match token_service.is_token_active(&token, user_id).await {
+                Ok(true) => {
+                    request.extensions_mut().insert(claims);
+                    request.extensions_mut().insert(token);
+                    next.run(request).await
+                }
+                _ => (StatusCode::UNAUTHORIZED, "Token revoked or expired").into_response(),
+            }
         }
         Err(_) => (StatusCode::UNAUTHORIZED, "Invalid or expired token").into_response(),
     }

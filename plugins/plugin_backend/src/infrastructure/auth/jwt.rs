@@ -144,19 +144,4 @@ impl JwtService for JsonWebTokenService {
             jti: uuid::Uuid::new_v4().to_string(), // Generate a new JTI for validation
         })
     }
-
-    async fn refresh_token(&self, old_token: &str) -> DomainResult<String> {
-        // 先验证旧令牌
-        let claims = self.validate_token(old_token).await?;
-
-        // 生成新令牌
-        let user_id = claims
-            .sub
-            .parse::<i64>()
-            .map_err(|e| DomainError::ValidationError {
-                message: format!("Invalid user ID: {}", e),
-            })?;
-        self.generate_token(user_id, claims.username, claims.email, claims.nick_name)
-            .await
-    }
 }

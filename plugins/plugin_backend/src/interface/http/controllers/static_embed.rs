@@ -18,9 +18,6 @@ pub struct StaticFiles;
 pub async fn static_handler(uri: Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
     let path = if path.is_empty() { "index.html" } else { path };
-
-    tracing::info!(target: "static_files", "static_handler: HTTP request path = {}", path);
-
     let exists = StaticFiles::get(path).is_some();
 
     if exists {

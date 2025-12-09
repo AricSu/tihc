@@ -5,19 +5,21 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use crate::application::auth::{AuthService, OAuthService, UserService};
+use crate::application::auth::token_service::TokenService;
 use crate::application::config::AppConfigService;
 use crate::domain::auth::CaptchaService;
-use crate::domain::auth::{AuthTokenStore, jwt::JwtService};
+use crate::domain::auth::jwt::JwtService;
 use crate::domain::basic::AppConfig;
 use crate::infrastructure::database::{create_mysql_pool, run_migrations};
 use crate::infrastructure::jwt::{BcryptPasswordService, JsonWebTokenService, UuidV4Service};
 use crate::infrastructure::repositories::{
-    AuthTokenRepository, ChatHistoryRepository, FileConfigRepository, InMemoryCaptchaRepository,
+    ChatHistoryRepository, FileConfigRepository, InMemoryCaptchaRepository,
     MySqlMenuRepository, MySqlUserProviderRepository, MySqlUserRepository,
 };
+use crate::infrastructure::repositories::token::MySqlTokenRepository;
 
 /// 具体服务类型定义
-pub type ConcreteAuthService = AuthService<InMemoryCaptchaRepository>;
+pub type ConcreteAuthService = AuthService<InMemoryCaptchaRepository, MySqlTokenRepository>;
 pub type ConcreteOAuthService = OAuthService<AppConfigService>;
 pub type ConcreteUserService = UserService;
 
@@ -27,7 +29,7 @@ pub struct DiContainer {
     pub user_service: Arc<ConcreteUserService>,
     pub menu_repo: Arc<MySqlMenuRepository>,
     pub chat_history_repo: Arc<ChatHistoryRepository>,
-    pub auth_token_store: Arc<dyn AuthTokenStore>,
+    pub token_service: Arc<TokenService<MySqlTokenRepository>>,
 }
 
 impl DiContainer {
@@ -96,8 +98,6 @@ impl DiContainer {
         let provider_repo = Arc::new(MySqlUserProviderRepository::new(pool.clone()));
         let menu_repo = Arc::new(MySqlMenuRepository::new(pool.clone()));
         let chat_history_repo = Arc::new(ChatHistoryRepository::new(pool.clone()));
-        let auth_token_repo = Arc::new(AuthTokenRepository::new(pool.clone()));
-        let auth_token_store: Arc<dyn AuthTokenStore> = auth_token_repo.clone();
 
         // 基础服务层
         let password_service = Arc::new(BcryptPasswordService::new());
@@ -120,11 +120,13 @@ impl DiContainer {
             config.captcha.expiry_seconds,
         ));
 
+        let token_repo = Arc::new(MySqlTokenRepository::new(pool.clone()));
+        let token_service = Arc::new(TokenService::new(token_repo.clone()));
         let auth_service = Arc::new(AuthService::new(
             user_service.clone(),
             jwt_service.clone(),
             captcha_service.clone(),
-            auth_token_store.clone(),
+            token_service.clone(),
         ));
 
         Ok(Self {
@@ -133,7 +135,7 @@ impl DiContainer {
             user_service,
             menu_repo,
             chat_history_repo,
-            auth_token_store,
+            token_service,
         })
     }
 }

@@ -1,11 +1,10 @@
-pub mod auth_token;
 pub mod captcha;
 pub mod chat;
 pub mod config;
 pub mod menu;
 pub mod user;
+pub mod token;
 
-pub use auth_token::*;
 pub use captcha::*;
 pub use chat::*;
 pub use config::*;

@@ -113,7 +113,7 @@ impl AutoflowPlugin {
     ) {
         info!("📋 [AUTOFLOW_PLUGIN] Registering /chat/stream route...");
         // 注册 /chat/stream 路由
-        let handler: PluginHandler = Arc::new(move |req: Request<axum::body::Body>| {
+        let handler: PluginHandler = Arc::new(move |_req: Request<axum::body::Body>| {
             Box::pin(async move {
                 Response::new(axum::body::Body::from(
                     "[autoflow_client] chat stream response",
