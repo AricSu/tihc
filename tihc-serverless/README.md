@@ -1,21 +1,6 @@
----
-name: TIHC Serverless
-slug: tihc-serverless
-description: Vercel serverless backend for TIHC (OpenAI / Manus / TiDB doc GraphRAG) with Google Workspace auth.
-framework:
-  - Other
-type:
-  - Backend
-css:
-  - None
-publisher: AskAric
-relatedTemplates:
-  - rust-hello-world
----
+# TIHC Serverless
 
-# TIHC Serverless (Vercel Rust)
-
-Streaming backend used by `tihc` extension.
+Serverless backend for TIHC extension.
 
 ## Project Structure
 
@@ -32,44 +17,36 @@ Request JSON:
 ```json
 {
   "messages": [{ "role": "user", "content": "..." }],
-  "chat_engine": "openai",
+  "chat_engine": "tidb",
   "stream": true,
   "chat_id": "optional"
 }
 ```
 
-Response: streaming text (chunked).
+Response: streaming plain text.
 
-### Engines
+## Auth (optional)
 
-- `openai`: OpenAI streaming → plain text stream
-- `openai_rag`: call TiDB doc GraphRAG first, then call OpenAI with the retrieved context
-- `manus`: proxy to `MANUS_API_URL`
-- `tidb` (or anything else): proxy to `TIDB_API_URL`
-
-## Auth (Workspace domain)
-
-Send:
+Send header:
 
 - `Authorization: Bearer <google_token>`
 
-Server verifies via Google `tokeninfo`, enforces `aud=GOOGLE_CLIENT_ID` (if set), and domain via `GOOGLE_WORKSPACE_DOMAIN`.
+If auth is enabled, server verifies token using Google tokeninfo and enforces:
+
+- `GOOGLE_CLIENT_ID` (audience)
+- `GOOGLE_WORKSPACE_DOMAIN` (domain)
 
 ## Env Vars
 
-- `OPENAI_API_KEY` (required for `openai`/`openai_rag`)
-- `OPENAI_MODEL` (default: `gpt-4o-mini`)
-- `TIDB_API_URL`, `TIDB_API_TOKEN` (required for `tidb` and `openai_rag`)
-- `MANUS_API_URL`, `MANUS_API_TOKEN` (required for `manus`)
-- `GOOGLE_CLIENT_ID` (if set, auth is required unless overridden)
-- `GOOGLE_WORKSPACE_DOMAIN` (e.g. `pingcap.com`)
+- `TIDB_API_URL`, `TIDB_API_TOKEN` (required)
+- `GOOGLE_CLIENT_ID` (optional)
+- `GOOGLE_WORKSPACE_DOMAIN` (optional)
 - `REQUIRE_AUTH=true|false`
-- `RAG_MAX_CHARS` (default: `20000`)
-- `.env.example` is provided for local setup.
+- `LOG_LEVEL` (default: `info`)
 
-## Local dev
+Only `.env.example` should be committed.
 
-This repo is designed for Vercel, but you can still sanity-check Rust compile:
+## Local Dev
 
 ```bash
 cargo check

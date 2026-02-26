@@ -28,7 +28,7 @@ function loadFromStorage() {
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw) as Partial<AppRuntimeSettings>;
-    // Force serverless-only mode for now (WebLLM temporarily hidden).
+    // Force serverless-only mode.
     settings.backend = "serverless";
     if (typeof parsed.serverlessBaseUrl === "string") settings.serverlessBaseUrl = parsed.serverlessBaseUrl;
     if (typeof parsed.chatEngine === "string") settings.chatEngine = parsed.chatEngine;

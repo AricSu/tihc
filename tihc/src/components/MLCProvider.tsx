@@ -238,8 +238,6 @@ function extractProgress(payload: unknown): { lines: string[]; finished: boolean
     const query = toShortText(obj.query, 80);
     if (query) lines.push(`检索查询：${query}`);
 
-    const traceUrl = toShortText(obj.trace_url, 240);
-    if (traceUrl) lines.push(`Trace：${traceUrl}`);
   }
   return { lines, finished };
 }

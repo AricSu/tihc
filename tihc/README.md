@@ -1,11 +1,6 @@
 # TIHC (Browser Extension)
 
-Sidepanel chat UI for TiDB troubleshooting. Supports:
-
-- `Backend=serverless`: call `tihc-serverless` (OpenAI / Manus / TiDB doc GraphRAG)
-- `Backend=webllm`: local WebLLM fallback
-- Google login (Workspace domain enforced by serverless)
-- Intake Assist (optional) + `Copy Trace` for `evalite-demo`
+Sidepanel chat UI for TiDB troubleshooting.
 
 ## Dev
 
