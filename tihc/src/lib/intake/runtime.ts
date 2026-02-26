@@ -63,7 +63,7 @@ export function getIntakeSessionSnapshot(): IntakeSessionState {
 export function applyIntakeAssist(userText: string): { accumulatedUserText: string; decision: IntakeDecision } {
   session.phase = "chat";
   session.accumulatedUserText = session.accumulatedUserText
-    ? `${session.accumulatedUserText}\n\n补充信息：\n${userText}`
+    ? `${session.accumulatedUserText}\n\nAdditional details:\n${userText}`
     : userText;
 
   const decision = decideIntake(session.accumulatedUserText);
@@ -125,7 +125,7 @@ export function applyIntakeGate(userText: string): IntakeGateResult {
   }
 
   session.accumulatedUserText = session.accumulatedUserText
-    ? `${session.accumulatedUserText}\n\n补充信息：\n${userText}`
+    ? `${session.accumulatedUserText}\n\nAdditional details:\n${userText}`
     : userText;
 
   const decision = decideIntake(session.accumulatedUserText);
@@ -133,7 +133,7 @@ export function applyIntakeGate(userText: string): IntakeGateResult {
 
   if (decision.handleability === "OUT_OF_SCOPE") {
     session.phase = "chat";
-    const response = `这个请求看起来不在 TIHC（TiDB support）可处理范围内。\n\n如果你是在排查 TiDB/TiKV/PD 相关问题，请补充：集群版本/组件、现象、时间窗口、以及关键日志/SQL。`;
+    const response = `This request appears to be outside TIHC (TiDB support) scope.\n\nIf you are troubleshooting TiDB/TiKV/PD, please include: cluster version/components, symptoms, time window, and key logs/SQL.`;
     return {
       kind: "short_circuit",
       phase: "chat",
@@ -146,12 +146,12 @@ export function applyIntakeGate(userText: string): IntakeGateResult {
     if (session.budgetRemaining <= 0) {
       session.phase = "chat";
       const response =
-        "信息还不够，我先给你一个最小信息模板（复制后补齐即可）：\n\n" +
-        "- 症状/现象：\n" +
-        "- 时间窗口（从何时开始）：\n" +
-        "- 影响范围（哪些业务/库表/region/节点）：\n" +
-        "- 错误日志/报错片段（前后 20 行）：\n" +
-        "- 最近变更（升级/发布/参数/扩缩容/重启）：\n";
+        "Information is still insufficient. Please fill this minimum template:\n\n" +
+        "- Symptom:\n" +
+        "- Time window (when it started):\n" +
+        "- Impact scope (businesses/tables/regions/nodes):\n" +
+        "- Error log snippet (around 20 lines before/after):\n" +
+        "- Recent changes (upgrade/release/parameter/scale/restart):\n";
       return {
         kind: "short_circuit",
         phase: "chat",
@@ -161,7 +161,7 @@ export function applyIntakeGate(userText: string): IntakeGateResult {
     }
 
     session.budgetRemaining -= 1;
-    const question = decision.nextQuestion ?? "能否补充一下关键上下文？";
+    const question = decision.nextQuestion ?? "Could you provide key missing context?";
     const response = question;
     return {
       kind: "short_circuit",

@@ -32,14 +32,13 @@ function looksLikeSql(text: string): boolean {
 
 function looksLikeExplain(text: string): boolean {
   const s = lower(text);
-  return /\bexplain\b/.test(s) || s.includes("执行计划");
+  return /\b(explain|query\s*plan|execution\s*plan)\b/.test(s);
 }
 
 function looksLikeErrorSnippet(text: string): boolean {
   const s = lower(text);
   return (
     /\berror\b/.test(s) ||
-    s.includes("报错") ||
     s.includes("panic") ||
     s.includes("stack") ||
     s.includes("errno") ||
@@ -52,42 +51,42 @@ function looksLikeTimeWindow(text: string): boolean {
   return (
     /(\d{1,2}:\d{2})/.test(text) ||
     /(\d{4}-\d{2}-\d{2})/.test(text) ||
-    /(今天|昨天|前天|刚刚|最近|本周|上周|本月|上月|开始|持续)/.test(text)
+    /(today|yesterday|recently|this week|last week|this month|last month|start|since|duration)/i.test(text)
   );
 }
 
 function looksLikeImpactScope(text: string): boolean {
-  return /(影响|波及|所有|部分|业务|库|表|租户|region|集群)/i.test(text);
+  return /(impact|affected|all|partial|business|database|table|tenant|region|cluster)/i.test(text);
 }
 
 function looksLikeChangeClue(text: string): boolean {
-  return /(变更|升级|发布|上线|回滚|迁移|扩容|缩容|参数|配置|重启)/.test(text);
+  return /(change|upgrade|release|deploy|rollback|migration|scale|parameter|config|restart)/i.test(text);
 }
 
 function classifyTaskType(text: string): TaskType {
   const s = lower(text);
 
-  if (/(怎么采集|如何采集|怎么获取|如何获取|dump|profile|pprof|诊断)/.test(s)) {
+  if (/(how to collect|how to get|collect|dump|profile|pprof|diagnostic)/.test(s)) {
     return "HOW_TO_COLLECT";
   }
-  if (/(升级|迁移|切换|变更窗口|批量变更|扩容|缩容|region|容灾|演练)/.test(s)) {
+  if (/(upgrade|migration|switch|change window|batch change|scale|region|drill|disaster recovery)/.test(s)) {
     return "OPERATION_CHANGE";
   }
   if (looksLikeSql(text)) {
     return "SQL_TUNING";
   }
-  if (/(tidb_|tikv_|pd_|tiflash_|配置|参数|开关)/.test(s)) {
+  if (/(tidb_|tikv_|pd_|tiflash_|config|parameter|setting)/.test(s)) {
     return "CONFIG_GUIDANCE";
   }
-  if (/(最佳实践|best practice|规范|建议)/.test(s)) {
+  if (/(best practice|guideline|recommendation)/.test(s)) {
     return "BEST_PRACTICE";
   }
-  if (/(账号|权限|工单|流程|开通|创建用户|role)/.test(s)) {
+  if (/(account|permission|ticket|process|create user|role)/.test(s)) {
     return "NON_TECH_ADMIN";
   }
 
   const hasError = looksLikeErrorSnippet(text);
-  const hasSymptom = /(慢|超时|异常|失败|卡住|抖动|延迟|内存|cpu|io|oom|重启|不可用)/i.test(text);
+  const hasSymptom = /(slow|timeout|abnormal|failed|stuck|jitter|latency|memory|cpu|io|oom|restart|unavailable)/i.test(text);
   if (hasError && !hasSymptom) {
     return "EXPLAIN_ERROR";
   }
@@ -96,8 +95,8 @@ function classifyTaskType(text: string): TaskType {
 
 function decideOutOfScope(text: string): boolean {
   const s = lower(text);
-  const hasTiDbHint = containsAny(s, TIDB_KEYWORDS) || /(mysql|sql|数据库|db)/.test(s);
-  const clearlyOther = /(爬虫|crawl|selenium|scrapy|前端|react|javascript)/.test(s);
+  const hasTiDbHint = containsAny(s, TIDB_KEYWORDS) || /(mysql|sql|database|db)/.test(s);
+  const clearlyOther = /(crawler|crawl|selenium|scrapy|frontend|react|javascript)/.test(s);
   return !hasTiDbHint && clearlyOther;
 }
 
@@ -114,69 +113,71 @@ function buildQuestion(taskType: TaskType, missing: string[]): string | undefine
   if (!first) return undefined;
 
   const bySlot: Record<string, string> = {
-    "错误原文/日志片段": "请把完整报错/日志片段粘贴出来（最好包含前后 20 行）。",
-    "时间窗口": "这个问题大概从什么时候开始出现？（具体时间/时间段）",
-    "影响范围": "影响范围是哪些？（哪些业务/库表/region/节点，是否全量）",
-    "变更线索": "最近是否有变更？（升级/发布/参数调整/扩缩容/重启）",
-    "SQL": "请贴一下完整 SQL（建议包含绑定变量的实际值或示例）。",
-    "EXPLAIN/执行计划": "请提供 EXPLAIN/执行计划（或执行计划截图/文本）。",
-    "期望 vs 实际": "你期望的表现是什么？实际表现是什么？（例如耗时/错误/影响）",
-    "表结构/索引信息": "请提供相关表结构与索引信息（SHOW CREATE TABLE/索引列表）。",
-    "具体参数/配置项": "你具体想咨询/调整哪个参数或配置项？（参数名 + 当前值）",
-    "目标行为/使用场景": "你的使用场景/目标是什么？（例如写入为主、跨 region、延迟目标等）",
-    "当前状态": "当前集群状态是什么？（版本/拓扑/组件数量/关键配置）",
-    "目标状态": "目标状态是什么？（目标版本/目标拓扑/目标 region/目标窗口）",
-    "操作方式/工具": "你计划用什么方式操作？（TiUP/K8s/手工/CDC/BR/DM 等）",
-    "应用场景/需求上下文（RPO/RTO/数据量/部署形态）":
-      "你的场景是怎样的？（部署形态、数据量、RPO/RTO、是否跨 region）",
-    "账号/权限范围": "需要开通什么权限范围？（哪些库/表/操作，只读/读写/管理）",
-    "目标用户信息": "目标用户是谁？（账号/邮箱/组织）",
-    "组织/项目上下文": "属于哪个组织/项目/环境？（prod/staging/集群名）",
+    "Error snippet/log excerpt": "Please paste the complete error/log snippet (ideally with about 20 lines of context).",
+    "Time window": "When did this issue start? Please provide exact time or time range.",
+    "Impact scope": "What is the impact scope? (which services/databases/tables/regions/nodes, full or partial)",
+    "Change clue": "Any recent changes? (upgrade/release/config change/scale/restart)",
+    SQL: "Please share the full SQL (with sample bind values when possible).",
+    "EXPLAIN/query plan": "Please provide EXPLAIN/query plan output (text or screenshot).",
+    "Expected vs actual": "What was expected vs what actually happened? (latency/errors/impact)",
+    "Schema/index info": "Please provide related schema and index information (SHOW CREATE TABLE/index list).",
+    "Specific parameter/config": "Which parameter/config are you asking about? (name + current value)",
+    "Target behavior/use case": "What is your target behavior/use case? (e.g., write-heavy, cross-region, latency target)",
+    "Current state": "What is the current cluster state? (version/topology/components/key config)",
+    "Target state": "What is the target state? (target version/topology/region/window)",
+    "Execution method/tools": "Which method/tool will you use? (TiUP/K8s/manual/CDC/BR/DM)",
+    "Context (RPO/RTO/data size/deployment)": "What is your context? (deployment model, data size, RPO/RTO, cross-region or not)",
+    "Account/permission scope": "What permission scope is needed? (which DB/table/actions, read-only/read-write/admin)",
+    "Target user info": "Who is the target user? (account/email/team)",
+    "Org/project context": "Which org/project/environment is this for? (prod/staging/cluster name)",
+    "Environment window/rollback plan": "What is the maintenance window and rollback plan?",
   };
 
   if (bySlot[first]) return bySlot[first];
 
-  const prefix = taskType === "HOW_TO_COLLECT" ? "为了给出采集方法，我先确认：" : "为了更快定位，我先确认：";
-  return `${prefix}${first}？`;
+  const prefix = taskType === "HOW_TO_COLLECT" ? "To provide collection steps, I need:" : "To troubleshoot faster, I need:";
+  return `${prefix} ${first}?`;
 }
 
 function computeMissingMep(taskType: TaskType, text: string): string[] {
   const missing: string[] = [];
 
   if (taskType === "EXPLAIN_ERROR") {
-    if (!looksLikeErrorSnippet(text)) missing.push("错误原文/日志片段");
+    if (!looksLikeErrorSnippet(text)) missing.push("Error snippet/log excerpt");
     return missing;
   }
 
   if (taskType === "TROUBLESHOOT_SYMPTOM") {
-    if (!looksLikeTimeWindow(text)) missing.push("时间窗口");
-    if (!looksLikeImpactScope(text)) missing.push("影响范围");
-    if (!looksLikeErrorSnippet(text)) missing.push("错误原文/日志片段");
-    if (!looksLikeChangeClue(text)) missing.push("变更线索");
+    if (!looksLikeTimeWindow(text)) missing.push("Time window");
+    if (!looksLikeImpactScope(text)) missing.push("Impact scope");
+    if (!looksLikeErrorSnippet(text)) missing.push("Error snippet/log excerpt");
+    if (!looksLikeChangeClue(text)) missing.push("Change clue");
     return missing;
   }
 
   if (taskType === "SQL_TUNING") {
     if (!looksLikeSql(text)) missing.push("SQL");
-    if (!looksLikeExplain(text)) missing.push("EXPLAIN/执行计划");
-    if (!/(期望|实际|expected|actual|ms|s|秒|分钟)/i.test(text)) missing.push("期望 vs 实际");
-    if (!/(show create table|表结构|索引|index)/i.test(text)) missing.push("表结构/索引信息");
+    if (!looksLikeExplain(text)) missing.push("EXPLAIN/query plan");
+    if (!/(expected|actual|ms|sec|second|minute|latency|cost)/i.test(text)) missing.push("Expected vs actual");
+    if (!/(show create table|schema|index|keys?)/i.test(text)) missing.push("Schema/index info");
     return missing;
   }
 
   if (taskType === "CONFIG_GUIDANCE") {
-    if (!/(tidb_|tikv_|pd_|tiflash_)/i.test(text)) missing.push("具体参数/配置项");
-    if (!/(场景|目标|希望|想要|workload|oltp|olap|延迟|吞吐)/i.test(text)) {
-      missing.push("目标行为/使用场景");
+    if (!/(tidb_|tikv_|pd_|tiflash_)/i.test(text)) missing.push("Specific parameter/config");
+    if (!/(use case|target|goal|want|workload|oltp|olap|latency|throughput)/i.test(text)) {
+      missing.push("Target behavior/use case");
     }
     return missing;
   }
 
   if (taskType === "OPERATION_CHANGE") {
-    if (!/(当前|现状|版本|v\d|拓扑|tidb|tikv|pd)/i.test(text)) missing.push("当前状态");
-    if (!/(目标|to v|升级到|迁移到|切换到|v\d)/i.test(text)) missing.push("目标状态");
-    if (!/(tiup|k8s|br|dm|cdc|工具|方式)/i.test(text)) missing.push("操作方式/工具");
-    if (!/(窗口|停机|只读|maintenance|回滚|预案)/i.test(text)) missing.push("环境与窗口/回滚预案");
+    if (!/(current|as-is|version|v\d|topology|tidb|tikv|pd)/i.test(text)) missing.push("Current state");
+    if (!/(target|to v|upgrade to|migrate to|switch to|v\d)/i.test(text)) missing.push("Target state");
+    if (!/(tiup|k8s|br|dm|cdc|tool|method|procedure)/i.test(text)) missing.push("Execution method/tools");
+    if (!/(window|downtime|readonly|maintenance|rollback|fallback)/i.test(text)) {
+      missing.push("Environment window/rollback plan");
+    }
     return missing;
   }
 
@@ -185,15 +186,15 @@ function computeMissingMep(taskType: TaskType, text: string): string[] {
   }
 
   if (taskType === "BEST_PRACTICE") {
-    const hasContext = /(rpo|rto|k8s|kubernetes|数据量|部署|region|窗口|业务)/i.test(text);
-    if (!hasContext) missing.push("应用场景/需求上下文（RPO/RTO/数据量/部署形态）");
+    const hasContext = /(rpo|rto|k8s|kubernetes|data size|deployment|region|window|business)/i.test(text);
+    if (!hasContext) missing.push("Context (RPO/RTO/data size/deployment)");
     return missing;
   }
 
   if (taskType === "NON_TECH_ADMIN") {
-    if (!/(只读|读写|admin|权限|role)/i.test(text)) missing.push("账号/权限范围");
-    if (!/(账号|邮箱|user|同事)/i.test(text)) missing.push("目标用户信息");
-    missing.push("组织/项目上下文");
+    if (!/(readonly|read[- ]?write|admin|permission|role)/i.test(text)) missing.push("Account/permission scope");
+    if (!/(account|email|user|owner|team member)/i.test(text)) missing.push("Target user info");
+    missing.push("Org/project context");
     return missing;
   }
 
@@ -249,4 +250,3 @@ export function renderHiddenIntakeComment(decision: IntakeDecision): string {
   };
   return `<!--TIHC_INTAKE:${JSON.stringify(payload)}-->`;
 }
-

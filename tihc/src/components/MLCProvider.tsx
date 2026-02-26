@@ -222,21 +222,21 @@ function extractProgress(payload: unknown): { lines: string[]; finished: boolean
       finished = true;
       continue;
     }
-    if (display) lines.push(`检索中：${display}`);
-    else if (state) lines.push(`检索状态：${state}`);
-    if (message) lines.push(`检索信息：${message}`);
+    if (display) lines.push(`Retrieving: ${display}`);
+    else if (state) lines.push(`Retrieval state: ${state}`);
+    if (message) lines.push(`Retrieval message: ${message}`);
 
     const kbId = obj.knowledge_base_id;
     const entities = Array.isArray(obj.entities) ? obj.entities.length : null;
     const relationships = Array.isArray(obj.relationships) ? obj.relationships.length : null;
     if (kbId !== undefined || entities !== null || relationships !== null) {
       lines.push(
-        `命中知识库：${kbId ?? "-"}，实体：${entities ?? 0}，关系：${relationships ?? 0}`,
+        `Knowledge base hit: ${kbId ?? "-"}, entities: ${entities ?? 0}, relationships: ${relationships ?? 0}`,
       );
     }
 
     const query = toShortText(obj.query, 80);
-    if (query) lines.push(`检索查询：${query}`);
+    if (query) lines.push(`Retrieval query: ${query}`);
 
   }
   return { lines, finished };
@@ -403,7 +403,7 @@ const MyModelAdapter: ChatModelAdapter = {
   async *run({ messages, abortSignal }) {
     const lastUser = messages.filter((m) => m.role === "user").at(-1);
     if (!lastUser) {
-      yield { content: [{ type: "text", text: "请先输入你的问题。" }] };
+      yield { content: [{ type: "text", text: "Please enter your question first." }] };
       return;
     }
 
@@ -485,7 +485,7 @@ const MyModelAdapter: ChatModelAdapter = {
       renderedText += text;
       return textChunk(renderedText);
     };
-    const answerHeaderText = "\n回答：\n";
+    const answerHeaderText = "\nAnswer:\n";
 
     const collectProgressTexts = (lines: string[]): string[] => {
       const uniq = lines.filter((line) => {
@@ -498,7 +498,7 @@ const MyModelAdapter: ChatModelAdapter = {
       const out: string[] = [];
       if (!progressHeaderShown) {
         progressHeaderShown = true;
-        out.push("检索过程：\n");
+        out.push("Retrieval Process:\n");
       }
       for (const line of uniq) {
         out.push(`- ${line}\n`);
@@ -613,7 +613,7 @@ const MyModelAdapter: ChatModelAdapter = {
     if (tail) frameBuffer += tail;
     if (!frameBuffer.trim()) {
       if (progressFinished && !answerBuffer.trim()) {
-        const out = appendRendered("\n回答：\n（后端未返回可展示的正文内容）");
+        const out = appendRendered("\nAnswer:\n(No displayable content was returned by the backend.)");
         if (out) yield out;
       }
       return;
@@ -676,7 +676,7 @@ const MyModelAdapter: ChatModelAdapter = {
       }
     }
     if (progressFinished && !answerBuffer.trim()) {
-      const out = appendRendered("\n回答：\n（后端未返回可展示的正文内容）");
+      const out = appendRendered("\nAnswer:\n(No displayable content was returned by the backend.)");
       if (out) yield out;
     }
   },

@@ -7,7 +7,7 @@ export default defineConfig({
     action: {
       default_title: 'TIHC',
     },
-    permissions: ['sidePanel', 'identity'],
+    permissions: ['sidePanel'],
     host_permissions: ['http://localhost/*', 'https://*/*'],
     side_panel: {
       default_page: 'entrypoints/sidepanel/index.html',

@@ -24,6 +24,7 @@ import {
   ChevronUpIcon,
   CheckIcon,
   CopyIcon,
+  ExternalLinkIcon,
   ListChecksIcon,
   Loader2Icon,
   SquareIcon,
@@ -66,9 +67,9 @@ export const Thread: FC = () => {
 const ThreadWelcome: FC = () => {
   return (
     <div className="mx-auto my-auto w-full max-w-3xl py-10">
-      <h2 className="text-xl font-semibold text-slate-900">开始聊天</h2>
+      <h2 className="text-xl font-semibold text-slate-900">Start Chat</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        输入你的 TiDB 问题，消息会直接调用后端 API。
+        Enter your TiDB question.
       </p>
     </div>
   );
@@ -78,7 +79,7 @@ const ThreadScrollToBottom: FC = () => {
   return (
     <ThreadPrimitive.ScrollToBottom asChild>
       <TooltipIconButton
-        tooltip="回到底部"
+        tooltip="Scroll to bottom"
         variant="outline"
         className="absolute -top-11 z-10 self-center rounded-full border border-slate-200 bg-white p-4 shadow-sm disabled:invisible"
       >
@@ -93,7 +94,7 @@ const Composer: FC = () => {
     <ComposerPrimitive.Root className="relative flex w-full flex-col">
       <div className="rounded-2xl border border-slate-200/80 bg-linear-to-br from-white to-slate-50 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_12px_28px_-20px_rgba(15,23,42,0.36)] backdrop-blur-sm">
         <ComposerPrimitive.Input
-          placeholder="输入问题..."
+          placeholder="Type your question..."
           className="aui-composer-input min-h-14 max-h-48 w-full resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 pr-4 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400 [scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.58)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400/60 [&::-webkit-scrollbar-thumb:hover]:bg-slate-500/72"
           rows={1}
           autoFocus
@@ -106,12 +107,27 @@ const Composer: FC = () => {
 };
 
 const ComposerAction: FC = () => {
+  const openOfficialSite = () => {
+    openExternalUrl(toTrackedExternalUrl("https://www.askaric.com/"));
+  };
+
   return (
-    <div className="mt-1 flex items-center justify-end px-1 pb-0.5">
+    <div className="mt-1 flex items-center justify-between px-1 pb-0.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={openOfficialSite}
+        className="h-8 rounded-full px-2.5 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+      >
+        <ExternalLinkIcon className="mr-1 size-3.5" />
+        Official Site
+      </Button>
+
       <AssistantIf condition={({ thread }) => !thread.isRunning}>
         <ComposerPrimitive.Send asChild>
           <TooltipIconButton
-            tooltip="发送"
+            tooltip="Send"
             side="top"
             type="submit"
             variant="default"
@@ -159,8 +175,8 @@ type ParsedAssistantContent = {
 
 function parseAssistantContent(raw: string): ParsedAssistantContent {
   const text = raw.replace(/\r/g, "");
-  const progressMarker = "检索过程：";
-  const answerMarker = "回答：";
+  const progressMarker = "Retrieval Process:";
+  const answerMarker = "Answer:";
   const progressIdx = text.indexOf(progressMarker);
   const answerIdx = text.indexOf(answerMarker);
 
@@ -301,7 +317,7 @@ const AssistantStructuredBody: FC = () => {
           <div className="mb-2 flex items-center justify-between">
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
               <ListChecksIcon className="size-4" />
-              检索过程
+              Retrieval Process
             </div>
             {parsed.steps.length > 1 ? (
               <button
@@ -312,12 +328,12 @@ const AssistantStructuredBody: FC = () => {
                 {collapsed ? (
                   <>
                     <ChevronDownIcon className="size-3.5" />
-                    展开
+                    Expand
                   </>
                 ) : (
                   <>
                     <ChevronUpIcon className="size-3.5" />
-                    收起
+                    Collapse
                   </>
                 )}
               </button>
@@ -428,7 +444,7 @@ const AssistantMessage: FC = () => {
         <AssistantStructuredBody />
         <MessageError />
         <MessageCopyAction
-          tooltip="复制"
+          tooltip="Copy"
           side="left"
           positionClass="right-2 top-2"
         />
@@ -448,7 +464,7 @@ const UserMessage: FC = () => {
           <MessagePrimitive.Parts />
         </div>
         <MessageCopyAction
-          tooltip="复制我的问题"
+          tooltip="Copy my message"
           side="left"
           positionClass="right-2 top-2"
           dark
