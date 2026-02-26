@@ -1,1 +1,0 @@
-../codex/planning/tihc-serverless/findings.md
