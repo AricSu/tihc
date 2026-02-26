@@ -1,0 +1,9 @@
+@import "../../style/global.css";
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+}

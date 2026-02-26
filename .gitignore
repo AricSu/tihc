@@ -1,0 +1,23 @@
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Env and secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies and builds
+**/node_modules/
+**/.output/
+**/.wxt/
+**/dist/
+**/target/
+**/.vercel/
+
+# Logs
+**/*.log
+
+# Planning / generated docs
+**/docs/plans/
