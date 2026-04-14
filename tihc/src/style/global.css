@@ -4,6 +4,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --font-ui: "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -119,7 +121,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-ui);
   }
+}
+
+.tihc-display {
+  font-family: var(--font-display);
 }
 
 .tihc-scrollbar {
@@ -144,4 +151,45 @@
 
 .tihc-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: rgba(100, 116, 139, 0.78);
+}
+
+@keyframes tihcFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-7px) scale(1.018);
+  }
+}
+
+@keyframes tihcFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tihc-float {
+  animation: tihcFloat 5.8s ease-in-out infinite;
+}
+
+.tihc-fade-up {
+  animation: tihcFadeUp 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tihc-delay-1 {
+  animation-delay: 90ms;
+}
+
+.tihc-delay-2 {
+  animation-delay: 160ms;
+}
+
+.tihc-delay-3 {
+  animation-delay: 230ms;
 }

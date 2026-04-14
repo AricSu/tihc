@@ -1,3 +1,4 @@
+import type { AssistantReplyFontSize } from "@/lib/chat/agent-types";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import {
@@ -24,52 +25,102 @@ import {
   ChevronUpIcon,
   CheckIcon,
   CopyIcon,
-  ExternalLinkIcon,
   ListChecksIcon,
   Loader2Icon,
   SquareIcon,
 } from "lucide-react";
-import type { ComponentPropsWithoutRef, FC, MouseEvent } from "react";
+import type { CSSProperties, ComponentPropsWithoutRef, FC, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-export const Thread: FC = () => {
+export type ThreadProps = {
+  assistantReplyFontSize?: AssistantReplyFontSize;
+  title?: string;
+  executionTargetName?: string;
+  composerToolbar?: ReactNode;
+};
+
+export function resolveAssistantReplyFontSizeVars(
+  value: AssistantReplyFontSize | undefined,
+): CSSProperties {
+  const fontSize = value === "small" || value === "large" ? value : "default";
+
+  if (fontSize === "small") {
+    return {
+      "--tihc-assistant-body-font-size": "14px",
+      "--tihc-assistant-body-line-height": "1.85",
+      "--tihc-assistant-h1-font-size": "2rem",
+      "--tihc-assistant-h2-font-size": "1.6rem",
+      "--tihc-assistant-h3-font-size": "1.05rem",
+      "--tihc-assistant-code-font-size": "12px",
+      "--tihc-assistant-step-duration-font-size": "11px",
+    } as CSSProperties;
+  }
+
+  if (fontSize === "large") {
+    return {
+      "--tihc-assistant-body-font-size": "16px",
+      "--tihc-assistant-body-line-height": "1.95",
+      "--tihc-assistant-h1-font-size": "2.3rem",
+      "--tihc-assistant-h2-font-size": "1.8rem",
+      "--tihc-assistant-h3-font-size": "1.22rem",
+      "--tihc-assistant-code-font-size": "14px",
+      "--tihc-assistant-step-duration-font-size": "13px",
+    } as CSSProperties;
+  }
+
+  return {
+    "--tihc-assistant-body-font-size": "15px",
+    "--tihc-assistant-body-line-height": "1.9",
+    "--tihc-assistant-h1-font-size": "2.15rem",
+    "--tihc-assistant-h2-font-size": "1.7rem",
+    "--tihc-assistant-h3-font-size": "1.15rem",
+    "--tihc-assistant-code-font-size": "13px",
+    "--tihc-assistant-step-duration-font-size": "12px",
+  } as CSSProperties;
+}
+
+export const Thread: FC<ThreadProps> = ({ assistantReplyFontSize, composerToolbar }) => {
   return (
-    <ThreadPrimitive.Root className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <ThreadPrimitive.Root className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
       <ThreadPrimitive.Viewport
         turnAnchor="bottom"
         autoScroll
         scrollToBottomOnInitialize
         scrollToBottomOnRunStart
-        className="tihc-scrollbar relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-4"
+        className="tihc-scrollbar relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-7 pt-8"
       >
         <AssistantIf condition={({ thread }) => thread.isEmpty}>
-          <ThreadWelcome />
+          <CaseReadyState />
         </AssistantIf>
 
         <ThreadPrimitive.Messages
           components={{
             UserMessage,
-            AssistantMessage,
+            AssistantMessage: () => (
+              <AssistantMessage assistantReplyFontSize={assistantReplyFontSize} />
+            ),
           }}
         />
 
-        <ThreadPrimitive.ViewportFooter className="sticky bottom-0 z-40 mt-auto flex flex-col gap-2 bg-white pb-2">
+        <ThreadPrimitive.ViewportFooter className="sticky bottom-0 z-40 mt-auto flex flex-col gap-2 bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.48)_28%,rgba(255,255,255,0.82)_100%)] pb-3 pt-10">
           <ThreadScrollToBottom />
-          <Composer />
+          <Composer composerToolbar={composerToolbar} />
         </ThreadPrimitive.ViewportFooter>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
 };
 
-const ThreadWelcome: FC = () => {
+export const CaseReadyState: FC<{ title?: string; executionTargetName?: string }> = () => {
   return (
-    <div className="mx-auto my-auto w-full max-w-3xl py-10">
-      <h2 className="text-xl font-semibold text-slate-900">Start Chat</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Enter your TiDB question.
+    <div className="mx-auto my-auto flex w-full max-w-2xl flex-col items-center px-6 py-20 text-center">
+      <h2 className="tihc-display text-[2.8rem] font-semibold tracking-[-0.065em] text-slate-950">
+        TiHC is ready.
+      </h2>
+      <p className="mt-4 max-w-xl text-[15px] leading-7 text-slate-500">
+        Describe the issue, paste an error, or tell TiHC what to investigate.
       </p>
     </div>
   );
@@ -81,7 +132,7 @@ const ThreadScrollToBottom: FC = () => {
       <TooltipIconButton
         tooltip="Scroll to bottom"
         variant="outline"
-        className="absolute -top-11 z-10 self-center rounded-full border border-slate-200 bg-white p-4 shadow-sm disabled:invisible"
+        className="absolute -top-11 z-10 self-center rounded-full bg-white/96 p-2 text-slate-400 disabled:invisible"
       >
         <ArrowDownIcon />
       </TooltipIconButton>
@@ -89,40 +140,39 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const Composer: FC = () => {
+const Composer: FC<{ composerToolbar?: ReactNode }> = ({ composerToolbar }) => {
   return (
-    <ComposerPrimitive.Root className="relative flex w-full flex-col">
-      <div className="rounded-2xl border border-slate-200/80 bg-linear-to-br from-white to-slate-50 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_12px_28px_-20px_rgba(15,23,42,0.36)] backdrop-blur-sm">
+    <ComposerPrimitive.Root className="relative mx-auto flex w-full max-w-3xl flex-col">
+      <div className="rounded-[18px] border border-slate-200/80 bg-white px-3 py-1.5">
         <ComposerPrimitive.Input
-          placeholder="Type your question..."
-          className="aui-composer-input min-h-14 max-h-48 w-full resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 pr-4 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400 [scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.58)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400/60 [&::-webkit-scrollbar-thumb:hover]:bg-slate-500/72"
+          placeholder="Describe the case or paste the first signal..."
+          className="aui-composer-input min-h-14 max-h-52 w-full resize-none overflow-y-auto bg-transparent px-3 py-2 pr-4 text-[15px] leading-7 text-slate-800 outline-none placeholder:text-slate-400 [scrollbar-width:thin] [scrollbar-color:rgba(100,116,139,0.58)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400/60 [&::-webkit-scrollbar-thumb:hover]:bg-slate-500/72"
           rows={1}
           autoFocus
           aria-label="Message input"
         />
-        <ComposerAction />
+        <ComposerAction composerToolbar={composerToolbar} />
       </div>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
-  const openOfficialSite = () => {
-    openExternalUrl(toTrackedExternalUrl("https://www.askaric.com/"));
-  };
+export const ComposerMeta: FC<{ toolbar?: ReactNode }> = ({ toolbar }) => {
+  if (toolbar) {
+    return <div className="min-w-0 flex items-center gap-2 overflow-hidden">{toolbar}</div>;
+  }
 
   return (
-    <div className="mt-1 flex items-center justify-between px-1 pb-0.5">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={openOfficialSite}
-        className="h-8 rounded-full px-2.5 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-      >
-        <ExternalLinkIcon className="mr-1 size-3.5" />
-        Official Site
-      </Button>
+    <div className="px-2 py-1 text-[10px] font-medium tracking-[0.06em] text-slate-400">
+      Shift + Enter for newline
+    </div>
+  );
+};
+
+const ComposerAction: FC<{ composerToolbar?: ReactNode }> = ({ composerToolbar }) => {
+  return (
+    <div className="mt-2 flex items-center justify-between gap-3 px-1">
+      <ComposerMeta toolbar={composerToolbar} />
 
       <AssistantIf condition={({ thread }) => !thread.isRunning}>
         <ComposerPrimitive.Send asChild>
@@ -132,10 +182,10 @@ const ComposerAction: FC = () => {
             type="submit"
             variant="default"
             size="icon"
-            className="size-8 rounded-full bg-slate-900 text-white shadow-sm hover:bg-slate-800"
+            className="size-8 rounded-full bg-slate-950 text-white"
             aria-label="Send message"
           >
-            <ArrowUpIcon className="size-4" />
+            <ArrowUpIcon className="size-3.5" />
           </TooltipIconButton>
         </ComposerPrimitive.Send>
       </AssistantIf>
@@ -146,7 +196,7 @@ const ComposerAction: FC = () => {
             type="button"
             variant="default"
             size="icon"
-            className="size-8 rounded-full"
+            className="size-8 rounded-full border border-slate-200 bg-white text-slate-900"
             aria-label="Stop generating"
           >
             <SquareIcon className="size-3 fill-current" />
@@ -277,12 +327,15 @@ const StepMarkdown: FC<{ text: string }> = ({ text }) => {
         p: ({ children }) => <>{children}</>,
         a: ({ className, ...props }) => (
           <MarkdownAnchor
-            className={cn("underline underline-offset-2 text-sky-700", className)}
+            className={cn(
+              "font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-900",
+              className,
+            )}
             {...props}
           />
         ),
         code: ({ className, ...props }) => (
-          <code className={cn("rounded bg-slate-100 px-1 py-0.5 font-medium text-slate-900", className)} {...props} />
+          <code className={cn("rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-900", className)} {...props} />
         ),
       }}
     >
@@ -291,7 +344,9 @@ const StepMarkdown: FC<{ text: string }> = ({ text }) => {
   );
 };
 
-const AssistantStructuredBody: FC = () => {
+const AssistantStructuredBody: FC<{ assistantReplyFontSize?: AssistantReplyFontSize }> = ({
+  assistantReplyFontSize,
+}) => {
   const text = useMessage((message) =>
     message.content
       .filter((part) => part.type === "text")
@@ -313,17 +368,16 @@ const AssistantStructuredBody: FC = () => {
   return (
     <div className="space-y-5">
       {hasSteps ? (
-        <section className="rounded-xl border border-slate-200/85 bg-slate-50/70 px-3 py-3">
+        <section className="border-l border-slate-200/80 pl-4">
           <div className="mb-2 flex items-center justify-between">
-            <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-              <ListChecksIcon className="size-4" />
-              Retrieval Process
+            <div className="text-[10px] font-medium tracking-[0.08em] text-slate-400">
+              Retrieval
             </div>
             {parsed.steps.length > 1 ? (
               <button
                 type="button"
                 onClick={() => setCollapsed((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-700"
               >
                 {collapsed ? (
                   <>
@@ -341,24 +395,35 @@ const AssistantStructuredBody: FC = () => {
           </div>
 
           <ul className="relative space-y-2 pl-7">
-            <span className="absolute top-1 bottom-1 left-2 w-px bg-slate-200" />
+            <span className="absolute bottom-1 left-2 top-1 w-px bg-slate-200" />
             {visibleSteps.map((step, idx) => {
               const realIdx = idx + offset;
               const isCurrent = isRunning && realIdx === parsed.steps.length - 1;
               const { title, duration } = splitStepDuration(step);
               return (
                 <li key={`${realIdx}-${step}`} className="relative">
-                  <span className="absolute -left-[1.52rem] top-0.5 rounded-full bg-slate-50">
+                  <span className="absolute -left-[1.52rem] top-0.5 rounded-full bg-white">
                     {isCurrent ? (
                       <Loader2Icon className="size-4 text-slate-400 animate-spin" />
                     ) : (
                       <CheckCircle2Icon className="size-4 text-emerald-500" />
                     )}
                   </span>
-                  <div className="text-[15px] leading-6 text-slate-800">
+                  <div
+                    className="text-slate-700"
+                    style={{
+                      fontSize: "var(--tihc-assistant-body-font-size)",
+                      lineHeight: "var(--tihc-assistant-body-line-height)",
+                    }}
+                  >
                     <StepMarkdown text={title} />
                     {duration ? (
-                      <span className="ml-2 text-sm text-slate-400">{duration}</span>
+                      <span
+                        className="ml-2 tracking-[0.04em] text-slate-400"
+                        style={{ fontSize: "var(--tihc-assistant-step-duration-font-size)" }}
+                      >
+                        {duration}
+                      </span>
                     ) : null}
                   </div>
                 </li>
@@ -369,33 +434,83 @@ const AssistantStructuredBody: FC = () => {
       ) : null}
 
       {parsed.answer || !isRunning ? (
-        <section className="space-y-3">
-          <div className="inline-flex items-center gap-2 text-base font-semibold text-slate-900">
-            <ListChecksIcon className="size-4.5" />
-            Answer
-          </div>
-
-          <div className="rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-[15px] leading-7 text-slate-800">
+        <section>
+          <div
+            className="px-1 text-slate-800"
+            style={{
+              fontSize: "var(--tihc-assistant-body-font-size)",
+              lineHeight: "var(--tihc-assistant-body-line-height)",
+            }}
+          >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ ...props }) => (
-                  <h1 className="mt-6 mb-3 font-semibold text-2xl first:mt-0" {...props} />
+                  <h1
+                    className="tihc-display mt-8 mb-3 font-semibold tracking-[-0.045em] text-slate-950 first:mt-0"
+                    style={{
+                      fontSize: "var(--tihc-assistant-h1-font-size)",
+                      lineHeight: "1.08",
+                    }}
+                    {...props}
+                  />
                 ),
                 h2: ({ ...props }) => (
-                  <h2 className="mt-5 mb-3 font-semibold text-xl first:mt-0" {...props} />
+                  <h2
+                    className="tihc-display mt-8 mb-3 font-semibold tracking-[-0.04em] text-slate-950 first:mt-0"
+                    style={{
+                      fontSize: "var(--tihc-assistant-h2-font-size)",
+                      lineHeight: "1.12",
+                    }}
+                    {...props}
+                  />
                 ),
                 h3: ({ ...props }) => (
-                  <h3 className="mt-4 mb-2 font-semibold text-lg first:mt-0" {...props} />
+                  <h3
+                    className="mt-6 mb-2 font-semibold text-slate-900 first:mt-0"
+                    style={{
+                      fontSize: "var(--tihc-assistant-h3-font-size)",
+                      lineHeight: "1.75",
+                    }}
+                    {...props}
+                  />
                 ),
-                p: ({ ...props }) => <p className="mt-4 first:mt-0" {...props} />,
-                ul: ({ ...props }) => <ul className="mt-3 ml-5 list-disc space-y-1.5" {...props} />,
+                p: ({ ...props }) => (
+                  <p
+                    className="mt-5 text-slate-700 first:mt-0"
+                    style={{
+                      fontSize: "var(--tihc-assistant-body-font-size)",
+                      lineHeight: "var(--tihc-assistant-body-line-height)",
+                    }}
+                    {...props}
+                  />
+                ),
+                ul: ({ ...props }) => (
+                  <ul
+                    className="mt-4 ml-5 list-disc space-y-2 text-slate-700"
+                    style={{
+                      fontSize: "var(--tihc-assistant-body-font-size)",
+                      lineHeight: "var(--tihc-assistant-body-line-height)",
+                    }}
+                    {...props}
+                  />
+                ),
                 ol: ({ ...props }) => (
-                  <ol className="mt-3 ml-5 list-decimal space-y-1.5" {...props} />
+                  <ol
+                    className="mt-4 ml-5 list-decimal space-y-2 text-slate-700"
+                    style={{
+                      fontSize: "var(--tihc-assistant-body-font-size)",
+                      lineHeight: "var(--tihc-assistant-body-line-height)",
+                    }}
+                    {...props}
+                  />
                 ),
                 a: ({ className, ...props }) => (
                   <MarkdownAnchor
-                    className={cn("underline underline-offset-2 text-sky-700", className)}
+                    className={cn(
+                      "font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-900",
+                      className,
+                    )}
                     {...props}
                   />
                 ),
@@ -406,7 +521,7 @@ const AssistantStructuredBody: FC = () => {
                       className={cn(
                         isBlock
                           ? "font-mono text-slate-900"
-                          : "rounded bg-slate-100 px-1 py-0.5 font-medium text-slate-900",
+                          : "rounded-md bg-slate-100 px-1.5 py-0.5 font-medium text-slate-900",
                         className,
                       )}
                       {...props}
@@ -415,14 +530,25 @@ const AssistantStructuredBody: FC = () => {
                 },
                 pre: ({ ...props }) => (
                   <pre
-                    className="mt-4 overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-3 text-slate-900"
+                    className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900"
+                    style={{
+                      fontSize: "var(--tihc-assistant-code-font-size)",
+                      lineHeight: "1.75",
+                    }}
                     {...props}
                   />
                 ),
                 blockquote: ({ ...props }) => (
-                  <blockquote className="mt-4 border-l-2 border-slate-300 pl-4 text-slate-600" {...props} />
+                  <blockquote
+                    className="mt-5 border-l border-slate-300 pl-5 text-slate-500 italic"
+                    style={{
+                      fontSize: "var(--tihc-assistant-body-font-size)",
+                      lineHeight: "var(--tihc-assistant-body-line-height)",
+                    }}
+                    {...props}
+                  />
                 ),
-                hr: ({ ...props }) => <hr className="my-5 border-slate-200" {...props} />,
+                hr: ({ ...props }) => <hr className="my-8 border-slate-200" {...props} />,
               }}
             >
               {parsed.answer}
@@ -434,14 +560,19 @@ const AssistantStructuredBody: FC = () => {
   );
 };
 
-const AssistantMessage: FC = () => {
+const AssistantMessage: FC<{ assistantReplyFontSize?: AssistantReplyFontSize }> = ({
+  assistantReplyFontSize,
+}) => {
   return (
     <MessagePrimitive.Root
       className="group mx-auto w-full max-w-3xl py-2"
       data-role="assistant"
     >
-      <div className="relative select-text rounded-2xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm leading-6 [overflow-wrap:anywhere] break-words shadow-[0_6px_18px_-14px_rgba(15,23,42,0.26)]">
-        <AssistantStructuredBody />
+      <div
+        className="relative select-text px-1 py-3 text-sm leading-6 [overflow-wrap:anywhere] break-words"
+        style={resolveAssistantReplyFontSizeVars(assistantReplyFontSize)}
+      >
+        <AssistantStructuredBody assistantReplyFontSize={assistantReplyFontSize} />
         <MessageError />
         <MessageCopyAction
           tooltip="Copy"
@@ -459,8 +590,8 @@ const UserMessage: FC = () => {
       className="group mx-auto flex w-full max-w-3xl justify-end py-2"
       data-role="user"
     >
-      <div className="relative max-w-[90%]">
-        <div className="select-text rounded-2xl bg-linear-to-br from-zinc-900 to-black px-3.5 py-2.5 text-sm text-white leading-6 [overflow-wrap:anywhere] break-words shadow-[0_10px_24px_-16px_rgba(15,23,42,0.75)]">
+      <div className="relative max-w-[76%]">
+        <div className="select-text rounded-[18px] bg-slate-950 px-4 py-3 text-sm leading-6 text-white [overflow-wrap:anywhere] break-words">
           <MessagePrimitive.Parts />
         </div>
         <MessageCopyAction
@@ -518,13 +649,13 @@ const MessageCopyAction: FC<{
         side={side}
         onClick={onCopy}
         className={cn(
-          "size-7 rounded-md border shadow-sm",
+          "size-6 rounded-md border",
           dark
-            ? "border-white/20 bg-black/50 text-white hover:bg-black/70"
-            : "border-slate-200 bg-white/90 text-slate-600 hover:bg-white hover:text-slate-900",
+            ? "border-white/15 bg-black/32 text-white hover:bg-black/45"
+            : "border-slate-200 bg-white/96 text-slate-500 hover:bg-white hover:text-slate-900",
         )}
       >
-        {isCopied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+        {isCopied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
       </TooltipIconButton>
     </div>
   );

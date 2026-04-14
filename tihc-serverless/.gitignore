@@ -1,4 +1,0 @@
-.vercel
-target/
-.env*.local
-.env

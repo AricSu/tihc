@@ -1,3 +1,5 @@
+import { trackOutboundClick } from "@/lib/telemetry";
+
 const UTM_PARAMS = {
   utm_source: "tihc_extension",
   utm_medium: "assistant_ui",
@@ -48,6 +50,7 @@ export function scrollToHashTarget(hashHref: string): boolean {
 
 export function openExternalUrl(rawUrl: string): void {
   const trackedUrl = toTrackedExternalUrl(rawUrl);
+  void trackOutboundClick(rawUrl);
   const chromeApi = (
     globalThis as unknown as {
       chrome?: {

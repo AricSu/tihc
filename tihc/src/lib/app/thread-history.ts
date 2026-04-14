@@ -2,64 +2,61 @@ import type {
   ExportedMessageRepository,
   ThreadHistoryAdapter,
 } from "@assistant-ui/react";
+import {
+  listLocalHistoryScopes,
+  readLocalHistory,
+  removeLocalHistory,
+  writeLocalHistory,
+} from "@/lib/app/local-browser-persistence";
 
 type RepoMessageItem = ExportedMessageRepository["messages"][number];
 
-const THREAD_HISTORY_STORAGE_KEY = "tihc_thread_history_v1";
+const DEFAULT_SCOPE = "default";
 const MAX_PERSISTED_MESSAGES = 10;
+const memoryRepositories = new Map<string, ExportedMessageRepository>();
 
-function hasLocalStorage(): boolean {
-  return (
-    typeof globalThis !== "undefined" &&
-    typeof globalThis.localStorage !== "undefined"
-  );
-}
-
-function emptyRepo(): ExportedMessageRepository {
+export function emptyRepo(): ExportedMessageRepository {
   return {
     headId: null,
     messages: [],
   };
 }
 
-function parseRepo(raw: string): ExportedMessageRepository {
-  try {
-    const parsed = JSON.parse(raw) as Partial<ExportedMessageRepository>;
-    if (!parsed || typeof parsed !== "object") return emptyRepo();
-    const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
-    const headId =
-      typeof parsed.headId === "string" || parsed.headId === null
-        ? parsed.headId
-        : null;
-    return {
-      headId,
-      messages: messages as ExportedMessageRepository["messages"],
-    };
-  } catch {
-    return emptyRepo();
-  }
+function cloneRepo(repo: ExportedMessageRepository): ExportedMessageRepository {
+  return JSON.parse(JSON.stringify(repo)) as ExportedMessageRepository;
 }
 
-function loadRepoFromStorage(): ExportedMessageRepository {
-  if (!hasLocalStorage()) return emptyRepo();
-  const raw = globalThis.localStorage.getItem(THREAD_HISTORY_STORAGE_KEY);
-  if (!raw) return emptyRepo();
-  return parseRepo(raw);
+function getHistoryScope(
+  caseId: string = DEFAULT_SCOPE,
+  workspaceId?: string,
+): string {
+  return workspaceId ? `${caseId}:${workspaceId}` : caseId;
 }
 
-function saveRepoToStorage(repo: ExportedMessageRepository): void {
-  if (!hasLocalStorage()) return;
-  try {
-    globalThis.localStorage.setItem(
-      THREAD_HISTORY_STORAGE_KEY,
-      JSON.stringify(repo),
-    );
-  } catch {
-    // ignore storage quota and serialization errors
-  }
+function loadRepoFromMemory(
+  caseId?: string,
+  workspaceId?: string,
+): ExportedMessageRepository {
+  const scope = getHistoryScope(caseId, workspaceId);
+  const repo = memoryRepositories.get(scope) ?? readLocalHistory(scope);
+  if (!repo) return emptyRepo();
+
+  memoryRepositories.set(scope, cloneRepo(repo));
+  return cloneRepo(repo);
 }
 
-function trimRepoToLatestMessages(
+function saveRepoToMemory(
+  repo: ExportedMessageRepository,
+  caseId?: string,
+  workspaceId?: string,
+): void {
+  const scope = getHistoryScope(caseId, workspaceId);
+  const clonedRepo = cloneRepo(repo);
+  memoryRepositories.set(scope, clonedRepo);
+  writeLocalHistory(scope, clonedRepo);
+}
+
+export function trimRepoToLatestMessages(
   repo: ExportedMessageRepository,
 ): ExportedMessageRepository {
   if (repo.messages.length <= MAX_PERSISTED_MESSAGES) return repo;
@@ -101,31 +98,81 @@ function trimRepoToLatestMessages(
   };
 }
 
-export function createLocalThreadHistoryAdapter(): ThreadHistoryAdapter {
+export function createScopedThreadHistoryAdapter(
+  agentInstanceId: string,
+  threadId?: string,
+): ThreadHistoryAdapter {
   return {
     async load() {
-      return trimRepoToLatestMessages(loadRepoFromStorage());
+      return trimRepoToLatestMessages(loadRepoFromMemory(agentInstanceId, threadId));
     },
     async append(item: RepoMessageItem) {
-      const repo = loadRepoFromStorage();
+      const repo = loadRepoFromMemory(agentInstanceId, threadId);
       const messageId = item.message.id;
-      const index = repo.messages.findIndex((m) => m.message.id === messageId);
+      const index = repo.messages.findIndex((message) => message.message.id === messageId);
       if (index >= 0) {
         repo.messages[index] = item;
       } else {
         repo.messages.push(item);
       }
       repo.headId = messageId;
-      saveRepoToStorage(trimRepoToLatestMessages(repo));
+      saveRepoToMemory(trimRepoToLatestMessages(repo), agentInstanceId, threadId);
     },
   };
 }
 
-export function clearLocalThreadHistory(): void {
-  if (!hasLocalStorage()) return;
-  try {
-    globalThis.localStorage.removeItem(THREAD_HISTORY_STORAGE_KEY);
-  } catch {
-    // ignore
+export function createScopedCaseHistoryAdapter(
+  caseId: string,
+  workspaceId?: string,
+): ThreadHistoryAdapter {
+  return createScopedThreadHistoryAdapter(caseId, workspaceId);
+}
+
+export function createCaseHistoryAdapter(caseId: string): ThreadHistoryAdapter {
+  return createScopedCaseHistoryAdapter(caseId);
+}
+
+export function createLocalCaseHistoryAdapter(): ThreadHistoryAdapter {
+  return createScopedCaseHistoryAdapter(DEFAULT_SCOPE);
+}
+
+export function createLocalThreadHistoryAdapter(): ThreadHistoryAdapter {
+  return createLocalCaseHistoryAdapter();
+}
+
+export function hasStoredCaseHistory(caseId: string): boolean {
+  return loadRepoFromMemory(caseId).messages.length > 0;
+}
+
+export function clearLocalThreadHistory(agentInstanceId?: string, threadId?: string): void {
+  const scopedKey = agentInstanceId
+    ? getHistoryScope(agentInstanceId, threadId)
+    : null;
+
+  const storedKeys = new Set<string>([...memoryRepositories.keys(), ...listLocalHistoryScopes()]);
+
+  for (const key of storedKeys) {
+    if (!scopedKey) {
+      memoryRepositories.delete(key);
+      removeLocalHistory(key);
+      continue;
+    }
+
+    if (threadId) {
+      if (key === scopedKey) {
+        memoryRepositories.delete(key);
+        removeLocalHistory(key);
+      }
+      continue;
+    }
+
+    if (key === scopedKey || key.startsWith(`${scopedKey}:`)) {
+      memoryRepositories.delete(key);
+      removeLocalHistory(key);
+    }
   }
+}
+
+export function clearLocalCaseHistory(caseId?: string): void {
+  clearLocalThreadHistory(caseId);
 }

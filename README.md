@@ -1,16 +1,14 @@
-# TIHC Monorepo
+# TIHC Workspace
 
-This repository contains two parts:
+Active projects:
 
 - `tihc/`: browser extension sidepanel client
-- `tihc-serverless/`: serverless backend API
+- `tihc-backend/`: Node backend API
 
-## Security Rules
+Adjacent directories:
 
-- Never commit real API URLs, tokens, or credentials.
-- Use `.env.local` for local values.
-- Keep only `.env.example` in git.
-- Do not commit generated traces, logs, or AI-generated runtime outputs.
+- `askaric/`: website, maintained as a separate git repo
+- `tihc-serverless/`: legacy Rust backend kept only for reference
 
 ## Quick Start
 
@@ -18,15 +16,23 @@ This repository contains two parts:
 
 ```bash
 cd tihc
-npm i
+npm install
 cp .env.example .env.local
 npm run dev
 ```
 
-### Serverless
+### Backend
 
 ```bash
-cd tihc-serverless
+cd tihc-backend
+npm install
 cp .env.example .env.local
-cargo check
+npm test
 ```
+
+## Repo Rules
+
+- Never commit real API URLs, tokens, or credentials.
+- Use `.env.local` for local values.
+- Keep only `.env.example` in git.
+- Do not commit generated traces, logs, or AI-generated runtime outputs.

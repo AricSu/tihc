@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776180000000,
+      "tag": "0000_tihc_case_cloud",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776197400000,
+      "tag": "0001_user_llm_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776201000000,
+      "tag": "0002_llm_usage_events",
+      "breakpoints": true
+    }
+  ]
+}

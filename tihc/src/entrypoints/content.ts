@@ -1,6 +1,8 @@
+import { registerWebSearchContentBridge } from "@/lib/websearch/content-bridge";
+
 export default defineContentScript({
-  matches: ['*://*.google.com/*'],
+  matches: ['http://*/*', 'https://*/*'],
   main() {
-    console.log('Hello content.');
+    registerWebSearchContentBridge();
   },
 });

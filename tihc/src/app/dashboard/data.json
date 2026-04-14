@@ -1,0 +1,132 @@
+[
+  {
+    "id": "case-417",
+    "title": "Ticket 417: Payments timing out after token exchange",
+    "status": "Investigating",
+    "priority": "P1",
+    "channel": "API",
+    "updatedAt": "5m ago",
+    "executionTarget": "Local Lobster",
+    "owner": "Aric",
+    "summary": "Checkout confirmations stall after the auth refresh step and recover on retry.",
+    "signals": [
+      "502 rate climbed immediately after the gateway deploy.",
+      "Only /v1/payments/confirm is timing out in production.",
+      "Staging succeeds when the refresh token is bypassed."
+    ],
+    "messages": [
+      {
+        "role": "operator",
+        "text": "Customer checkout fails after card entry. The spinner hangs for about 12 seconds, then the request dies."
+      },
+      {
+        "role": "tihc",
+        "text": "The current thread points to a mismatch between token refresh latency and the confirm endpoint timeout budget. The strongest signal is that retry succeeds once the session is already warm."
+      }
+    ]
+  },
+  {
+    "id": "case-402",
+    "title": "Incident 402: Search indexing drift on product detail pages",
+    "status": "Watching",
+    "priority": "P2",
+    "channel": "Crawler",
+    "updatedAt": "18m ago",
+    "executionTarget": "Remote Helix",
+    "owner": "Nina",
+    "summary": "Fresh product edits are not reaching the public index consistently after the last worker restart.",
+    "signals": [
+      "Index lag exceeds 40 minutes for edited SKUs.",
+      "Worker restart clears the backlog temporarily.",
+      "No matching errors appear in the public API response."
+    ],
+    "messages": [
+      {
+        "role": "operator",
+        "text": "Merchandising says updated descriptions are missing from search. The changes do show up on the product page itself."
+      },
+      {
+        "role": "tihc",
+        "text": "The thread currently treats this as a queue health problem rather than a template render bug. Drift starts after worker rotation and narrows to jobs sourced from the catalog sync topic."
+      }
+    ]
+  },
+  {
+    "id": "case-388",
+    "title": "Case 388: OAuth callback loops for invited teammates",
+    "status": "Investigating",
+    "priority": "P1",
+    "channel": "Auth",
+    "updatedAt": "34m ago",
+    "executionTarget": "Local Lobster",
+    "owner": "Maya",
+    "summary": "Invited users return from Google successfully but re-enter the callback route instead of landing in the workspace.",
+    "signals": [
+      "Loop only affects invited users without an existing org membership.",
+      "The callback response sets state but drops the org slug.",
+      "Direct logins outside invitation flow behave normally."
+    ],
+    "messages": [
+      {
+        "role": "operator",
+        "text": "New teammates can authenticate, but the app keeps bouncing them back into /auth/callback until the browser gives up."
+      },
+      {
+        "role": "tihc",
+        "text": "The preview thread suggests the org bootstrap path is missing a stable post-login destination. The callback sets session cookies, but the invited-user branch rebuilds the redirect target incorrectly."
+      }
+    ]
+  },
+  {
+    "id": "case-361",
+    "title": "Case 361: Analytics export stalls on large date ranges",
+    "status": "Watching",
+    "priority": "P3",
+    "channel": "Jobs",
+    "updatedAt": "1h ago",
+    "executionTarget": "Remote Helix",
+    "owner": "David",
+    "summary": "CSV exports complete for short windows but hang once the report spans more than 60 days.",
+    "signals": [
+      "Queue times stay normal until the export worker hits memory limits.",
+      "Smaller date windows succeed without retry.",
+      "The stall begins during aggregation, not upload."
+    ],
+    "messages": [
+      {
+        "role": "operator",
+        "text": "Finance can export one month of analytics, but quarter-to-date downloads never finish."
+      },
+      {
+        "role": "tihc",
+        "text": "The thread is converging on an aggregation memory spike. We are not seeing storage failures; the exporter is exhausting the worker budget before the file writer starts."
+      }
+    ]
+  },
+  {
+    "id": "case-344",
+    "title": "Case 344: Email digests sent with stale account names",
+    "status": "Resolved",
+    "priority": "P4",
+    "channel": "Email",
+    "updatedAt": "3h ago",
+    "executionTarget": "Local Lobster",
+    "owner": "Leila",
+    "summary": "Nightly digests were rendering old account names from cached profile snapshots.",
+    "signals": [
+      "Digest template used a cached display_name payload.",
+      "Manual resend after cache purge produced correct names.",
+      "No customer-facing failures remain after the hotfix."
+    ],
+    "messages": [
+      {
+        "role": "operator",
+        "text": "A few enterprise customers saw old account names in the digest header even though the admin UI showed the new ones."
+      },
+      {
+        "role": "tihc",
+        "text": "This case is resolved. The thread shows the email renderer was reading profile snapshots from an outdated cache namespace, and the namespace bump cleared the stale payloads."
+      }
+    ]
+  }
+]
