@@ -13,6 +13,7 @@ import { registerCaseRoutes } from "./routes/case-routes";
 import { registerLlmRoutes } from "./routes/llm-routes";
 import { registerSettingsRoutes } from "./routes/settings-routes";
 import { registerTelemetryRoutes } from "./routes/telemetry-routes";
+import { registerUserRoutes } from "./routes/user-routes";
 import { registerUsageRoutes } from "./routes/usage-routes";
 import {
   defaultLogFormat,
@@ -138,9 +139,16 @@ export function createApp({
     helpers,
     logger,
   });
+  registerUserRoutes({
+    app,
+    helpers,
+    logger,
+  });
   registerCaseRoutes({
     app,
     caseStore,
+    env,
+    fetchImpl,
     helpers,
     logger,
   });

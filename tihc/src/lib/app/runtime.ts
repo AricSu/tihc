@@ -19,6 +19,7 @@ import {
   listStoredCases,
   updateStoredCase,
 } from "@/lib/app/cloud-cases";
+import { isPlaceholderCase, listVisibleCases } from "@/lib/app/case-list";
 import {
   clearLocalCaseHistory,
   createCaseHistoryAdapter,
@@ -29,6 +30,7 @@ import {
   writeLocalDisplaySettings,
   writeLocalRuntimeState,
 } from "@/lib/app/local-browser-persistence";
+import { createRuntimeSync } from "@/lib/app/runtime-sync";
 import { isGoogleOAuthConfigured, refreshGoogleAuthSession } from "@/lib/auth/google-oauth";
 import { createRuntimeCaseOps } from "@/lib/app/runtime-case-ops";
 import { createRuntimeCloudSync } from "@/lib/app/runtime-cloud-sync";
@@ -49,12 +51,40 @@ const settings = store.state;
 let authBootstrapPromise: Promise<GoogleAuthState | null> | null = null;
 let autoAuthDisabled = false;
 
+function commitRuntimeChange(options?: { external?: boolean }) {
+  store.commit();
+  if (options?.external) return;
+  runtimeSync.publish();
+}
+
+function applyExternalRuntimeSnapshot(snapshot: AppRuntimeSettings): void {
+  const hadGoogleAuth = Boolean(store.getSnapshot().googleAuth?.accessToken?.trim());
+  store.assign(normalizeNewSettings(snapshot));
+  commitRuntimeChange({ external: true });
+  if (snapshot.googleAuth?.accessToken?.trim()) {
+    autoAuthDisabled = false;
+  } else if (hadGoogleAuth) {
+    autoAuthDisabled = true;
+  }
+}
+
+const runtimeSync = createRuntimeSync<AppRuntimeSettings>({
+  applySnapshot: applyExternalRuntimeSnapshot,
+  channelName: "tihc_runtime_sync_v1",
+  getSnapshot: () => store.getSnapshot(),
+});
+
 function buildLocalRuntimeSettingsInput(): Partial<AppRuntimeSettings> {
   const nextState = cloneRuntimeState(settings);
+  const persistedCases = listVisibleCases(nextState.cases);
+  const persistedActiveCaseId =
+    persistedCases.find((item) => item.id === nextState.activeCaseId)?.id ??
+    persistedCases[0]?.id ??
+    null;
   return {
-    activeCaseId: nextState.activeCaseId,
+    activeCaseId: persistedActiveCaseId,
     analyticsConsent: nextState.analyticsConsent,
-    cases: nextState.cases,
+    cases: persistedCases,
     cloudSync: {
       importedClientId: null,
       lastHydratedAt: null,
@@ -83,8 +113,13 @@ function persistLocalDisplaySettings(): void {
 
 function buildStoredAppSettingsInput(): Omit<StoredAppSettingsRecord, "updatedAt"> {
   const nextState = cloneRuntimeState(settings);
+  const persistedCases = listVisibleCases(nextState.cases);
+  const persistedActiveCaseId =
+    persistedCases.find((item) => item.id === nextState.activeCaseId)?.id ??
+    persistedCases[0]?.id ??
+    null;
   return {
-    activeCaseId: nextState.activeCaseId,
+    activeCaseId: persistedActiveCaseId,
     analyticsConsent: nextState.analyticsConsent,
     llmRuntime: nextState.llmRuntime,
     installedPlugins: nextState.installedPlugins,
@@ -117,7 +152,7 @@ function persistCloudCaseDelete(caseId: string): void {
 const caseOps = createRuntimeCaseOps({
   settings,
   getSnapshot: () => store.getSnapshot(),
-  commit: () => store.commit(),
+  commit: () => commitRuntimeChange(),
   hasStoredCaseHistory,
   persistLocalSettings,
   persistCloudCaseCreate,
@@ -130,7 +165,7 @@ const caseOps = createRuntimeCaseOps({
 const cloudSync = createRuntimeCloudSync({
   settings,
   getSnapshot: () => store.getSnapshot(),
-  commit: () => store.commit(),
+  commit: () => commitRuntimeChange(),
   readLocalRuntimeState,
   getAppClientId,
   clearLocalCaseHistory,
@@ -157,7 +192,7 @@ export function getAppSettingsSnapshot(): AppRuntimeSettings {
 
 export function setAppSettings(partial: Partial<AppRuntimeSettings>) {
   store.assign(normalizeNewSettings({ ...cloneRuntimeState(settings), ...partial }));
-  store.commit();
+  commitRuntimeChange();
   persistLocalSettings();
   persistLocalDisplaySettings();
 }
@@ -177,7 +212,7 @@ export async function ensureGoogleAuthSession(): Promise<GoogleAuthState | null>
     try {
       const googleAuth = await refreshGoogleAuthSession();
       settings.googleAuth = { ...googleAuth };
-      store.commit();
+      commitRuntimeChange();
       return googleAuth;
     } catch {
       return null;
@@ -195,13 +230,17 @@ export async function syncCloudCasesIfNeeded(): Promise<void> {
 
 export function setAnalyticsConsent(consent: AnalyticsConsentState): void {
   settings.analyticsConsent = normalizeAnalyticsConsent(consent);
-  store.commit();
+  commitRuntimeChange();
   persistLocalSettings();
   persistCloudSettings();
 }
 
-export function createCase(title: string, pluginId?: PluginId) {
-  return caseOps.createCase(title, pluginId);
+type CreateCaseOptions = {
+  transient?: boolean;
+};
+
+export function createCase(title: string, pluginId?: PluginId, options?: CreateCaseOptions) {
+  return caseOps.createCase(title, pluginId, options);
 }
 
 export function setActiveCaseId(caseId: string): void {
@@ -253,7 +292,7 @@ export function updateGlobalLlmRuntime(partial: Partial<GlobalLlmRuntimeConfig>)
 
 export function updateAssistantReplyFontSize(value: AssistantReplyFontSize): void {
   settings.assistantReplyFontSize = normalizeAssistantReplyFontSize(value);
-  store.commit();
+  commitRuntimeChange();
   persistLocalDisplaySettings();
 }
 
@@ -264,7 +303,7 @@ export function autoTitleCaseFromPrompt(caseId: string, prompt: string): void {
 export function setGoogleAuth(googleAuth: GoogleAuthState): void {
   autoAuthDisabled = false;
   settings.googleAuth = { ...googleAuth };
-  store.commit();
+  commitRuntimeChange();
 }
 
 export function refreshGoogleAuth(partial: Partial<GoogleAuthState>): void {
@@ -278,7 +317,7 @@ export function refreshGoogleAuth(partial: Partial<GoogleAuthState>): void {
       hostedDomain: partial.hostedDomain ?? "",
       expiresAt: partial.expiresAt ?? null,
     };
-    store.commit();
+    commitRuntimeChange();
     return;
   }
 
@@ -294,7 +333,7 @@ export function refreshGoogleAuth(partial: Partial<GoogleAuthState>): void {
         ? settings.googleAuth.expiresAt
         : partial.expiresAt,
   };
-  store.commit();
+  commitRuntimeChange();
 }
 
 export function clearGoogleAuth(): void {

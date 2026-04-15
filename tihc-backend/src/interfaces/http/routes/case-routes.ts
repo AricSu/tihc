@@ -1,4 +1,5 @@
 import type { CaseStore } from "../../../domain/cases/case-store";
+import { deleteTidbChatUpstream, extractTidbChatIdFromHistory } from "../../../application/chat/tidb-chat-binding";
 import type { AppLogger } from "../../../lib/logger";
 import { jsonError } from "../http";
 import type { AppInstance, HttpContextHelpers } from "../http-context";
@@ -8,10 +9,13 @@ import {
   sanitizeImportCasesInput,
   sanitizeUpdateCaseInput,
 } from "../cases/case-payloads";
+import type { AppEnv } from "../../../shared/support";
 
 type RegisterCaseRoutesOptions = {
   app: AppInstance;
   caseStore: CaseStore | null;
+  env: AppEnv;
+  fetchImpl: typeof fetch;
   helpers: HttpContextHelpers;
   logger: AppLogger;
 };
@@ -19,6 +23,8 @@ type RegisterCaseRoutesOptions = {
 export function registerCaseRoutes({
   app,
   caseStore,
+  env,
+  fetchImpl,
   helpers,
   logger,
 }: RegisterCaseRoutesOptions) {
@@ -90,13 +96,30 @@ export function registerCaseRoutes({
     const principal = await helpers.requireAppPrincipal(context);
     if (principal instanceof Response) return principal;
 
-    const deleted = await caseStore!.deleteCase(principal.id, context.req.param("caseId"));
+    const caseId = context.req.param("caseId");
+    const history = await caseStore!.getHistory(principal.id, caseId);
+    const tidbChatId = extractTidbChatIdFromHistory(history);
+    if (tidbChatId) {
+      try {
+        await deleteTidbChatUpstream({
+          chatId: tidbChatId,
+          env,
+          fetchImpl,
+          logger,
+          requestId,
+        });
+      } catch (error) {
+        return jsonError(502, error instanceof Error ? error.message : "Failed to delete tidb.ai chat.");
+      }
+    }
+
+    const deleted = await caseStore!.deleteCase(principal.id, caseId);
     if (!deleted) {
       return jsonError(404, "Case not found.");
     }
 
     logger.info("cases.deleted", {
-      case_id: context.req.param("caseId"),
+      case_id: caseId,
       principal_id: principal.id,
       request_id: requestId,
     });

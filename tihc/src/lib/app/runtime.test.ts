@@ -62,9 +62,33 @@ async function loadRuntimeModule() {
 describe("app runtime settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     installMockStorage();
     localStorage.clear();
     vi.stubGlobal("fetch", vi.fn());
+  });
+
+  test("falls back to the default local backend when no runtime base url is configured", async () => {
+    vi.stubEnv("MODE", "development");
+    vi.stubEnv("VITE_BACKEND_BASE_URL", "");
+
+    const runtime = await loadRuntimeModule();
+
+    expect(runtime.getAppSettings()).toMatchObject({
+      llmRuntime: {
+        baseUrl: "http://localhost:3010",
+        providerId: "",
+        model: "",
+      },
+      installedPlugins: [
+        {
+          pluginId: "tidb.ai",
+          config: {
+            baseUrl: "http://localhost:3010",
+          },
+        },
+      ],
+    });
   });
 
   test("starts from anonymous local defaults and clears legacy local storage keys", async () => {
@@ -273,6 +297,121 @@ describe("app runtime settings", () => {
       title: "Investigate repeated region heartbeat timeouts after the last restart",
       activityState: "active",
     });
+  });
+
+  test("converts the default placeholder case into a timestamped case on the first prompt", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-15T18:16:00.000Z"));
+
+    try {
+      const runtime = await loadRuntimeModule();
+      const created = runtime.createCase?.("Default", undefined, { transient: true });
+      if (!created) {
+        throw new Error("expected createCase to return a case");
+      }
+
+      const placeholderState = JSON.parse(localStorage.getItem(LOCAL_RUNTIME_STATE_KEY) ?? "{}");
+      expect(placeholderState.cases ?? []).toEqual([]);
+
+      runtime.autoTitleCaseFromPrompt?.(created.id, "hello");
+
+      const settings = runtime.getAppSettings();
+      expect(settings.cases.find((item) => item.id === created.id)).toMatchObject({
+        id: created.id,
+        title: "2026-04-15 18:16 case",
+        isPlaceholder: false,
+        activityState: "active",
+      });
+
+      const persistedState = JSON.parse(localStorage.getItem(LOCAL_RUNTIME_STATE_KEY) ?? "{}");
+      expect(persistedState.cases).toEqual([
+        expect.objectContaining({
+          id: created.id,
+          title: "2026-04-15 18:16 case",
+        }),
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("does not import a transient default placeholder into cloud sync", async () => {
+    const runtime = await loadRuntimeModule();
+    const fetchMock = vi.mocked(fetch);
+
+    runtime.setAppSettings?.({
+      llmRuntime: {
+        baseUrl: "https://runtime.example.com",
+        providerId: "",
+        model: "",
+      },
+    });
+    runtime.createCase?.("Default", undefined, { transient: true });
+
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          cases: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          settings: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          settings: {
+            activeCaseId: null,
+            analyticsConsent: "unknown",
+            llmRuntime: {
+              baseUrl: "https://runtime.example.com",
+              providerId: "",
+              model: "",
+            },
+            installedPlugins: [
+              {
+                pluginId: "tidb.ai",
+                label: "tidb.ai",
+                kind: "mcp",
+                capabilities: ["mcp"],
+                config: {
+                  baseUrl: "https://runtime.example.com",
+                },
+              },
+            ],
+            updatedAt: "2026-04-14T12:05:00.000Z",
+          },
+        }),
+      );
+
+    runtime.setGoogleAuth?.({
+      accessToken: "token-1",
+      clientId: "google-client-id",
+      email: "dev@example.com",
+      hostedDomain: "example.com",
+      expiresAt: "2026-04-14T16:00:00.000Z",
+    });
+    await runtime.syncCloudCasesIfNeeded?.();
+
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://runtime.example.com/v1/cases/import",
+      expect.anything(),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://runtime.example.com/v1/cases",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://runtime.example.com/v1/settings",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
   });
 
   test("deleting the active case falls back to the most recently updated non-archived case", async () => {

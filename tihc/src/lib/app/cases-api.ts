@@ -3,6 +3,7 @@ import {
   isCloudSyncEnabled,
   listStoredCases,
 } from "@/lib/app/cloud-cases";
+import { listVisibleCases } from "@/lib/app/case-list";
 import { resolveRuntimeBackendBaseUrl } from "@/lib/app/backend-endpoint";
 import { getAppSettingsSnapshot } from "@/lib/app/runtime";
 import type {
@@ -36,10 +37,6 @@ type RepoMessageItem = {
 };
 
 const EMPTY_SUMMARY = "No thread activity yet.";
-
-function compareByUpdatedAtDesc(a: CaseWorkspace, b: CaseWorkspace): number {
-  return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
-}
 
 function extractTextFromContent(content: unknown): string {
   if (typeof content === "string") return content.trim();
@@ -135,9 +132,7 @@ async function buildDashboardCaseRecord(
 async function buildLocalDashboardCasesSnapshot(
   settings: AppRuntimeSettings,
 ): Promise<DashboardCaseRecord[]> {
-  const visibleCases = settings.cases
-    .filter((item) => item.archivedAt === null)
-    .sort(compareByUpdatedAtDesc);
+  const visibleCases = listVisibleCases(settings.cases);
 
   return Promise.all(visibleCases.map((item) => buildDashboardCaseRecord(settings, item)));
 }
@@ -173,6 +168,6 @@ export async function listDashboardCases(): Promise<DashboardCaseRecord[]> {
 
   const storedCases = await listStoredCases(settings);
   return storedCases
-    ? storedCases.map((item) => buildDashboardCaseRecordFromStoredCase(settings, item))
+    ? listVisibleCases(storedCases).map((item) => buildDashboardCaseRecordFromStoredCase(settings, item))
     : [];
 }

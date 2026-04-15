@@ -4,6 +4,7 @@ import {
   createCase,
   ensureGoogleAuthSession,
   getAppSettingsSnapshot,
+  setActiveCaseId,
   syncCloudCasesIfNeeded,
   subscribeAppSettings,
   updateAssistantReplyFontSize,
@@ -22,7 +23,12 @@ import { TokenUsageChart } from "@/components/token-usage-chart";
 import { AnonymousLocalCaseLimitDialog } from "@/components/agent/anonymous-local-case-limit-dialog";
 import { isAnonymousLocalStorageLimitReached } from "@/lib/app/anonymous-local-case-limit";
 import { listDashboardCases, type DashboardCaseRecord } from "@/lib/app/cases-api";
-import type { StoredUsageSummaryRecord, StoredUsageTimeseriesPoint } from "@/lib/chat/agent-types";
+import { buildLocalCurrentUser, getCurrentUser } from "@/lib/app/current-user";
+import type {
+  CurrentUserRecord,
+  StoredUsageSummaryRecord,
+  StoredUsageTimeseriesPoint,
+} from "@/lib/chat/agent-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -101,6 +107,9 @@ export function DashboardShell({
   const [currentSection, setCurrentSection] = useState(resolvedInitialSection);
   const [caseTitleDraft, setCaseTitleDraft] = useState("");
   const [dashboardCases, setDashboardCases] = useState<DashboardCaseRecord[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUserRecord>(() =>
+    buildLocalCurrentUser(appSettings),
+  );
   const [usageSummary, setUsageSummary] = useState<StoredUsageSummaryRecord | null>(null);
   const [usagePoints, setUsagePoints] = useState<StoredUsageTimeseriesPoint[]>([]);
   const isAnonymousLocalCaseLimitBlocked = isAnonymousLocalStorageLimitReached(appSettings);
@@ -158,6 +167,25 @@ export function DashboardShell({
       cancelled = true;
     };
   }, [appSettings]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setCurrentUser(buildLocalCurrentUser(appSettings));
+    void getCurrentUser(appSettings).then((nextUser) => {
+      if (cancelled) return;
+      setCurrentUser(nextUser);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appSettings.googleAuth?.accessToken,
+    appSettings.googleAuth?.email,
+    appSettings.googleAuth?.hostedDomain,
+    appSettings.llmRuntime?.baseUrl,
+  ]);
 
   const closeCreateCaseDialog = () => {
     setIsCreateCaseOpen(false);
@@ -218,7 +246,10 @@ export function DashboardShell({
       <SidebarProvider style={dashboardShellStyle}>
         <AppSidebar
           variant="inset"
+          activeCaseId={appSettings.activeCaseId}
           currentSection={currentSection}
+          currentUser={currentUser}
+          googleAuth={appSettings.googleAuth}
           assistantReplyFontSize={appSettings.assistantReplyFontSize}
           caseItems={dashboardCases.map((item) => ({
             id: item.id,
@@ -228,6 +259,7 @@ export function DashboardShell({
           }))}
           onAssistantReplyFontSizeChange={updateAssistantReplyFontSize}
           onNavigateSection={handleSectionChange}
+          onSelectCase={setActiveCaseId}
           onQuickCreate={() => {
             if (isAnonymousLocalCaseLimitBlocked) return;
             setIsCreateCaseOpen(true);

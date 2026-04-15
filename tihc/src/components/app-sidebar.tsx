@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  IconBook,
   IconChartBar,
   IconDashboard,
   IconFileWord,
@@ -11,9 +12,9 @@ import {
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import { Slider } from "@/components/ui/slider"
+import { sortCasesByUpdatedAtDesc } from "@/lib/app/case-list"
 import {
   Sheet,
   SheetContent,
@@ -33,14 +34,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import type { AssistantReplyFontSize } from "@/lib/chat/agent-types"
+import type {
+  AssistantReplyFontSize,
+  CurrentUserRecord,
+  GoogleAuthState,
+} from "@/lib/chat/agent-types"
 
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navSecondary: [
     {
       title: "Get Help",
@@ -70,21 +70,35 @@ function sliderValueToReplyFontSize(value: number | undefined): AssistantReplyFo
 }
 
 export function AppSidebar({
+  activeCaseId = null,
   caseItems = [],
+  currentUser = {
+    id: null,
+    authState: "anonymous",
+    displayName: "匿名",
+    email: "",
+    hostedDomain: "",
+  },
+  googleAuth = null,
   onQuickCreate,
+  onSelectCase,
   onNavigateSection,
   currentSection = "dashboard",
   assistantReplyFontSize = "default",
   onAssistantReplyFontSizeChange,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
+  activeCaseId?: string | null
   caseItems?: Array<{
     id: string
     title: string
     status: string
     updatedAt: string
   }>
+  currentUser?: CurrentUserRecord
+  googleAuth?: GoogleAuthState | null
   onQuickCreate?: () => void
+  onSelectCase?: (caseId: string) => void
   onNavigateSection?: (section: "dashboard" | "usage" | "plugin" | "skills" | "llm") => void
   currentSection?: "dashboard" | "usage" | "plugin" | "skills" | "llm"
   assistantReplyFontSize?: AssistantReplyFontSize
@@ -97,6 +111,13 @@ export function AppSidebar({
       icon: IconDashboard,
       isActive: currentSection === "dashboard",
       onSelect: () => onNavigateSection?.("dashboard"),
+    },
+    {
+      title: "Docs",
+      url: "https://www.askaric.com/en/tihc",
+      icon: IconBook,
+      target: "_blank",
+      rel: "noopener noreferrer",
     },
     {
       title: "Usage",
@@ -127,9 +148,11 @@ export function AppSidebar({
       onSelect: () => onNavigateSection?.("llm"),
     },
   ]
-  const documents = caseItems.slice(0, 6).map((item) => ({
+  const documents = sortCasesByUpdatedAtDesc(caseItems).map((item) => ({
     id: item.id,
+    isActive: item.id === activeCaseId,
     name: item.title,
+    onSelect: () => onSelectCase?.(item.id),
     status: item.status,
     updatedAt: item.updatedAt,
     url: `#case-${item.id}`,
@@ -153,7 +176,7 @@ export function AppSidebar({
             >
               <a href="#">
                 <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">tihc</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -215,13 +238,22 @@ export function AppSidebar({
                   </SheetContent>
                 </Sheet>
               </SidebarMenuItem>
+              {data.navSecondary.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <NavSecondary items={data.navSecondary} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={currentUser} googleAuth={googleAuth} />
       </SidebarFooter>
     </Sidebar>
   )

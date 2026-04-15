@@ -32,10 +32,12 @@ export type CaseHistoryMessage = {
 export type CaseHistoryRepository = {
   headId: string | null;
   messages: CaseHistoryMessage[];
+  metadata?: Record<string, unknown>;
 };
 
 export type PrincipalIdentity = {
   googleSub: string;
+  displayName: string;
   email: string;
   hostedDomain: string;
 };
@@ -43,6 +45,7 @@ export type PrincipalIdentity = {
 export type PrincipalRecord = {
   id: string;
   googleSub: string;
+  displayName: string;
   email: string;
   hostedDomain: string;
   createdAt: string;

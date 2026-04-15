@@ -50,8 +50,12 @@ export async function resolveProviderUsageSafely({
   }
 }
 
-export function buildUpstreamRequestBody(request: ChatCompletionsRequest): string {
+export function buildUpstreamRequestBody(
+  request: ChatCompletionsRequest,
+  chatId?: string | null,
+): string {
   return JSON.stringify({
+    ...(chatId ? { chat_id: chatId } : {}),
     chat_engine: request.model?.trim() || "tidb",
     messages: Array.isArray(request.messages) ? request.messages : [],
     stream: Boolean(request.stream),

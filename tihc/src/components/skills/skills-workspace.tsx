@@ -6,6 +6,7 @@ import {
   EyeIcon,
   FilePlus2Icon,
   PencilLineIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -150,6 +151,24 @@ export function SkillsWorkspace() {
     navigateSkills({ editor: nextSkill.id, savedSkill: true });
   };
 
+  const deleteSkill = (skillId: string) => {
+    const existingSkill = skills.find((skill) => skill.id === skillId);
+    if (!existingSkill) return;
+
+    const shouldDelete =
+      typeof window === "undefined" || typeof window.confirm !== "function"
+        ? true
+        : window.confirm(`Delete skill "${existingSkill.name}"?`);
+
+    if (!shouldDelete) return;
+
+    setSkills((currentSkills) => currentSkills.filter((skill) => skill.id !== skillId));
+
+    if (queryState.editor === skillId) {
+      navigateSkills({ editor: null, savedSkill: false });
+    }
+  };
+
   if (!editorState) {
     return (
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -188,6 +207,15 @@ export function SkillsWorkspace() {
                     >
                       <PencilLineIcon data-icon="inline-start" />
                       Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteSkill(skill.id)}
+                    >
+                      <Trash2Icon data-icon="inline-start" />
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -304,6 +332,16 @@ export function SkillsWorkspace() {
                 <span>{markdownDraft.length} chars</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {!isCreate ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => deleteSkill(editorState.skill.id)}
+                  >
+                    <Trash2Icon data-icon="inline-start" />
+                    Delete skill
+                  </Button>
+                ) : null}
                 <Button type="button" variant="ghost" onClick={resetDraft}>
                   Reset draft
                 </Button>
@@ -618,8 +656,15 @@ function countWords(value: string) {
 
 function createSkillEditorDraft(skill: SkillDocument) {
   const normalizedBody = skill.body.endsWith("\n") ? skill.body : `${skill.body}\n`;
+  const frontmatterLines = ["---"];
 
-  return ["---", `id: ${skill.id}`, `name: ${skill.name}`, `description: ${skill.description}`, "---", normalizedBody].join("\n");
+  if (skill.id.trim()) {
+    frontmatterLines.push(`id: ${skill.id}`);
+  }
+
+  frontmatterLines.push(`name: ${skill.name}`, `description: ${skill.description}`, "---");
+
+  return [...frontmatterLines, normalizedBody].join("\n");
 }
 
 function readSkillDraftForDisplay(value: string, existingSkillId?: string): DraftParseResult {
@@ -655,7 +700,7 @@ function parseSubmittedSkillDraft(value: string, existingSkillId?: string): Skil
   }
 
   return {
-    id: existingSkillId?.trim() || parsedDraft.metadata.id?.trim() || slugifySkillId(name),
+    id: existingSkillId?.trim() || createGeneratedSkillId(name),
     name,
     description,
     body: parsedDraft.body,
@@ -714,4 +759,9 @@ function slugifySkillId(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
+}
+
+function createGeneratedSkillId(name: string) {
+  const slug = slugifySkillId(name) || "skill";
+  return `${slug}-${Date.now()}`;
 }

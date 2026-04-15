@@ -158,16 +158,6 @@ async function renderPluginManager() {
   };
 }
 
-function setInputValue(input: Element | null, value: string) {
-  if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return;
-  const proto =
-    input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-  const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
-  descriptor?.set?.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
 async function clickByText(container: HTMLElement, text: string) {
   const target = Array.from(container.querySelectorAll("button")).find((button) =>
     button.textContent?.includes(text),
@@ -208,9 +198,10 @@ describe("PluginManager", () => {
     runtimeState.current = buildSettings();
   });
 
-  test("limits the anonymous plugin catalog to tidb.ai", async () => {
+  test("shows non-anonymous plugins as disabled until login", async () => {
     const { container, cleanup } = await renderPluginManager();
     const pluginButtons = Array.from(container.querySelectorAll("button"));
+    const webSearchButton = pluginButtons.find((button) => button.textContent?.includes("Web Search"));
 
     expect(container.textContent).not.toContain("Plugins");
     expect(container.textContent).not.toContain("Manage");
@@ -218,52 +209,56 @@ describe("PluginManager", () => {
     expect(container.textContent).not.toContain("Skills");
     expect(container.textContent).toContain("TiHC Native Supported");
     expect(container.textContent).toContain("tidb.ai");
-    expect(container.textContent).not.toContain("Web Search");
+    expect(container.textContent).toContain("Web Search");
+    expect(container.textContent).toContain("Sign in to use this plugin");
+    expect(webSearchButton).toBeTruthy();
+    expect(webSearchButton?.hasAttribute("disabled")).toBe(true);
     expect(pluginButtons.some((button) => button.textContent?.includes("GitHub MCP"))).toBe(false);
     expect(pluginButtons.some((button) => button.textContent?.includes("Vercel"))).toBe(false);
     expect(container.textContent).not.toContain("OpenAI Responses");
     expect(container.querySelector('[data-plugin-icon="tidb.ai"]')).toBeTruthy();
-    expect(container.querySelector('[data-plugin-icon="websearch"]')).toBeFalsy();
+    expect(container.querySelector('[data-plugin-icon="websearch"]')).toBeTruthy();
 
     await cleanup();
   });
 
-  test("renders global runtime controls inside the tidb.ai detail page", async () => {
+  test("does not render management controls inside the tidb.ai detail page", async () => {
     const { container, cleanup } = await renderPluginManager();
 
     await clickByText(container, "tidb.ai");
 
     expect(container.querySelector('[data-plugin-detail-icon="tidb.ai"]')).toBeTruthy();
-    expect(container.textContent).toContain("Manage Settings");
-    expect(container.textContent).not.toContain("Global LLM Runtime");
-    expect(container.textContent).not.toContain("Save Global LLM Settings");
-    expect(container.textContent).not.toContain("Backend Base URL");
-    expect(container.textContent).not.toContain("Provider");
-    expect(container.textContent).not.toContain("Model");
-    expect(container.textContent).toContain("Base URL");
-    expect(container.textContent).not.toContain("Primary Search Engine");
-    expect(container.textContent).toContain("Google Workspace Auth");
-    expect(container.textContent).toContain("Sign in with Google");
+    expect(container.textContent).not.toContain(
+      "Use tidb.ai as a TiDB-focused MCP client while the primary case chat runtime stays global and provider-driven.",
+    );
+    expect(container.textContent).not.toContain("Manage Settings");
+    expect(container.textContent).not.toContain("Runtime Settings");
+    expect(container.textContent).not.toContain("Configuration");
+    expect(container.textContent).not.toContain("Base URL");
+    expect(container.textContent).not.toContain("Save Plugin Settings");
+    expect(container.textContent).not.toContain("Plugin Notes");
+    expect(container.textContent).not.toContain("Google Workspace Auth");
+    expect(container.textContent).not.toContain("Sign in with Google");
+    expect(container.textContent).not.toContain("Usage Analytics");
+    expect(container.textContent).not.toContain("Terms of service");
+    expect(container.textContent).not.toContain("PingCAP Terms");
+    expect(container.textContent).toContain("TiDB Context");
+    expect(container.textContent).toContain(
+      "Each case session keeps its own tidb.ai context for TiDB-focused MCP functionality.",
+    );
+    expect(container.textContent).toContain("Try in case");
 
     await cleanup();
   });
 
-  test("saves tidb.ai settings from its detail page", async () => {
+  test("does not expose a tidb.ai config form in its detail page", async () => {
     const { container, cleanup } = await renderPluginManager();
 
     await clickByText(container, "tidb.ai");
 
     const baseUrlInput = container.querySelector('input[placeholder="https://example.tidb.ai"]');
-
-    await act(async () => {
-      setInputValue(baseUrlInput, "https://marketplace.example.com");
-    });
-
-    await clickByText(container, "Save Plugin Settings");
-
-    expect(updateInstalledPluginConfigMock).toHaveBeenCalledWith("tidb.ai", {
-      baseUrl: "https://marketplace.example.com",
-    });
+    expect(baseUrlInput).toBeNull();
+    expect(updateInstalledPluginConfigMock).not.toHaveBeenCalled();
 
     await cleanup();
   });
@@ -304,32 +299,21 @@ describe("PluginManager", () => {
     await cleanup();
   });
 
-  test("starts Google sign-in from the tidb.ai detail page", async () => {
-    signInWithGoogleMock.mockResolvedValue({
-      accessToken: "google-token",
-      clientId: "client-id",
-      email: "dev@example.com",
-      hostedDomain: "example.com",
-      expiresAt: "2026-04-14T16:00:00.000Z",
-    });
-
+  test("does not expose Google auth actions inside the tidb.ai detail page", async () => {
     const { container, cleanup } = await renderPluginManager();
 
     await clickByText(container, "tidb.ai");
-    await clickByText(container, "Sign in with Google");
 
-    expect(signInWithGoogleMock).toHaveBeenCalledTimes(1);
-    expect(setGoogleAuthMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accessToken: "google-token",
-        email: "dev@example.com",
-      }),
-    );
+    expect(container.textContent).not.toContain("Sign in with Google");
+    expect(container.textContent).not.toContain("Refresh Google Token");
+    expect(container.textContent).not.toContain("Sign out");
+    expect(signInWithGoogleMock).not.toHaveBeenCalled();
+    expect(setGoogleAuthMock).not.toHaveBeenCalled();
 
     await cleanup();
   });
 
-  test("signs out and clears persisted Google auth state", async () => {
+  test("does not expose analytics controls inside the tidb.ai detail page", async () => {
     runtimeState.current = {
       ...buildSettings(),
       googleAuth: {
@@ -344,10 +328,12 @@ describe("PluginManager", () => {
     const { container, cleanup } = await renderPluginManager();
 
     await clickByText(container, "tidb.ai");
-    await clickByText(container, "Sign out");
 
-    expect(signOutFromGoogleMock).toHaveBeenCalledWith("google-token");
-    expect(clearGoogleAuthMock).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain("Usage Analytics");
+    expect(container.textContent).not.toContain("Allow analytics");
+    expect(container.textContent).not.toContain("Disable analytics");
+    expect(signOutFromGoogleMock).not.toHaveBeenCalled();
+    expect(clearGoogleAuthMock).not.toHaveBeenCalled();
 
     await cleanup();
   });

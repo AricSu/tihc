@@ -187,6 +187,10 @@ export function sanitizeCaseHistoryRepository(value: unknown): CaseHistoryReposi
   return {
     headId,
     messages,
+    metadata:
+      record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+        ? (record.metadata as Record<string, unknown>)
+        : undefined,
   };
 }
 

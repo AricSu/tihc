@@ -1,5 +1,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { AppRuntimeSettings } from "@/lib/chat/agent-types";
 import Chat from "./Chat";
@@ -45,11 +48,12 @@ const runtimeState = vi.hoisted(() => {
 });
 
 const { createCaseMock, ensureGoogleAuthSessionMock, syncCloudCasesIfNeededMock } = vi.hoisted(() => ({
-  createCaseMock: vi.fn((title = "New Case") => {
+  createCaseMock: vi.fn((title = "New Case", _pluginId?: string, options?: { transient?: boolean }) => {
     const nextCase = {
       id: "case-1",
       title: title.trim() || "New Case",
       pluginId: "tidb.ai" as const,
+      isPlaceholder: options?.transient === true,
       activityState: "ready" as const,
       resolvedAt: null,
       archivedAt: null,
@@ -96,6 +100,11 @@ vi.mock("@/components/agent/agent-shell", () => ({
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
+const chatSource = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "Chat.tsx"),
+  "utf8",
+);
+
 describe("sidepanel Chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,10 +121,10 @@ describe("sidepanel Chat", () => {
     });
 
     expect(createCaseMock).toHaveBeenCalledTimes(1);
-    expect(createCaseMock).toHaveBeenCalledWith("");
+    expect(createCaseMock).toHaveBeenCalledWith("Default", undefined, { transient: true });
     expect(container.textContent).toContain("Thread mounted");
-    expect(container.textContent).toContain("Help improve TIHC");
-    expect(container.textContent).toContain("Allow analytics");
+    expect(container.textContent).not.toContain("Help improve TIHC");
+    expect(container.textContent).not.toContain("Allow analytics");
     expect(container.querySelector('[aria-label="Message input"]')).toBeTruthy();
     expect(container.textContent).not.toContain("No cases yet");
 
@@ -125,7 +134,7 @@ describe("sidepanel Chat", () => {
     container.remove();
   });
 
-  test("hides the analytics prompt after consent has already been denied", async () => {
+  test("does not render the custom analytics prompt in the sidepanel", async () => {
     runtimeState.current = {
       ...runtimeState.current,
       analyticsConsent: "denied",
@@ -140,10 +149,16 @@ describe("sidepanel Chat", () => {
     });
 
     expect(container.textContent).not.toContain("Help improve TIHC");
+    expect(container.textContent).not.toContain("Allow analytics");
+    expect(container.textContent).not.toContain("No thanks");
 
     await act(async () => {
       root.unmount();
     });
     container.remove();
+  });
+
+  test("keeps the sidepanel app shell shrinkable so the document does not become a second vertical scroller", () => {
+    expect(chatSource).toContain('className="flex h-full min-h-0 flex-col"');
   });
 });

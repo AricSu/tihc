@@ -142,6 +142,14 @@ export type GoogleAuthState = {
   expiresAt: string | null;
 };
 
+export type CurrentUserRecord = {
+  id: string | null;
+  authState: "anonymous" | "authenticated";
+  displayName: string;
+  email: string;
+  hostedDomain: string;
+};
+
 export type AnalyticsConsentState = "unknown" | "granted" | "denied";
 
 export type CloudSyncState = {
@@ -156,6 +164,7 @@ export type CaseWorkspace = {
   id: string;
   title: string;
   pluginId: PluginId;
+  isPlaceholder?: boolean;
   activityState: CaseActivityState;
   resolvedAt: string | null;
   archivedAt: string | null;

@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const {
   createCaseMock,
   getAppSettingsSnapshotMock,
+  setActiveCaseIdMock,
   subscribeAppSettingsMock,
   updateAssistantReplyFontSizeMock,
 } = vi.hoisted(() => ({
   createCaseMock: vi.fn(),
   getAppSettingsSnapshotMock: vi.fn(),
+  setActiveCaseIdMock: vi.fn(),
   subscribeAppSettingsMock: vi.fn(() => () => {}),
   updateAssistantReplyFontSizeMock: vi.fn(),
 }));
@@ -20,6 +22,7 @@ vi.mock("@/lib/app/runtime", () => ({
   ensureGoogleAuthSession: vi.fn(async () => null),
   getAppSettingsSnapshot: getAppSettingsSnapshotMock,
   refreshGoogleAuth: vi.fn(),
+  setActiveCaseId: setActiveCaseIdMock,
   setGoogleAuth: vi.fn(),
   subscribeAppSettings: subscribeAppSettingsMock,
   syncCloudCasesIfNeeded: vi.fn(),
@@ -125,7 +128,7 @@ describe("options entrypoint", () => {
     const { default: Options } = await import("./Options");
     const cleanup = await renderInDom(<Options />);
 
-    expect(document.body.textContent).toContain("Acme Inc.");
+    expect(document.body.textContent).toContain("tihc");
     expect(document.body.textContent).toContain("Plugins");
     expect(document.body.textContent).toContain("Marketplace");
     expect(document.body.textContent).toContain("Installed");
@@ -148,7 +151,7 @@ describe("options entrypoint", () => {
     const { default: Options } = await import("./Options");
     const cleanup = await renderInDom(<Options />);
 
-    expect(document.body.textContent).toContain("Acme Inc.");
+    expect(document.body.textContent).toContain("tihc");
     expect(document.body.textContent).toContain("LLM");
     expect(document.body.textContent).toContain("User LLM Settings");
     expect(document.body.textContent).toContain("Save LLM Settings");
@@ -162,7 +165,7 @@ describe("options entrypoint", () => {
     const { default: Options } = await import("./Options");
     const cleanup = await renderInDom(<Options />);
 
-    expect(document.body.textContent).toContain("Acme Inc.");
+    expect(document.body.textContent).toContain("tihc");
     expect(document.body.textContent).toContain("Skills");
     expect(document.body.textContent).toContain("Create skill");
     expect(document.body.textContent).toContain("No skills yet");
@@ -190,7 +193,7 @@ describe("options entrypoint", () => {
     const { default: Options } = await import("./Options");
     const cleanup = await renderInDom(<Options />);
 
-    expect(document.body.textContent).toContain("Acme Inc.");
+    expect(document.body.textContent).toContain("tihc");
     expect(document.body.textContent).toContain("Create skill");
     expect(document.body.textContent).toContain("Mode");
     expect(document.body.textContent).toContain("Write");
@@ -220,13 +223,67 @@ describe("options entrypoint", () => {
     await cleanup();
   });
 
+  test("creates a skill without an explicit id and auto-generates one from the name and timestamp", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-04-15T12:34:56.789Z"));
+      window.history.replaceState({}, "", "?section=skills&editor=new");
+
+      const { default: Options } = await import("./Options");
+      const cleanup = await renderInDom(<Options />);
+
+      const editor = document.querySelector("textarea[aria-label='Markdown editor']");
+      expect(editor).toBeInstanceOf(HTMLTextAreaElement);
+      expect((editor as HTMLTextAreaElement).value).not.toContain("id:");
+
+      await act(async () => {
+        if (editor instanceof HTMLTextAreaElement) {
+          const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+          descriptor?.set?.call(
+            editor,
+            [
+              "---",
+              "name: Briefing Writer",
+              "description: Generates structured briefings.",
+              "---",
+              "# Briefing Writer",
+              "Focus on concise updates.",
+            ].join("\n"),
+          );
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+          editor.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        await Promise.resolve();
+      });
+
+      const createSkillButton = Array.from(document.querySelectorAll("button")).find(
+        (button) => button.textContent?.trim() === "Create skill",
+      );
+      expect(createSkillButton).toBeTruthy();
+
+      await act(async () => {
+        createSkillButton?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(window.location.search).toContain("section=skills");
+      expect(window.location.search).toContain("savedSkill=1");
+      expect(window.location.search).toContain("editor=briefing-writer-1776256496789");
+
+      await cleanup();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("falls back to the dashboard for unknown sections", async () => {
     window.history.replaceState({}, "", "?section=targets");
 
     const { default: Options } = await import("./Options");
     const cleanup = await renderInDom(<Options />);
 
-    expect(document.body.textContent).toContain("Acme Inc.");
+    expect(document.body.textContent).toContain("tihc");
     expect(document.body.textContent).toContain("Cases");
     expect(document.body.textContent).toContain("Primary case");
     expect(document.body.textContent).not.toContain(

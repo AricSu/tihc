@@ -86,9 +86,11 @@ describe("buildModelAdapter", () => {
     vi.clearAllMocks();
     const settings = buildSettings();
     getAppSettingsSnapshotMock.mockReturnValue(settings);
-    hasCompleteGlobalLlmRuntimeMock.mockImplementation((runtime) =>
-      Boolean(runtime.providerId?.trim() && runtime.model?.trim()),
-    );
+    hasCompleteGlobalLlmRuntimeMock.mockImplementation((runtime) => {
+      const providerId = runtime.providerId?.trim() ?? "";
+      const model = runtime.model?.trim() ?? "";
+      return (!providerId && !model) || Boolean(providerId && model);
+    });
   });
 
   test("emits chat_failed telemetry with failure_kind instead of raw failure text", async () => {
@@ -208,6 +210,7 @@ describe("buildModelAdapter", () => {
           model: "gpt-4.1-mini",
         }),
       }),
+      "case-987",
     );
     expect(outputs).toEqual([
       {
@@ -274,6 +277,7 @@ describe("buildModelAdapter", () => {
         ],
       }),
       expect.any(Object),
+      "case-offline",
     );
   });
 
@@ -320,12 +324,52 @@ describe("buildModelAdapter", () => {
     expect(runWebSearchMock).not.toHaveBeenCalled();
   });
 
-  test("shows a not-ready message when the global runtime is not configured", async () => {
+  test("passes the case id through to the global runtime so upstream chat bindings can be reused", async () => {
+    runWebSearchMock.mockResolvedValue(null);
+    streamGlobalRuntimeMock.mockImplementation(async function* () {
+      yield { type: "done" };
+    });
+
+    const { buildModelAdapter } = await import("./MLCProvider");
+    const modelAdapter = buildModelAdapter("case-bound");
+    const runResult = modelAdapter.run({
+      abortSignal: new AbortController().signal,
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: "Bind this case." }],
+        },
+      ] as never,
+    } as never);
+
+    if (!isAsyncIterable(runResult)) {
+      throw new Error("expected model adapter to stream outputs");
+    }
+
+    for await (const _ of runResult) {
+      // drain
+    }
+
+    expect(streamGlobalRuntimeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            role: "user",
+            content: "Bind this case.",
+          },
+        ],
+      }),
+      expect.any(Object),
+      "case-bound",
+    );
+  });
+
+  test("shows a not-ready message when provider routing is partially configured", async () => {
     getAppSettingsSnapshotMock.mockReturnValueOnce(
       buildSettings({
         llmRuntime: {
           baseUrl: "https://runtime.example.com",
-          providerId: "",
+          providerId: "openai",
           model: "",
         },
       }),

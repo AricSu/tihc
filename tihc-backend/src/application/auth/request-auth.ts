@@ -4,6 +4,7 @@ import {
   verifyGoogleToken,
   type GoogleTokenInfo,
 } from "../../lib/google-auth";
+import { deriveDisplayNameFromEmail } from "../../domain/users/current-user";
 import type { AppLogger } from "../../lib/logger";
 import { jsonError, unauthorizedResponse } from "../../interfaces/http/http";
 import { authRequired, resolveEnvValue, type AppEnv } from "../../shared/support";
@@ -103,6 +104,7 @@ export async function requirePrincipal(
   if (tokenInfo instanceof Response) return tokenInfo;
 
   const googleSub = tokenInfo.sub?.trim();
+  const email = tokenInfo.email?.trim() ?? "";
   if (!googleSub) {
     logger.warn("auth.missing_google_sub", {
       request_id: requestId,
@@ -112,7 +114,8 @@ export async function requirePrincipal(
 
   return caseStore.upsertPrincipal({
     googleSub,
-    email: tokenInfo.email?.trim() ?? "",
+    displayName: deriveDisplayNameFromEmail(email),
+    email,
     hostedDomain: tokenInfo.hd?.trim() ?? "",
   });
 }
@@ -138,6 +141,7 @@ export async function resolvePrincipalIfPresent(
       token,
     });
     const googleSub = tokenInfo.sub?.trim();
+    const email = tokenInfo.email?.trim() ?? "";
     if (!googleSub) {
       logger.warn("auth.missing_google_sub", {
         request_id: requestId,
@@ -149,7 +153,8 @@ export async function resolvePrincipalIfPresent(
     });
     return caseStore.upsertPrincipal({
       googleSub,
-      email: tokenInfo.email?.trim() ?? "",
+      displayName: deriveDisplayNameFromEmail(email),
+      email,
       hostedDomain: tokenInfo.hd?.trim() ?? "",
     });
   } catch {

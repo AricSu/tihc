@@ -6,23 +6,14 @@ import {
   CheckIcon,
   ExternalLinkIcon,
   GlobeIcon,
+  LockIcon,
   PlusIcon,
 } from "lucide-react";
 import {
-  clearGoogleAuth,
   getAppSettingsSnapshot,
-  refreshGoogleAuth,
-  setAnalyticsConsent,
-  setGoogleAuth,
   subscribeAppSettings,
   updateInstalledPluginConfig,
 } from "@/lib/app/runtime";
-import {
-  isGoogleOAuthConfigured,
-  refreshGoogleAuthSession,
-  signInWithGoogle,
-  signOutFromGoogle,
-} from "@/lib/auth/google-oauth";
 import { trackTelemetryEvent } from "@/lib/telemetry";
 import { getPluginManifest, listMarketplacePluginCatalog } from "@/lib/plugins/registry";
 import type {
@@ -169,23 +160,14 @@ export function PluginManager() {
     getAppSettingsSnapshot,
     getAppSettingsSnapshot,
   );
+  const hasAuthenticatedAccess = Boolean(settings.googleAuth?.accessToken?.trim());
   const installedPluginIds = settings.installedPlugins.map((plugin) => plugin.pluginId);
-  const catalog = listMarketplacePluginCatalog(installedPluginIds).filter((entry) =>
-    settings.googleAuth?.accessToken?.trim() ? true : entry.catalogId === "tidb.ai",
-  );
+  const catalog = listMarketplacePluginCatalog(installedPluginIds);
   const [detailCatalogId, setDetailCatalogId] = useState<string | null>(null);
   const [draftConfig, setDraftConfig] = useState<PluginDraftConfig>(
     settings.installedPlugins[0]?.config ??
       defaultDraftConfigForPlugin(settings.installedPlugins[0]?.pluginId ?? null),
   );
-  const [authState, setAuthState] = useState<{
-    status: "idle" | "running" | "success" | "error";
-    message: string;
-  }>({
-    status: "idle",
-    message: "Sign in once and the tidb.ai plugin will send the Google bearer token automatically.",
-  });
-  const oauthConfigured = isGoogleOAuthConfigured();
   const settingsSectionRef = useRef<HTMLElement | null>(null);
 
   const selectedEntry =
@@ -194,10 +176,17 @@ export function PluginManager() {
     ? settings.installedPlugins.find((item) => item.pluginId === selectedEntry.installedPluginId) ?? null
     : null;
   const manifest = plugin ? getPluginManifest(plugin.pluginId) : null;
+  const exposesDetailSettings = plugin?.pluginId === "websearch";
 
   useEffect(() => {
     setDraftConfig(plugin?.config ?? defaultDraftConfigForPlugin(selectedEntry?.installedPluginId ?? null));
   }, [plugin, selectedEntry?.installedPluginId]);
+
+  useEffect(() => {
+    if (!detailCatalogId) return;
+    if (hasAuthenticatedAccess || detailCatalogId === "tidb.ai") return;
+    setDetailCatalogId(null);
+  }, [detailCatalogId, hasAuthenticatedAccess]);
 
   const groupedCatalog = useMemo(
     () => ({
@@ -214,21 +203,15 @@ export function PluginManager() {
     [groupedCatalog, catalog],
   );
   const save = () => {
-    if (!plugin) return;
-    if (plugin.pluginId === "tidb.ai") {
-      updateInstalledPluginConfig(plugin.pluginId, {
-        baseUrl: String(draftConfig.baseUrl ?? "").trim(),
-      });
-    } else {
-      updateInstalledPluginConfig(plugin.pluginId, {
-        enabled: draftConfig.enabled === true,
-        mode: draftConfig.mode === "off" ? "off" : "aggressive",
-        primaryEngine:
-          draftConfig.primaryEngine === "baidu" || draftConfig.primaryEngine === "bing"
-            ? draftConfig.primaryEngine
-            : "duckduckgo",
-      });
-    }
+    if (plugin?.pluginId !== "websearch") return;
+    updateInstalledPluginConfig(plugin.pluginId, {
+      enabled: draftConfig.enabled === true,
+      mode: draftConfig.mode === "off" ? "off" : "aggressive",
+      primaryEngine:
+        draftConfig.primaryEngine === "baidu" || draftConfig.primaryEngine === "bing"
+          ? draftConfig.primaryEngine
+          : "duckduckgo",
+    });
     void trackTelemetryEvent("tihc_ext_plugin_settings_saved", {
       context: {
         plugin_id: plugin.pluginId,
@@ -246,82 +229,6 @@ export function PluginManager() {
       ...current,
       [key]: value,
     }));
-  };
-
-  const handleGoogleSignIn = async () => {
-    if (!oauthConfigured) {
-      setAuthState({
-        status: "error",
-        message:
-          "Google OAuth is not configured. Set WXT_GOOGLE_OAUTH_CLIENT_ID or a browser-specific override.",
-      });
-      return;
-    }
-
-    setAuthState({
-      status: "running",
-      message: "Opening the Google sign-in flow...",
-    });
-
-    try {
-      const googleAuth = await signInWithGoogle();
-      setGoogleAuth(googleAuth);
-      setAuthState({
-        status: "success",
-        message: `Signed in as ${googleAuth.email || "your Google account"}.`,
-      });
-    } catch (error) {
-      setAuthState({
-        status: "error",
-        message: error instanceof Error && error.message ? error.message : "Google sign-in failed.",
-      });
-    }
-  };
-
-  const handleGoogleRefresh = async () => {
-    setAuthState({
-      status: "running",
-      message: "Refreshing the Google bearer token...",
-    });
-
-    try {
-      const googleAuth = await refreshGoogleAuthSession();
-      refreshGoogleAuth(googleAuth);
-      setAuthState({
-        status: "success",
-        message: `Refreshed Google auth for ${googleAuth.email || "your account"}.`,
-      });
-    } catch (error) {
-      setAuthState({
-        status: "error",
-        message: error instanceof Error && error.message ? error.message : "Google token refresh failed.",
-      });
-    }
-  };
-
-  const handleGoogleSignOut = async () => {
-    const accessToken = settings.googleAuth?.accessToken ?? "";
-    setAuthState({
-      status: "running",
-      message: "Signing out and revoking the current bearer token...",
-    });
-
-    try {
-      if (accessToken) {
-        await signOutFromGoogle(accessToken);
-      }
-    } catch (error) {
-      setAuthState({
-        status: "error",
-        message: error instanceof Error && error.message ? error.message : "Google sign-out failed.",
-      });
-    } finally {
-      clearGoogleAuth();
-      setAuthState({
-        status: "success",
-        message: "Signed out. Future tidb.ai requests will no longer include Google auth.",
-      });
-    }
   };
 
   const renderConfigField = (field: NonNullable<typeof manifest>["settingsFields"][number]) => {
@@ -400,12 +307,19 @@ export function PluginManager() {
         <div className="grid gap-3 xl:grid-cols-2">
           {entries.map((entry) => {
             const isInstalled = entry.status === "installed";
+            const isLoginLocked = !hasAuthenticatedAccess && entry.catalogId !== "tidb.ai";
 
             return (
               <button
                 key={entry.catalogId}
                 type="button"
-                className="flex min-h-24 items-center gap-4 rounded-2xl border bg-card px-4 py-4 text-left transition-colors hover:bg-muted/40"
+                className={cn(
+                  "flex min-h-24 items-center gap-4 rounded-2xl border bg-card px-4 py-4 text-left transition-colors",
+                  isLoginLocked
+                    ? "cursor-not-allowed border-dashed opacity-55"
+                    : "hover:bg-muted/40",
+                )}
+                disabled={isLoginLocked}
                 onClick={() => setDetailCatalogId(entry.catalogId)}
               >
                 {renderPluginAvatar(entry.catalogId, entry.title, "card")}
@@ -414,14 +328,26 @@ export function PluginManager() {
                   <div className="flex items-center gap-2">
                     <span className="truncate text-xl font-medium">{entry.title}</span>
                     {isInstalled ? <Badge>Installed</Badge> : null}
+                    {isLoginLocked ? <Badge variant="outline">Login required</Badge> : null}
                   </div>
                   <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
                     {entry.summary}
                   </p>
+                  {isLoginLocked ? (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      Sign in to use this plugin.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-full border bg-muted/40">
-                  {isInstalled ? <CheckIcon className="size-5" /> : <PlusIcon className="size-5" />}
+                  {isLoginLocked ? (
+                    <LockIcon className="size-5" />
+                  ) : isInstalled ? (
+                    <CheckIcon className="size-5" />
+                  ) : (
+                    <PlusIcon className="size-5" />
+                  )}
                 </div>
               </button>
             );
@@ -458,9 +384,11 @@ export function PluginManager() {
           <div className="flex flex-wrap gap-2">
             {plugin ? (
               <>
-                <Button type="button" variant="outline" onClick={focusRuntimeSettings}>
-                  Manage Settings
-                </Button>
+                {exposesDetailSettings ? (
+                  <Button type="button" variant="outline" onClick={focusRuntimeSettings}>
+                    Manage Settings
+                  </Button>
+                ) : null}
                 <Button type="button" onClick={() => openExtensionPage("sidepanel.html")}>
                   Try in case
                 </Button>
@@ -487,20 +415,6 @@ export function PluginManager() {
               <p className="text-xl text-muted-foreground">{selectedEntry.summary}</p>
             </div>
           </div>
-
-          <Card className="overflow-hidden">
-            <CardContent className="p-4 sm:p-6">
-              <div className="rounded-[2rem] border bg-gradient-to-br from-muted/90 via-background to-muted/70 px-4 py-8 sm:px-8">
-                <div className="mx-auto flex max-w-2xl flex-col gap-3 rounded-2xl border bg-background/95 px-5 py-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Badge variant="secondary">{selectedEntry.title}</Badge>
-                    <span>{selectedEntry.provider}</span>
-                  </div>
-                  <p className="text-lg leading-8">{selectedEntry.heroPrompt}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <p className="max-w-4xl text-base leading-8 text-muted-foreground">{selectedEntry.description}</p>
 
@@ -575,7 +489,7 @@ export function PluginManager() {
             </Card>
           </section>
 
-          {plugin && manifest ? (
+          {plugin && manifest && exposesDetailSettings ? (
             <section ref={settingsSectionRef} className="flex flex-col gap-6">
               {plugin.pluginId === "websearch" ? (
                 <Card>
@@ -628,116 +542,14 @@ export function PluginManager() {
                   <CardHeader>
                     <CardTitle>Plugin Notes</CardTitle>
                     <CardDescription>
-                      {plugin.pluginId === "tidb.ai"
-                        ? "tidb.ai is modeled as a shared MCP client and no longer owns user-level LLM settings."
-                        : "Web Search injects live context into case chat without changing provider configuration."}
+                      Web Search injects live context into case chat without changing provider configuration.
                   </CardDescription>
                 </CardHeader>
                   <CardContent className="rounded-xl border bg-muted/30 px-4 py-3 text-sm leading-6">
-                    {plugin.pluginId === "tidb.ai"
-                      ? "Keep this plugin focused on the shared backend endpoint and Google auth. Use the dedicated LLM workspace for provider and model changes."
-                      : "Web Search stays independent from provider selection and only influences prompt grounding."}
+                    Web Search stays independent from provider selection and only influences prompt grounding.
                   </CardContent>
                 </Card>
               </div>
-
-              {plugin.pluginId === "tidb.ai" ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Google Workspace Auth</CardTitle>
-                    <CardDescription>
-                      Sign in once so TIHC can attach your Google bearer token to backend requests when workspace auth is enabled.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-4">
-                    <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm leading-6">
-                      {settings.googleAuth ? (
-                        <>
-                          <div>Signed in as {settings.googleAuth.email || "your Google account"}.</div>
-                          <div>Hosted domain: {settings.googleAuth.hostedDomain || "Unknown"}.</div>
-                          <div>Token expiry: {settings.googleAuth.expiresAt ?? "Unknown"}.</div>
-                        </>
-                      ) : (
-                        <div>No Google session is active.</div>
-                      )}
-                    </div>
-                    <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm leading-6">
-                      {authState.message}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {settings.googleAuth ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={authState.status === "running"}
-                            onClick={() => void handleGoogleRefresh()}
-                          >
-                            Refresh Google Token
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={authState.status === "running"}
-                            onClick={() => void handleGoogleSignOut()}
-                          >
-                            Sign out
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          type="button"
-                          disabled={authState.status === "running"}
-                          onClick={() => void handleGoogleSignIn()}
-                        >
-                          Sign in with Google
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : null}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Usage Analytics</CardTitle>
-                  <CardDescription>
-                    Control whether TIHC can send extension usage analytics to the shared GA4 property.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm leading-6">
-                    {settings.analyticsConsent === "granted"
-                      ? "Analytics is enabled for this extension."
-                      : settings.analyticsConsent === "denied"
-                        ? "Analytics is disabled for this extension."
-                        : "Analytics has not been configured for this extension yet."}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {settings.analyticsConsent !== "granted" ? (
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          setAnalyticsConsent("granted");
-                          void trackTelemetryEvent("tihc_ext_consent_updated", {
-                            context: {
-                              status: "granted",
-                              surface: "options",
-                            },
-                          });
-                        }}
-                      >
-                        Allow analytics
-                      </Button>
-                    ) : null}
-                    {settings.analyticsConsent !== "denied" ? (
-                      <Button type="button" variant="outline" onClick={() => setAnalyticsConsent("denied")}>
-                        Disable analytics
-                      </Button>
-                    ) : null}
-                  </div>
-                </CardContent>
-              </Card>
             </section>
           ) : null}
         </div>

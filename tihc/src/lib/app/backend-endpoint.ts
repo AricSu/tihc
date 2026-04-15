@@ -1,7 +1,7 @@
 import type { AppRuntimeSettings } from "@/lib/chat/agent-types";
 
 export function resolveRuntimeBackendBaseUrl(settings: AppRuntimeSettings): string {
-  return settings.llmRuntime?.baseUrl?.trim() ?? "";
+  return settings.llmRuntime?.baseUrl?.trim() || resolveTidbAiBaseUrl(settings);
 }
 
 export function resolveTidbAiBaseUrl(settings: AppRuntimeSettings): string {

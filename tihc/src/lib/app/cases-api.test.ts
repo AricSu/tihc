@@ -237,4 +237,95 @@ describe("cases api", () => {
       },
     ]);
   });
+
+  test("filters archived cloud cases and sorts visible cases by updated time", async () => {
+    const { casesApi, runtime } = await loadModules();
+    const fetchMock = vi.mocked(fetch);
+
+    runtime.setAppSettings({
+      activeCaseId: "case-cloud-2",
+      analyticsConsent: "unknown",
+      cloudSync: {
+        importedClientId: "client-123",
+        lastHydratedAt: "2026-04-14T12:05:00.000Z",
+        mode: "cloud",
+      },
+      llmRuntime: {
+        baseUrl: "",
+        providerId: "",
+        model: "",
+      },
+      googleAuth: {
+        accessToken: "google-token",
+        clientId: "google-client-id",
+        email: "alice@example.com",
+        hostedDomain: "example.com",
+        expiresAt: "2026-04-14T18:00:00.000Z",
+      },
+      installedPlugins: [
+        {
+          pluginId: "tidb.ai",
+          label: "tidb.ai",
+          kind: "mcp",
+          capabilities: ["mcp"],
+          config: {
+            baseUrl: "https://tidb.ai",
+          },
+        },
+      ],
+      cases: [],
+    });
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cases: [
+          {
+            id: "case-cloud-1",
+            title: "Older cloud case",
+            pluginId: "tidb.ai",
+            activityState: "ready",
+            resolvedAt: null,
+            archivedAt: null,
+            createdAt: "2026-04-14T09:30:00.000Z",
+            updatedAt: "2026-04-14T10:00:00.000Z",
+            summary: "Older summary.",
+            signals: ["Older summary."],
+            messagesPreview: [{ role: "tihc", text: "Older summary." }],
+          },
+          {
+            id: "case-cloud-archived",
+            title: "Archived cloud case",
+            pluginId: "tidb.ai",
+            activityState: "resolved",
+            resolvedAt: "2026-04-14T11:00:00.000Z",
+            archivedAt: "2026-04-14T11:30:00.000Z",
+            createdAt: "2026-04-14T09:00:00.000Z",
+            updatedAt: "2026-04-14T11:30:00.000Z",
+            summary: "Archived summary.",
+            signals: ["Archived summary."],
+            messagesPreview: [{ role: "tihc", text: "Archived summary." }],
+          },
+          {
+            id: "case-cloud-2",
+            title: "Newest cloud case",
+            pluginId: "tidb.ai",
+            activityState: "active",
+            resolvedAt: null,
+            archivedAt: null,
+            createdAt: "2026-04-14T09:45:00.000Z",
+            updatedAt: "2026-04-14T12:00:00.000Z",
+            summary: "Newest summary.",
+            signals: ["Newest summary."],
+            messagesPreview: [{ role: "tihc", text: "Newest summary." }],
+          },
+        ],
+      }),
+    } as Response);
+
+    const cases = await casesApi.listDashboardCases();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(cases.map((item) => item.id)).toEqual(["case-cloud-2", "case-cloud-1"]);
+  });
 });

@@ -75,6 +75,7 @@ export function createMemoryCaseStore(): CaseStore {
       if (existing) {
         const next = {
           ...existing,
+          displayName: identity.displayName,
           email: identity.email,
           hostedDomain: identity.hostedDomain,
           lastSeenAt: now,
@@ -86,6 +87,7 @@ export function createMemoryCaseStore(): CaseStore {
       const created: PrincipalRecord = {
         id: randomId(),
         googleSub: identity.googleSub,
+        displayName: identity.displayName,
         email: identity.email,
         hostedDomain: identity.hostedDomain,
         createdAt: now,

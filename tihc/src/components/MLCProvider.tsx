@@ -222,7 +222,7 @@ export function buildModelAdapter(
       for await (const event of streamGlobalRuntime({
         abortSignal,
         messages: outboundMessages,
-      }, appSettings)) {
+      }, appSettings, caseId)) {
         if (event.type === "status") {
           yield* pushStatus(event.text);
           continue;

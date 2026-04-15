@@ -36,4 +36,38 @@ describe("resolveBackendEndpoint", () => {
       "https://runtime.example.com/v1/llm/providers",
     );
   });
+
+  test("falls back to the tidb.ai plugin base url when the llm runtime base url is empty", () => {
+    const settings: AppRuntimeSettings = {
+      activeCaseId: null,
+      analyticsConsent: "unknown",
+      cases: [],
+      cloudSync: {
+        importedClientId: null,
+        lastHydratedAt: null,
+        mode: "local",
+      },
+      llmRuntime: {
+        baseUrl: "",
+        providerId: "",
+        model: "",
+      },
+      installedPlugins: [
+        {
+          pluginId: "tidb.ai",
+          label: "tidb.ai",
+          kind: "mcp",
+          capabilities: ["mcp"],
+          config: {
+            baseUrl: "https://plugin.example.com",
+          },
+        },
+      ],
+      googleAuth: null,
+    };
+
+    expect(resolveBackendEndpoint(settings, "/v1/chat/completions")).toBe(
+      "https://plugin.example.com/v1/chat/completions",
+    );
+  });
 });

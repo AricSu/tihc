@@ -1,3 +1,4 @@
+import * as React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -12,20 +13,28 @@ import { CaseShell } from "./agent-shell";
 
 const {
   openCaseCreationPageMock,
+  openGeneralSettingsPageMock,
   openPluginSettingsPageMock,
+  deleteCaseMock,
+  renameCaseMock,
+  setActiveCaseIdMock,
 } = vi.hoisted(() => ({
   openCaseCreationPageMock: vi.fn(),
+  openGeneralSettingsPageMock: vi.fn(),
   openPluginSettingsPageMock: vi.fn(),
+  deleteCaseMock: vi.fn(),
+  renameCaseMock: vi.fn(),
+  setActiveCaseIdMock: vi.fn(),
 }));
 
 vi.mock("@/lib/app/runtime", () => ({
-  setActiveCaseId: vi.fn(),
-  renameCase: vi.fn(),
+  deleteCase: deleteCaseMock,
+  setActiveCaseId: setActiveCaseIdMock,
+  renameCase: renameCaseMock,
   resolveCase: vi.fn(),
   reopenCase: vi.fn(),
   archiveCase: vi.fn(),
   unarchiveCase: vi.fn(),
-  deleteCase: vi.fn(),
 }));
 
 vi.mock("@/lib/telemetry", () => ({
@@ -34,6 +43,7 @@ vi.mock("@/lib/telemetry", () => ({
 
 vi.mock("@/lib/app/settings-page", () => ({
   openCaseCreationPage: openCaseCreationPageMock,
+  openGeneralSettingsPage: openGeneralSettingsPageMock,
   openPluginSettingsPage: openPluginSettingsPageMock,
 }));
 
@@ -48,12 +58,19 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuItem: ({
     children,
     onSelect,
+    onContextMenu,
   }: {
     children: ReactNode;
     onSelect?: (event: { preventDefault: () => void }) => void;
+    onContextMenu?: (event: { preventDefault: () => void }) => void;
   }) => (
     <button
       type="button"
+      onContextMenu={() =>
+        onContextMenu?.({
+          preventDefault() {},
+        })
+      }
       onClick={() =>
         onSelect?.({
           preventDefault() {},
@@ -70,10 +87,74 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
+vi.mock("@/components/ui/context-menu", () => {
+  const Context = React.createContext(false)
+  const SetContext = React.createContext<((open: boolean) => void) | null>(null)
+
+  return {
+    ContextMenu: ({ children }: { children: ReactNode }) => {
+      const [open, setOpen] = React.useState(false)
+      return (
+        <SetContext.Provider value={setOpen}>
+          <Context.Provider value={open}>{children}</Context.Provider>
+        </SetContext.Provider>
+      )
+    },
+    ContextMenuTrigger: ({ children }: { children: ReactNode }) => {
+      const setOpen = React.useContext(SetContext)
+      return (
+        <div
+          onContextMenu={(event) => {
+            event.preventDefault()
+            setOpen?.(true)
+          }}
+        >
+          {children}
+        </div>
+      )
+    },
+    ContextMenuContent: ({ children }: { children: ReactNode }) => {
+      const open = React.useContext(Context)
+      return open ? <div>{children}</div> : null
+    },
+  ContextMenuItem: ({
+    children,
+    onSelect,
+  }: {
+    children: ReactNode;
+    onSelect?: (event: { preventDefault: () => void }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onSelect?.({
+          preventDefault() {},
+        })
+      }
+    >
+      {children}
+    </button>
+    ),
+  }
+});
+
 vi.mock("@/components/assistant-ui/thread", () => ({
-  Thread: ({ composerToolbar }: { composerToolbar?: ReactNode }) => (
+  Thread: ({
+    composerStart,
+    composerToolbar,
+  }: {
+    composerStart?: ReactNode;
+    composerToolbar?: ReactNode;
+  }) => (
     <div data-testid="thread">
       Thread mounted
+      <div data-testid="composer-start-state">
+        {composerStart ? "Custom start slot" : "Default start slot"}
+      </div>
+      <div data-testid="composer-start">{composerStart}</div>
+      <div data-testid="composer-toolbar-state">
+        {composerToolbar ? "Custom toolbar" : "Default toolbar"}
+      </div>
       <div data-testid="composer-toolbar">{composerToolbar}</div>
     </div>
   ),
@@ -199,24 +280,270 @@ describe("CaseShell", () => {
     );
 
     expect(html).toContain("Thread mounted");
+    expect(html).toContain("Custom start slot");
+    expect(html).toContain("aria-label=\"Select case\"");
+    expect(html).toContain("aria-label=\"Open settings\"");
+    expect(html).toContain("New case");
+    expect(html).not.toContain("aria-label=\"Create new case\"");
     expect(html).toContain("Ticket 417");
+    expect(html).toContain("Default toolbar");
     expect(html).not.toContain("Archived case");
-    expect(html).toContain("Rename");
-    expect(html).toContain("Resolve");
-    expect(html).toContain("Archive");
-    expect(html).toContain("Delete");
-    expect(html).toContain("Plugin Settings");
+    expect(html).not.toContain("Rename");
+    expect(html).not.toContain("Resolve");
+    expect(html).not.toContain("Archive");
+    expect(html).not.toContain("Delete");
+    expect(html).not.toContain("Plugin Settings");
   });
 
-  test("reuses the normal thread shell for anonymous users instead of rendering a separate local-only page", () => {
+  test("reuses the normal thread shell for anonymous users without extra sidepanel controls", () => {
     const html = renderToStaticMarkup(<CaseShell settings={buildSettings()} />);
 
-    expect(html).toContain("Ticket 417");
-    expect(html).toContain("Create case");
-    expect(html).toContain("Plugin Settings");
     expect(html).toContain("Thread mounted");
+    expect(html).toContain("Custom start slot");
+    expect(html).toContain("aria-label=\"Select case\"");
+    expect(html).toContain("aria-label=\"Open settings\"");
+    expect(html).toContain("New case");
+    expect(html).not.toContain("aria-label=\"Create new case\"");
+    expect(html).toContain("Ticket 417");
+    expect(html).toContain("Default toolbar");
+    expect(html).not.toContain("Create case");
+    expect(html).not.toContain("Plugin Settings");
     expect(html).not.toContain("stored in this browser");
     expect(html).not.toContain("Sign in to enable agent runs");
+  });
+
+  test("switches to another visible case from the selector", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const settings = buildSettings();
+    settings.cases = [
+      ...settings.cases,
+      {
+        id: "case-3",
+        title: "Database timeout",
+        pluginId: "tidb.ai",
+        activityState: "ready",
+        resolvedAt: null,
+        archivedAt: null,
+        createdAt: "2026-03-17T10:15:00.000Z",
+        updatedAt: "2026-03-17T10:15:00.000Z",
+      },
+    ];
+
+    await act(async () => {
+      root.render(<CaseShell settings={settings} />);
+    });
+
+    const switchTarget = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Database timeout"),
+    );
+
+    expect(switchTarget).toBeTruthy();
+
+    await act(async () => {
+      switchTarget?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(setActiveCaseIdMock).toHaveBeenCalledWith("case-3");
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  test("shows a delete action for selector cases on right click and deletes only after clicking it", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const settings = buildSettings();
+    settings.cases = [
+      ...settings.cases,
+      {
+        id: "case-3",
+        title: "Database timeout",
+        pluginId: "tidb.ai",
+        activityState: "ready",
+        resolvedAt: null,
+        archivedAt: null,
+        createdAt: "2026-03-17T10:15:00.000Z",
+        updatedAt: "2026-03-17T10:15:00.000Z",
+      },
+    ];
+
+    await act(async () => {
+      root.render(<CaseShell settings={settings} />);
+    });
+
+    expect(container.textContent).not.toContain("Delete case");
+
+    const caseItem = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Database timeout"),
+    );
+
+    expect(caseItem).toBeTruthy();
+
+    await act(async () => {
+      caseItem?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Delete case");
+
+    const deleteAction = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Delete case",
+    );
+
+    expect(deleteAction).toBeTruthy();
+
+    await act(async () => {
+      deleteAction?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+
+    expect(deleteCaseMock).toHaveBeenCalledWith("case-3");
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  test("renames a case from the selector context menu", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const settings = buildSettings();
+    settings.cases = [
+      ...settings.cases,
+      {
+        id: "case-3",
+        title: "Database timeout",
+        pluginId: "tidb.ai",
+        activityState: "ready",
+        resolvedAt: null,
+        archivedAt: null,
+        createdAt: "2026-03-17T10:15:00.000Z",
+        updatedAt: "2026-03-17T10:15:00.000Z",
+      },
+    ];
+
+    await act(async () => {
+      root.render(<CaseShell settings={settings} />);
+    });
+
+    const caseItem = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Database timeout"),
+    );
+
+    expect(caseItem).toBeTruthy();
+
+    await act(async () => {
+      caseItem?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    const renameAction = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Rename case",
+    );
+
+    expect(renameAction).toBeTruthy();
+
+    await act(async () => {
+      renameAction?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    const input = document.querySelector('input[aria-label="Case name"]') as HTMLInputElement | null;
+    expect(input).toBeTruthy();
+
+    await act(async () => {
+      if (input) {
+        const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+        descriptor?.set?.call(input, "Renamed timeout");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      await Promise.resolve();
+    });
+
+    const renameButton = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Rename",
+    );
+    expect(renameButton).toBeTruthy();
+
+    await act(async () => {
+      renameButton?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(renameCaseMock).toHaveBeenCalledWith("case-3", "Renamed timeout");
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  test("opens the quick create dialog from the composer controls", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<CaseShell settings={buildSettings()} />);
+    });
+
+    const createButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "New case",
+    );
+
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(openCaseCreationPageMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  test("opens the options page from the composer settings button", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<CaseShell settings={buildSettings()} />);
+    });
+
+    const settingsButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.getAttribute("aria-label") === "Open settings",
+    );
+
+    expect(settingsButton).toBeTruthy();
+
+    await act(async () => {
+      settingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(openGeneralSettingsPageMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  test("does not render a dedicated sidepanel header for case switching", () => {
+    const html = renderToStaticMarkup(<CaseShell settings={buildSettings()} />);
+
+    expect(html).not.toContain("border-b px-3 py-2");
+    expect(html).toContain("Custom start slot");
+    expect(html).not.toContain("Default end slot");
   });
 
   test("renders the anonymous local storage blocker when the browser case limit is reached", () => {
@@ -254,7 +581,7 @@ describe("CaseShell", () => {
       "Anonymous mode is limited by browser storage usage, not case count.",
     );
     expect(document.body.textContent).toContain(formatStorageBytes(ANONYMOUS_LOCAL_STORAGE_LIMIT_BYTES));
-    expect(document.body.textContent).toContain("Ticket 417");
+    expect(document.body.textContent).toContain("Thread mounted");
     expect(
       Array.from(document.querySelectorAll("button")).some(
         (button) => button.getAttribute("aria-label") === "Delete case Ticket 417",
@@ -267,7 +594,7 @@ describe("CaseShell", () => {
     container.remove();
   });
 
-  test("routes create-case actions through the options page flow", async () => {
+  test("does not render sidepanel case-management actions inside the thread chrome", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -276,17 +603,12 @@ describe("CaseShell", () => {
       root.render(<CaseShell settings={buildSettings()} />);
     });
 
-    const createCaseButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("Create case"),
-    );
-
-    expect(createCaseButton).toBeTruthy();
-
-    await act(async () => {
-      createCaseButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(openCaseCreationPageMock).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain("Create case");
+    expect(container.textContent).not.toContain("Rename");
+    expect(container.textContent).not.toContain("Resolve");
+    expect(container.textContent).not.toContain("Archive");
+    expect(container.textContent).not.toContain("Delete");
+    expect(openCaseCreationPageMock).not.toHaveBeenCalled();
 
     await act(async () => {
       root.unmount();
@@ -294,7 +616,7 @@ describe("CaseShell", () => {
     container.remove();
   });
 
-  test("opens plugin settings from the overflow actions", async () => {
+  test("does not render plugin-settings actions inside the sidepanel thread", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -303,17 +625,8 @@ describe("CaseShell", () => {
       root.render(<CaseShell settings={buildSettings()} />);
     });
 
-    const pluginSettingsButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("Plugin Settings"),
-    );
-
-    expect(pluginSettingsButton).toBeTruthy();
-
-    await act(async () => {
-      pluginSettingsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(openPluginSettingsPageMock).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain("Plugin Settings");
+    expect(openPluginSettingsPageMock).not.toHaveBeenCalled();
 
     await act(async () => {
       root.unmount();
@@ -321,7 +634,7 @@ describe("CaseShell", () => {
     container.remove();
   });
 
-  test("shows an empty state when no visible cases exist", () => {
+  test("does not render a custom no-cases empty state", () => {
     const settings = buildSettings();
     settings.activeCaseId = null;
     settings.cases = settings.cases.map((item) => ({
@@ -331,8 +644,8 @@ describe("CaseShell", () => {
 
     const html = renderToStaticMarkup(<CaseShell settings={settings} />);
 
-    expect(html).toContain("No cases yet");
-    expect(html).toContain("Create case");
+    expect(html).not.toContain("No cases yet");
+    expect(html).not.toContain("Create case");
     expect(html).not.toContain("Thread mounted");
   });
 });

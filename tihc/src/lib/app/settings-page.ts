@@ -83,6 +83,10 @@ async function openOptionsPage(path: string): Promise<void> {
   window.open(`/${path}`, "_blank", "noopener,noreferrer");
 }
 
+export async function openGeneralSettingsPage(): Promise<void> {
+  await openOptionsPage("options.html");
+}
+
 export async function openCaseCreationPage(): Promise<void> {
   await openOptionsPage("options.html?dialog=create-case");
 }

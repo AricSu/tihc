@@ -16,10 +16,13 @@ import type {
   WebSearchMode,
   WebSearchPluginConfig,
 } from "@/lib/chat/agent-types";
+import { listOpenCases } from "@/lib/app/case-list";
 
 export const TIDB_PLUGIN_ID = "tidb.ai" satisfies PluginId;
 export const WEBSEARCH_PLUGIN_ID = "websearch" satisfies PluginId;
 export const DEFAULT_ASSISTANT_REPLY_FONT_SIZE = "default" satisfies AssistantReplyFontSize;
+export const DEFAULT_LOCAL_BACKEND_BASE_URL = "http://localhost:3010";
+export const DEFAULT_CASE_TITLE = "Default";
 export const UNTITLED_CASE_TITLES = new Set(["", "new case", "untitled case", "untitled"]);
 export const LEGACY_STORAGE_KEYS = [
   "tihc_app_settings_v1",
@@ -41,7 +44,9 @@ const EMPTY_LLM_RUNTIME: GlobalLlmRuntimeConfig = {
 
 function resolveDefaultBackendBaseUrl(): string {
   const env = import.meta.env as Record<string, string | undefined>;
-  return env.VITE_BACKEND_BASE_URL?.trim() || "";
+  const configured = env.VITE_BACKEND_BASE_URL?.trim();
+  if (configured) return configured;
+  return env.MODE === "development" ? DEFAULT_LOCAL_BACKEND_BASE_URL : "";
 }
 
 function createId(): string {
@@ -138,7 +143,7 @@ export function normalizeGlobalLlmRuntime(
   value: Partial<GlobalLlmRuntimeConfig> | null | undefined,
 ): GlobalLlmRuntimeConfig {
   return {
-    baseUrl: value?.baseUrl?.trim() || "",
+    baseUrl: value?.baseUrl?.trim() || resolveDefaultBackendBaseUrl(),
     providerId: value?.providerId?.trim() || "",
     model: value?.model?.trim() || "",
   };
@@ -184,6 +189,7 @@ export function buildCaseWorkspace(overrides: Partial<CaseWorkspace> = {}): Case
   return {
     id: overrides.id?.trim() || createId(),
     title: overrides.title?.trim() || "New Case",
+    isPlaceholder: overrides.isPlaceholder === true,
     pluginId: TIDB_PLUGIN_ID,
     activityState: normalizeActivityState(overrides.activityState),
     resolvedAt: overrides.resolvedAt ?? null,
@@ -199,20 +205,20 @@ export function deriveThreadTitleFromPrompt(prompt: string): string {
   return normalized.length > 72 ? `${normalized.slice(0, 69).trimEnd()}...` : normalized;
 }
 
-function compareByUpdatedAtDesc(a: CaseWorkspace, b: CaseWorkspace): number {
-  return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+export function deriveTimestampCaseTitle(timestamp: string): string {
+  return `${timestamp.slice(0, 16).replace("T", " ")} case`;
 }
 
 export function selectFallbackCaseId(
   cases: CaseWorkspace[],
   preferredId?: string | null,
 ): string | null {
-  const visibleCases = cases.filter((item) => item.archivedAt === null).sort(compareByUpdatedAtDesc);
-  if (!visibleCases.length) return null;
-  if (preferredId && visibleCases.some((item) => item.id === preferredId)) {
+  const openCases = listOpenCases(cases);
+  if (!openCases.length) return null;
+  if (preferredId && openCases.some((item) => item.id === preferredId)) {
     return preferredId;
   }
-  return visibleCases[0]?.id ?? null;
+  return openCases[0]?.id ?? null;
 }
 
 function normalizeInstalledPlugins(partial: Partial<AppRuntimeSettings>): InstalledPlugin[] {
@@ -259,6 +265,7 @@ function normalizeCases(partial: Partial<AppRuntimeSettings>): CaseWorkspace[] {
       buildCaseWorkspace({
         id: asString(item.id) ?? undefined,
         title: asString(item.title) ?? undefined,
+        isPlaceholder: item.isPlaceholder === true,
         pluginId: TIDB_PLUGIN_ID,
         activityState: normalizeActivityState(item.activityState),
         resolvedAt: asString(item.resolvedAt),
@@ -303,6 +310,7 @@ export function toCaseWorkspace(storedCase: StoredCaseRecord): CaseWorkspace {
   return buildCaseWorkspace({
     id: storedCase.id,
     title: storedCase.title,
+    isPlaceholder: false,
     pluginId: storedCase.pluginId,
     activityState: storedCase.activityState,
     resolvedAt: storedCase.resolvedAt,

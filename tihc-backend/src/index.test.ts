@@ -152,6 +152,81 @@ describe("createApp", () => {
     });
   });
 
+  test("returns an anonymous current-user payload when no bearer token is present", async () => {
+    const fetchImpl = vi.fn();
+    const app = createApp({
+      env: {
+        REQUIRE_AUTH: "false",
+      },
+      caseStore: createMemoryCaseStore(),
+      fetchImpl,
+    });
+
+    const response = await app.request("/v1/me", {
+      method: "GET",
+      headers: jsonHeaders(),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      user: {
+        authState: "anonymous",
+        displayName: "匿名",
+        email: "",
+        hostedDomain: "",
+        id: null,
+      },
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test("returns the authenticated principal through the current-user endpoint", async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (!url.includes("oauth2.googleapis.com/tokeninfo")) {
+        throw new Error(`unexpected request: ${url}`);
+      }
+
+      if (url.includes("token-a")) {
+        return Response.json({
+          aud: "google-client-id",
+          email: "alice.smith@example.com",
+          hd: "example.com",
+          sub: "google-sub-alice",
+        });
+      }
+
+      return new Response("nope", { status: 401 });
+    });
+    const app = createApp({
+      env: {
+        GOOGLE_CLIENT_ID: "google-client-id",
+        GOOGLE_WORKSPACE_DOMAIN: "example.com",
+        REQUIRE_AUTH: "false",
+      },
+      caseStore: createMemoryCaseStore(),
+      fetchImpl,
+    });
+
+    const response = await app.request("/v1/me", {
+      method: "GET",
+      headers: jsonHeaders({
+        Authorization: "Bearer token-a",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      user: {
+        authState: "authenticated",
+        displayName: "Alice Smith",
+        email: "alice.smith@example.com",
+        hostedDomain: "example.com",
+        id: expect.any(String),
+      },
+    });
+  });
+
   test("adds a request id header and logs request lifecycle plus upstream config failures", async () => {
     const logger = createMockLogger();
     const app = createApp({
@@ -1030,6 +1105,122 @@ describe("createApp", () => {
       "https://tidb.example.com/chat",
       expect.objectContaining({
         method: "POST",
+      }),
+    );
+  });
+
+  test("reuses the tidb.ai chat binding for a case and deletes the bound upstream chat when the case is removed", async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("oauth2.googleapis.com/tokeninfo")) {
+        return Response.json({
+          aud: "google-client-id",
+          email: "alice@example.com",
+          hd: "example.com",
+          sub: "google-sub-alice",
+        });
+      }
+
+      if (url === "https://tidb.example.com/api/v1/chats" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}"));
+        const prompt = body.messages?.[0]?.content;
+        if (prompt === "First turn") {
+          expect(body.chat_id).toBeUndefined();
+          return textStreamResponse([
+            '2:[{"chat":{"id":"chat-upstream-123"},"assistant_message":{"content":"First answer","finished_at":"2026-04-14T12:00:00Z"}}]\n',
+          ]);
+        }
+
+        expect(prompt).toBe("Second turn");
+        expect(body).toMatchObject({
+          chat_id: "chat-upstream-123",
+        });
+        return textStreamResponse([
+          '2:[{"chat":{"id":"chat-upstream-123"},"assistant_message":{"content":"Second answer","finished_at":"2026-04-14T12:05:00Z"}}]\n',
+        ]);
+      }
+
+      if (url === "https://tidb.example.com/api/v1/chats/chat-upstream-123" && init?.method === "DELETE") {
+        expect(init.headers).toMatchObject({
+          Authorization: "Bearer upstream-secret",
+        });
+        return new Response(null, { status: 204 });
+      }
+
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    const app = createApp({
+      env: {
+        DATABASE_URL: "mysql://user:pass@host/db",
+        GOOGLE_CLIENT_ID: "google-client-id",
+        GOOGLE_WORKSPACE_DOMAIN: "example.com",
+        TIDB_API_TOKEN: "upstream-secret",
+        TIDB_API_URL: "https://tidb.example.com/api/v1/chats",
+      },
+      caseStore: createMemoryCaseStore(),
+      fetchImpl,
+    });
+
+    const createCaseResponse = await app.request("/v1/cases", {
+      method: "POST",
+      headers: jsonHeaders({
+        Authorization: "Bearer token-a",
+      }),
+      body: JSON.stringify({
+        id: "case-bound",
+        title: "Bound case",
+        pluginId: "tidb.ai",
+        activityState: "ready",
+        resolvedAt: null,
+        archivedAt: null,
+        createdAt: "2026-04-14T11:59:00.000Z",
+        updatedAt: "2026-04-14T11:59:00.000Z",
+      }),
+    });
+    expect(createCaseResponse.status).toBe(201);
+
+    const firstChatResponse = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: jsonHeaders({
+        Authorization: "Bearer token-a",
+      }),
+      body: JSON.stringify({
+        case_id: "case-bound",
+        model: "tidb",
+        messages: [{ role: "user", content: "First turn" }],
+        stream: false,
+      }),
+    });
+    expect(firstChatResponse.status).toBe(200);
+
+    const secondChatResponse = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: jsonHeaders({
+        Authorization: "Bearer token-a",
+      }),
+      body: JSON.stringify({
+        case_id: "case-bound",
+        model: "tidb",
+        messages: [{ role: "user", content: "Second turn" }],
+        stream: false,
+      }),
+    });
+    expect(secondChatResponse.status).toBe(200);
+
+    const deleteCaseResponse = await app.request("/v1/cases/case-bound", {
+      method: "DELETE",
+      headers: jsonHeaders({
+        Authorization: "Bearer token-a",
+      }),
+    });
+
+    expect(deleteCaseResponse.status).toBe(204);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://tidb.example.com/api/v1/chats/chat-upstream-123",
+      expect.objectContaining({
+        method: "DELETE",
       }),
     );
   });

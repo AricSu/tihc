@@ -23,6 +23,7 @@ export const principals = mysqlTable(
   {
     id: varchar("id", { length: 36 }).notNull().primaryKey(),
     googleSub: varchar("google_sub", { length: 255 }).notNull(),
+    displayName: varchar("display_name", { length: 255 }).notNull(),
     email: varchar("email", { length: 320 }).notNull(),
     hostedDomain: varchar("hosted_domain", { length: 255 }).notNull(),
     createdAt: datetime("created_at", { mode: "string" }).notNull(),

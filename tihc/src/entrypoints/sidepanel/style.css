@@ -2,8 +2,15 @@
 
 @layer base {
   html,
-  body,
+  body {
+    @apply h-full min-h-0;
+  }
+
+  body {
+    @apply flex min-h-0 flex-col;
+  }
+
   #root {
-    @apply h-full;
+    @apply flex min-h-0 flex-1 flex-col;
   }
 }

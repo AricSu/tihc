@@ -7,6 +7,7 @@ import type {
   WebSearchPluginConfig,
 } from "@/lib/chat/agent-types";
 import {
+  DEFAULT_CASE_TITLE,
   TIDB_PLUGIN_ID,
   UNTITLED_CASE_TITLES,
   WEBSEARCH_PLUGIN_ID,
@@ -15,11 +16,13 @@ import {
   buildWebSearchInstalledPlugin,
   cloneCaseWorkspace,
   deriveThreadTitleFromPrompt,
+  deriveTimestampCaseTitle,
   normalizeGlobalLlmRuntime,
   selectFallbackCaseId,
   type RuntimeState,
 } from "@/lib/app/runtime-state";
 import { isAnonymousLocalStorageLimitReached } from "@/lib/app/anonymous-local-case-limit";
+import { isPlaceholderCase } from "@/lib/app/case-list";
 
 type RuntimeCaseOpsDeps = {
   settings: RuntimeState;
@@ -36,6 +39,10 @@ type RuntimeCaseOpsDeps = {
 
 type PersistOptions = {
   persistSettings?: boolean;
+};
+
+type CreateCaseOptions = {
+  transient?: boolean;
 };
 
 export function createRuntimeCaseOps({
@@ -95,11 +102,16 @@ export function createRuntimeCaseOps({
     TIDB_PLUGIN_ID;
 
   return {
-    createCase(title: string, pluginId: PluginId = getDefaultPluginId()): CaseWorkspace | null {
+    createCase(
+      title: string,
+      pluginId: PluginId = getDefaultPluginId(),
+      options: CreateCaseOptions = {},
+    ): CaseWorkspace | null {
       if (!settings.installedPlugins.some((item) => item.pluginId === pluginId)) return null;
 
       const nextCase = buildCaseWorkspace({
         title,
+        isPlaceholder: options.transient === true,
         pluginId,
       });
       if (
@@ -114,6 +126,9 @@ export function createRuntimeCaseOps({
       settings.cases.push(nextCase);
       settings.activeCaseId = nextCase.id;
       commit();
+      if (options.transient === true) {
+        return cloneCaseWorkspace(nextCase);
+      }
       persistLocalSettings();
       persistCloudCaseCreate(nextCase);
       persistCloudSettings();
@@ -258,15 +273,45 @@ export function createRuntimeCaseOps({
     },
 
     autoTitleCaseFromPrompt(caseId: string, prompt: string): void {
-      const nextCase = updateCaseWithTimestamp(caseId, (current) => ({
-        title: UNTITLED_CASE_TITLES.has(current.title.trim().toLowerCase())
-          ? deriveThreadTitleFromPrompt(prompt)
-          : current.title,
-        activityState: current.activityState === "ready" ? "active" : current.activityState,
+      const index = settings.cases.findIndex((item) => item.id === caseId);
+      if (index < 0) return;
+      const current = settings.cases[index]!;
+      const now = new Date().toISOString();
+      const nextTitle =
+        current.title.trim().toLowerCase() === DEFAULT_CASE_TITLE.toLowerCase()
+          ? deriveTimestampCaseTitle(now)
+          : UNTITLED_CASE_TITLES.has(current.title.trim().toLowerCase())
+            ? deriveThreadTitleFromPrompt(prompt)
+            : current.title;
+      const nextActivityState =
+        current.activityState === "ready" ? "active" : current.activityState;
+
+      if (current.isPlaceholder === true) {
+        const nextCase = buildCaseWorkspace({
+          ...current,
+          id: current.id,
+          title: nextTitle,
+          isPlaceholder: false,
+          activityState: nextActivityState,
+          updatedAt: now,
+        });
+        settings.cases[index] = nextCase;
+        commit();
+        persistLocalSettings();
+        persistCloudCaseCreate(nextCase);
+        persistCloudSettings();
+        return;
+      }
+
+      const nextCase = updateCaseWithTimestamp(caseId, () => ({
+        title: nextTitle,
+        isPlaceholder: isPlaceholderCase(current) ? false : current.isPlaceholder,
+        activityState: nextActivityState,
       }));
       if (!nextCase) return;
       commitCaseUpdate(nextCase, {
         activityState: nextCase.activityState,
+        isPlaceholder: false,
         title: nextCase.title,
         updatedAt: nextCase.updatedAt,
       });

@@ -1,5 +1,6 @@
 import { Trash2Icon } from "lucide-react";
 import { deleteCase } from "@/lib/app/runtime";
+import { confirmDeleteCase } from "@/lib/app/case-delete";
 import {
   ANONYMOUS_LOCAL_STORAGE_LIMIT_BYTES,
   estimateAnonymousLocalStorageUsageBytes,
@@ -54,10 +55,7 @@ export function AnonymousLocalCaseLimitDialog({
   const usageBytes = estimateAnonymousLocalStorageUsageBytes(settings);
   const storedCases = sortCasesByLocalStorageBytesDesc(settings.cases);
   const handleDelete = (caseWorkspace: CaseWorkspace) => {
-    const confirmed = globalThis.confirm
-      ? globalThis.confirm(`Delete "${caseWorkspace.title}"? This clears the local case history.`)
-      : true;
-    if (!confirmed) return;
+    if (!confirmDeleteCase(caseWorkspace.title)) return;
     deleteCase(caseWorkspace.id);
   };
 
@@ -72,13 +70,13 @@ export function AnonymousLocalCaseLimitDialog({
         showCloseButton={false}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
-        className="max-w-[560px] rounded-[28px] border border-slate-200/90 bg-white p-6 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.38)]"
+        className="max-w-[560px] rounded-xl border bg-background p-6 shadow-lg"
       >
         <DialogHeader className="space-y-2 text-left">
-          <DialogTitle className="tihc-display text-[1.8rem] font-semibold tracking-[-0.045em] text-slate-950">
+          <DialogTitle className="text-2xl font-semibold tracking-tight">
             Delete local cases to continue
           </DialogTitle>
-          <DialogDescription className="space-y-2 text-[14px] leading-6 text-slate-500">
+          <DialogDescription className="space-y-2 text-sm leading-6 text-muted-foreground">
             <span className="block">
               Anonymous mode is limited by browser storage usage, not case count.
             </span>
@@ -89,8 +87,8 @@ export function AnonymousLocalCaseLimitDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-[24px] border border-slate-200 bg-slate-50/80">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 text-xs font-medium tracking-[0.12em] text-slate-400 uppercase">
+        <div className="rounded-xl border bg-muted/30">
+          <div className="flex items-center justify-between border-b px-4 py-3 text-xs font-medium uppercase text-muted-foreground">
             <span>Local usage</span>
             <span>
               {formatStorageBytes(usageBytes)} / {formatStorageBytes(ANONYMOUS_LOCAL_STORAGE_LIMIT_BYTES)}
@@ -101,13 +99,13 @@ export function AnonymousLocalCaseLimitDialog({
               {storedCases.map((caseWorkspace) => (
                 <div
                   key={caseWorkspace.id}
-                  className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                  className="flex items-start justify-between gap-3 rounded-lg border bg-background px-4 py-3"
                 >
                   <div className="min-w-0 space-y-1">
-                    <div className="truncate text-sm font-semibold text-slate-950">
+                    <div className="truncate text-sm font-semibold text-foreground">
                       {caseWorkspace.title}
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-muted-foreground">
                       {formatCaseState(caseWorkspace)} · {formatStorageBytes(estimateCaseLocalStorageBytes(caseWorkspace))} · Updated{" "}
                       {formatUpdatedAt(caseWorkspace.updatedAt)}
                     </div>

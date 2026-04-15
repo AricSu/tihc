@@ -6,6 +6,7 @@ import type {
   StoredAppSettingsRecord,
   StoredCaseRecord,
 } from "@/lib/chat/agent-types";
+import { listVisibleCases } from "@/lib/app/case-list";
 import {
   LEGACY_STORAGE_KEYS,
   LEGACY_STORAGE_PREFIXES,
@@ -207,7 +208,9 @@ export function createRuntimeCloudSync({
         }
 
         const localCases =
-          settings.cloudSync.mode === "local" ? settings.cases.map(cloneCaseWorkspace) : [];
+          settings.cloudSync.mode === "local"
+            ? listVisibleCases(settings.cases).map(cloneCaseWorkspace)
+            : [];
         const clientId = await getAppClientId();
 
         if (

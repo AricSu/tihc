@@ -3,6 +3,17 @@ import { describe, expect, test } from "vitest";
 import { parseUpstreamFrame } from "./upstream-protocol";
 
 describe("parseUpstreamFrame", () => {
+  test("extracts chat binding data from chat initialization frames", () => {
+    expect(
+      parseUpstreamFrame(
+        '2:[{"chat":{"id":"chat-123"},"assistant_message":{"content":"Hello world","finished_at":"2026-04-14T12:00:00Z"}}]',
+      ),
+    ).toEqual([
+      { chatId: "chat-123", type: "chat-binding" },
+      { done: true, text: "Hello world", type: "answer-snapshot" },
+    ]);
+  });
+
   test("parses delta frames into answer deltas", () => {
     expect(parseUpstreamFrame('0:{"delta":"Hello"}')).toEqual([
       { text: "Hello", type: "answer-delta" },

@@ -140,7 +140,7 @@ const MARKETPLACE_CATALOG: Array<
       {
         name: "TiDB Context",
         type: "App",
-        description: "Provides space for TiDB-focused MCP functionality as the integration expands.",
+        description: "Each case session keeps its own tidb.ai context for TiDB-focused MCP functionality.",
         enabled: true,
       },
     ],
@@ -153,11 +153,6 @@ const MARKETPLACE_CATALOG: Array<
         label: "Privacy policy",
         value: "PingCAP Privacy",
         href: "https://www.pingcap.com/privacy-policy/",
-      },
-      {
-        label: "Terms of service",
-        value: "PingCAP Terms",
-        href: "https://www.pingcap.com/terms-of-use/",
       },
     ],
   },

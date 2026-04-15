@@ -10,6 +10,7 @@ import {
 } from "@/lib/app/local-browser-persistence";
 
 type RepoMessageItem = ExportedMessageRepository["messages"][number];
+type RepositoryWithExtras = ExportedMessageRepository & Record<string, unknown>;
 
 const DEFAULT_SCOPE = "default";
 const MAX_PERSISTED_MESSAGES = 10;
@@ -70,7 +71,13 @@ export function trimRepoToLatestMessages(
   if (!headId || !byId.has(headId)) {
     headId = repo.messages.at(-1)?.message.id ?? null;
   }
-  if (!headId) return emptyRepo();
+  if (!headId) {
+    return {
+      ...(repo as RepositoryWithExtras),
+      headId: null,
+      messages: [],
+    };
+  }
 
   const reversedChain: RepoMessageItem[] = [];
   const visited = new Set<string>();
@@ -85,7 +92,13 @@ export function trimRepoToLatestMessages(
 
   const chain = reversedChain.reverse();
   const kept = chain.slice(-MAX_PERSISTED_MESSAGES);
-  if (!kept.length) return emptyRepo();
+  if (!kept.length) {
+    return {
+      ...(repo as RepositoryWithExtras),
+      headId: null,
+      messages: [],
+    };
+  }
 
   const normalized = kept.map((item, index) => ({
     ...item,
@@ -93,6 +106,7 @@ export function trimRepoToLatestMessages(
   }));
 
   return {
+    ...(repo as RepositoryWithExtras),
     headId: normalized[normalized.length - 1]?.message.id ?? null,
     messages: normalized,
   };

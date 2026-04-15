@@ -19,6 +19,8 @@ export function NavMain({
     icon?: Icon
     isActive?: boolean
     onSelect?: () => void
+    target?: string
+    rel?: string
   }[]
   onQuickCreate?: () => void
 }) {
@@ -52,6 +54,8 @@ export function NavMain({
               <SidebarMenuButton asChild tooltip={item.title} isActive={item.isActive}>
                 <a
                   href={item.url}
+                  target={item.target}
+                  rel={item.rel}
                   onClick={(event) => {
                     if (!item.onSelect) return
                     if (

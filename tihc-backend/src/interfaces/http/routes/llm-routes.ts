@@ -12,6 +12,10 @@ import {
   streamCodexProviderResponse,
   type ChatCompletionsRequest,
 } from "../../../application/chat/chat-completions";
+import {
+  extractTidbChatIdFromHistory,
+  persistTidbChatBinding,
+} from "../../../application/chat/tidb-chat-binding";
 import { supportsUserLlmCredentialProvider } from "../../../application/chat/provider-registry";
 import { createUsageRecordCallback } from "../../../application/chat/usage-recorder";
 import type { CaseStore } from "../../../domain/cases/case-store";
@@ -49,6 +53,13 @@ export function registerLlmRoutes({
   logger,
   usageStore,
 }: RegisterLlmRoutesOptions) {
+  const sanitizeCaseId = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const normalized = value.trim();
+    if (!normalized || normalized.length > 128) return null;
+    return normalized;
+  };
+
   app.get("/v1/llm/providers", async (context) => {
     return context.json(
       {
@@ -144,6 +155,7 @@ export function registerLlmRoutes({
     }
 
     const provider = parsedBody.value.provider?.trim() || "";
+    const caseId = sanitizeCaseId(parsedBody.value.case_id);
     const requestedModel = parsedBody.value.model?.trim() || "";
     const model = requestedModel || "tidb";
     const startedAt = new Date().toISOString();
@@ -155,7 +167,7 @@ export function registerLlmRoutes({
       usageStore,
       logger,
       baseRecord: {
-        caseId: null,
+        caseId: caseId ?? null,
         model,
         principalId: principal?.id ?? null,
         provider: provider || "tidb",
@@ -223,9 +235,20 @@ export function registerLlmRoutes({
       });
     }
 
+    const existingTidbChatId =
+      caseId && principal && caseStore
+        ? extractTidbChatIdFromHistory(await caseStore.getHistory(principal.id, caseId))
+        : null;
+    const persistTidbBinding =
+      caseId && principal && caseStore
+        ? async (chatId: string) => {
+            await persistTidbChatBinding(caseStore, principal.id, caseId, chatId);
+          }
+        : undefined;
+
     const upstreamResponse = await fetchTidbUpstream(
       env,
-      buildUpstreamRequestBody(parsedBody.value),
+      buildUpstreamRequestBody(parsedBody.value, existingTidbChatId),
       fetchImpl,
       logger,
       requestId,
@@ -238,7 +261,21 @@ export function registerLlmRoutes({
     if (!upstreamResponse.ok) return upstreamResponse;
 
     return stream
-      ? createTidbStreamResponse(upstreamResponse, logger, requestId, model, recordUsage)
-      : createTidbCompletionResponse(upstreamResponse, logger, requestId, model, recordUsage);
+      ? createTidbStreamResponse(
+          upstreamResponse,
+          logger,
+          requestId,
+          model,
+          recordUsage,
+          persistTidbBinding,
+        )
+      : createTidbCompletionResponse(
+          upstreamResponse,
+          logger,
+          requestId,
+          model,
+          recordUsage,
+          persistTidbBinding,
+        );
   });
 }

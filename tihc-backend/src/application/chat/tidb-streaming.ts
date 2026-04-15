@@ -14,6 +14,8 @@ import { errorMessage } from "../../shared/support";
 import type { ChatStreamState } from "./chat-types";
 import type { UsageRecordCallback } from "./usage-recorder";
 
+type TidbChatBindingCallback = (chatId: string) => Promise<void> | void;
+
 export function createChatStreamState(): ChatStreamState {
   return {
     answerText: "",
@@ -29,6 +31,10 @@ function suffixSnapshot(previous: string, next: string): string {
 }
 
 export function applyEventToState(event: ParsedUpstreamEvent, state: ChatStreamState) {
+  if (event.type === "chat-binding") {
+    return;
+  }
+
   if (event.type === "progress-text") {
     state.streamedText.push(event.text);
     return;
@@ -162,18 +168,27 @@ export function createTidbStreamResponse(
   requestId: string,
   model: string,
   recordUsage?: UsageRecordCallback,
+  onChatBinding?: TidbChatBindingCallback,
 ): Response {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
       const state = createChatStreamState();
       let eventCount = 0;
+      let latestChatId: string | null = null;
 
       try {
         // The TiDB upstream can emit delta events, snapshots, and plain text frames.
         // We normalize them into OpenAI-style SSE chunks at the edge of the app.
         for await (const event of iterateUpstreamEvents(upstreamResponse)) {
           eventCount += 1;
+          if (event.type === "chat-binding") {
+            if (event.chatId !== latestChatId) {
+              latestChatId = event.chatId;
+              await onChatBinding?.(event.chatId);
+            }
+            continue;
+          }
           applyEventToState(event, state);
           while (state.streamedText.length > 0) {
             const nextText = state.streamedText.shift();
@@ -230,10 +245,19 @@ export async function createTidbCompletionResponse(
   requestId: string,
   model: string,
   recordUsage?: UsageRecordCallback,
+  onChatBinding?: TidbChatBindingCallback,
 ): Promise<Response> {
   const state = createChatStreamState();
+  let latestChatId: string | null = null;
   try {
     for await (const event of iterateUpstreamEvents(upstreamResponse)) {
+      if (event.type === "chat-binding") {
+        if (event.chatId !== latestChatId) {
+          latestChatId = event.chatId;
+          await onChatBinding?.(event.chatId);
+        }
+        continue;
+      }
       applyEventToState(event, state);
       if (state.streamedText.length > 0) {
         state.emittedText += state.streamedText.join("");

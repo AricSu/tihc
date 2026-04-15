@@ -16,6 +16,7 @@ function appendRepoItem(
   item: RepoMessageItem,
 ): ExportedMessageRepository {
   const nextRepo: ExportedMessageRepository = {
+    ...(repo as ExportedMessageRepository & Record<string, unknown>),
     headId: repo.headId,
     messages: [...repo.messages],
   };

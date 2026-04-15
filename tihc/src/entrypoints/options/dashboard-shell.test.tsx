@@ -13,6 +13,7 @@ const {
   ensureGoogleAuthSessionMock,
   getAppSettingsSnapshotMock,
   listDashboardCasesMock,
+  setActiveCaseIdMock,
   listUsageSummaryMock,
   listUsageTimeseriesMock,
   subscribeAppSettingsMock,
@@ -24,6 +25,7 @@ const {
   ensureGoogleAuthSessionMock: vi.fn(async () => null),
   getAppSettingsSnapshotMock: vi.fn(),
   listDashboardCasesMock: vi.fn(),
+  setActiveCaseIdMock: vi.fn(),
   listUsageSummaryMock: vi.fn(),
   listUsageTimeseriesMock: vi.fn(),
   subscribeAppSettingsMock: vi.fn(() => () => {}),
@@ -38,6 +40,7 @@ vi.mock("@/lib/app/runtime", () => ({
   ensureGoogleAuthSession: ensureGoogleAuthSessionMock,
   getAppSettingsSnapshot: getAppSettingsSnapshotMock,
   refreshGoogleAuth: vi.fn(),
+  setActiveCaseId: setActiveCaseIdMock,
   setGoogleAuth: vi.fn(),
   syncCloudCasesIfNeeded: syncCloudCasesIfNeededMock,
   subscribeAppSettings: subscribeAppSettingsMock,
@@ -194,6 +197,19 @@ async function flushAsyncWork() {
   });
 }
 
+async function clickByText(text: string) {
+  const target = Array.from(document.querySelectorAll("button, a")).find((element) =>
+    element.textContent?.includes(text),
+  );
+
+  expect(target).toBeTruthy();
+
+  await act(async () => {
+    target?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+}
+
 describe("dashboard shell", () => {
   beforeEach(() => {
     installMockStorage();
@@ -210,7 +226,7 @@ describe("dashboard shell", () => {
 
     await flushAsyncWork();
 
-    expect(document.body.textContent).toContain("Acme Inc.");
+    expect(document.body.textContent).toContain("tihc");
     expect(document.body.textContent).toContain("Plugins");
     expect(document.body.textContent).toContain("Skills");
     expect(document.body.textContent).toContain("Cases");
@@ -233,6 +249,18 @@ describe("dashboard shell", () => {
     expect(document.body.textContent).not.toContain("Projects");
     expect(document.body.textContent).not.toContain("Team");
     expect(document.body.textContent).not.toContain("Search");
+
+    await cleanup();
+  });
+
+  test("writes the active case when selecting a case from the sidebar", async () => {
+    const { DashboardShell } = await import("./dashboard-shell");
+    const cleanup = await renderInDom(<DashboardShell />);
+
+    await flushAsyncWork();
+    await clickByText("Primary case from API");
+
+    expect(setActiveCaseIdMock).toHaveBeenCalledWith("case-1");
 
     await cleanup();
   });
@@ -331,7 +359,7 @@ describe("dashboard shell", () => {
 
     const html = renderToStaticMarkup(<DashboardShell initialSection="plugin" />);
 
-    expect(html).toContain("Acme Inc.");
+    expect(html).toContain("tihc");
     expect(html).toContain("Plugins");
     expect(html).toContain("Marketplace");
     expect(html).not.toContain("Manage");

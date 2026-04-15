@@ -1,6 +1,7 @@
 type ParsedUpstreamEvent =
   | { type: "answer-delta"; text: string }
   | { type: "answer-snapshot"; text: string; done: boolean }
+  | { type: "chat-binding"; chatId: string }
   | { type: "progress-text"; text: string }
   | { type: "plain-text"; text: string };
 
@@ -75,39 +76,45 @@ function parseAnswerDelta(payload: unknown): ParsedUpstreamEvent[] {
 }
 
 function parseAnswerSnapshot(payload: unknown): ParsedUpstreamEvent[] {
+  const events: ParsedUpstreamEvent[] = [];
+
   for (const item of asArray(payload)) {
     const obj = asRecord(item);
     if (!obj) continue;
+
+    const chat = asRecord(obj.chat);
+    const chatId = toShortText(chat?.id, 128);
+    if (chatId) {
+      events.push({ type: "chat-binding", chatId });
+    }
 
     const assistantMessage = asRecord(obj.assistant_message);
     if (assistantMessage) {
       const content = assistantMessage.content;
       if (typeof content === "string" && content.trim()) {
-        return [
-          {
-            type: "answer-snapshot",
-            text: content,
-            done:
-              typeof assistantMessage.finished_at === "string" &&
-              assistantMessage.finished_at.trim().length > 0,
-          },
-        ];
+        events.push({
+          type: "answer-snapshot",
+          text: content,
+          done:
+            typeof assistantMessage.finished_at === "string" &&
+            assistantMessage.finished_at.trim().length > 0,
+        });
+        return events;
       }
       continue;
     }
 
     if (obj.role === "assistant" && typeof obj.content === "string" && obj.content.trim()) {
-      return [
-        {
-          type: "answer-snapshot",
-          text: obj.content,
-          done: typeof obj.finished_at === "string" && obj.finished_at.trim().length > 0,
-        },
-      ];
+      events.push({
+        type: "answer-snapshot",
+        text: obj.content,
+        done: typeof obj.finished_at === "string" && obj.finished_at.trim().length > 0,
+      });
+      return events;
     }
   }
 
-  return [];
+  return events;
 }
 
 export function parseUpstreamFrame(frame: string): ParsedUpstreamEvent[] {

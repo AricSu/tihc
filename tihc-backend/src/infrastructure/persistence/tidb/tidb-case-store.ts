@@ -76,6 +76,7 @@ export function createTiDbCaseStore(db: AppDb): CaseStore {
         .values({
           id: crypto.randomUUID(),
           googleSub: identity.googleSub,
+          displayName: identity.displayName,
           email: identity.email,
           hostedDomain: identity.hostedDomain,
           createdAt: now,
@@ -83,6 +84,7 @@ export function createTiDbCaseStore(db: AppDb): CaseStore {
         })
         .onDuplicateKeyUpdate({
           set: {
+            displayName: identity.displayName,
             email: identity.email,
             hostedDomain: identity.hostedDomain,
             lastSeenAt: now,
@@ -101,6 +103,7 @@ export function createTiDbCaseStore(db: AppDb): CaseStore {
       return {
         id: principal.id,
         googleSub: principal.googleSub,
+        displayName: principal.displayName,
         email: principal.email,
         hostedDomain: principal.hostedDomain,
         createdAt: principal.createdAt,

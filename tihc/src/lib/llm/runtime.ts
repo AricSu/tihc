@@ -9,11 +9,14 @@ import type {
 } from "@/lib/chat/connectors/types";
 
 export function hasCompleteGlobalLlmRuntime(llmRuntime: GlobalLlmRuntimeConfig): boolean {
-  return Boolean(llmRuntime.providerId.trim() && llmRuntime.model.trim());
+  const providerId = llmRuntime.providerId.trim();
+  const model = llmRuntime.model.trim();
+  return (!providerId && !model) || Boolean(providerId && model);
 }
 
 export function buildGlobalRuntimeAgent(
   settings: AppRuntimeSettings = getAppSettingsSnapshot(),
+  caseId?: string,
 ): AgentInstance {
   const llmRuntime = settings.llmRuntime;
   return {
@@ -26,6 +29,7 @@ export function buildGlobalRuntimeAgent(
     apiKey: settings.googleAuth?.accessToken ?? "",
     headersJson: "{}",
     extraBodyJson: JSON.stringify({
+      ...(caseId ? { case_id: caseId } : {}),
       provider: llmRuntime.providerId.trim(),
     }),
     responseMode: "delta",
@@ -39,8 +43,9 @@ export function buildGlobalRuntimeAgent(
 export async function* streamGlobalRuntime(
   request: UnifiedChatRequest,
   settings: AppRuntimeSettings = getAppSettingsSnapshot(),
+  caseId?: string,
 ): AsyncGenerator<AgentEvent> {
-  yield* openAICompatibleConnector.stream(buildGlobalRuntimeAgent(settings), request);
+  yield* openAICompatibleConnector.stream(buildGlobalRuntimeAgent(settings, caseId), request);
 }
 
 export async function testGlobalRuntimeConnection(

@@ -4,6 +4,7 @@ export type ChatMessage = {
 };
 
 export type ChatCompletionsRequest = {
+  case_id?: string;
   model?: string;
   messages?: ChatMessage[];
   pluginId?: string;
